@@ -1,0 +1,747 @@
+# COPY THIS SECTION INTO YOUR regime_web_interface.py
+# Replace the entire "with tab3:" section (Recommendations tab)
+
+        with tab3:
+            # ENHANCED RECOMMENDATIONS TAB WITH SOPHISTICATED ANALYSIS
+            st.markdown('<div class="section-container">', unsafe_allow_html=True)
+            
+            # Calculate advanced metrics
+            macd_val = latest.get('MACD_12_26_9', 0)
+            macd_signal = latest.get('MACDs_12_26_9', 0)
+            macd_histogram = latest.get('MACDh_12_26_9', 0)
+            bb_upper = latest.get('BBU_20_2.0', 0)
+            bb_middle = latest.get('BBM_20_2.0', latest['Close'])
+            bb_lower = latest.get('BBL_20_2.0', 0)
+            bb_position = ((latest['Close'] - bb_lower) / (bb_upper - bb_lower) * 100) if bb_upper != bb_lower else 50
+            
+            # Multi-timeframe analysis
+            ema_alignment_bull = (latest['Close'] > latest.get('EMA_20', 0) > latest.get('EMA_50', 0) > latest.get('EMA_200', 0))
+            ema_alignment_bear = (latest['Close'] < latest.get('EMA_20', 0) < latest.get('EMA_50', 0) < latest.get('EMA_200', 0))
+            
+            # Momentum analysis
+            recent_10d_change = ((latest['Close'] - df.iloc[-11]['Close']) / df.iloc[-11]['Close'] * 100) if len(df) > 11 else 0
+            momentum_accelerating = abs(recent_5d_change) > abs(recent_10d_change)
+            
+            # Trend direction
+            uptrend = price_vs_ema200 > 0 and recent_20d_change > 0
+            downtrend = price_vs_ema200 < 0 and recent_20d_change < 0
+            
+            # Volume analysis (if available)
+            volume_surge = False
+            if 'Volume' in df.columns and len(df) > 20:
+                avg_volume_20 = df.tail(20)['Volume'].mean()
+                recent_volume = latest.get('Volume', avg_volume_20)
+                volume_surge = recent_volume > (avg_volume_20 * 1.5)
+            
+            # Regime transition detection
+            regime_changes = 0
+            if len(df) > 10:
+                for i in range(len(df) - 10, len(df) - 1):
+                    if df.iloc[i]['REGIME'] != df.iloc[i+1]['REGIME']:
+                        regime_changes += 1
+            regime_unstable = regime_changes >= 3
+            
+            # Calculate range boundaries for RANGE regime
+            recent_50 = df.tail(50)
+            range_high = recent_50['High'].max()
+            range_low = recent_50['Low'].min()
+            range_mid = (range_high + range_low) / 2
+            range_width_pct = ((range_high - range_low) / range_low) * 100
+            
+            # Top Section: Enhanced Current Analysis
+            st.markdown(f"### Trading Strategy for {current_regime} Market")
+            
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.markdown("**Market Context**")
+                st.write(f"Current Price: {latest['Close']:.2f} SAR")
+                st.write(f"Price vs EMA 20: {price_vs_ema20:+.2f}%")
+                st.write(f"Price vs EMA 200: {price_vs_ema200:+.2f}%")
+                st.write(f"ADX: {adx_current:.1f}")
+                st.write(f"RSI: {rsi_current:.1f}")
+                st.write(f"BB Position: {bb_position:.0f}%")
+            
+            with col2:
+                st.markdown("**Momentum Analysis**")
+                st.write(f"5-day: {recent_5d_change:+.2f}%")
+                st.write(f"10-day: {recent_10d_change:+.2f}%")
+                st.write(f"20-day: {recent_20d_change:+.2f}%")
+                st.write(f"ATR: {atr_pct:.2f}%")
+                if momentum_accelerating and abs(recent_5d_change) > 2:
+                    st.warning("⚡ Momentum accelerating")
+                elif abs(recent_5d_change) > 3:
+                    st.warning("High recent volatility")
+                else:
+                    st.success("Moderate volatility")
+            
+            with col3:
+                st.markdown("**Regime Analysis**")
+                st.write(f"Current: {current_regime}")
+                st.write(f"Stability: {regime_stability:.0f}%")
+                st.write(f"Recent Changes: {regime_changes}/10 days")
+                if regime_unstable:
+                    st.error("⚠ Unstable - regime transitioning")
+                elif regime_stability > 70:
+                    st.success("✓ Stable regime - high confidence")
+                elif regime_stability < 40:
+                    st.warning("⚡ Moderately unstable")
+                else:
+                    st.info("Stable conditions")
+            
+            st.markdown("---")
+            
+            # REGIME-SPECIFIC ADVANCED ANALYSIS
+            if current_regime == "TREND":
+                trend_direction = "BULLISH" if uptrend else ("BEARISH" if downtrend else "UNCLEAR")
+                
+                if adx_current > 30:
+                    st.markdown(f"""
+                    <div class="action-card">
+                        <h4>STRONG {trend_direction} TREND DETECTED</h4>
+                        <p><strong>ADX Strength:</strong> {adx_current:.1f} (Strong momentum confirmed)</p>
+                        <p><strong>Trend Alignment:</strong> {'✓ Perfect bullish alignment' if ema_alignment_bull else ('✓ Perfect bearish alignment' if ema_alignment_bear else '⚠ Mixed alignment - caution')}</p>
+                        <p><strong>Primary Strategy:</strong> Trend Following with Pullback Entries</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    st.markdown("#### Why These Indicators Work in TREND Markets:")
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.markdown("**✅ PRIORITY INDICATORS (Use These):**")
+                        st.markdown(f"""
+                        **1. EMA 20 ({latest.get('EMA_20', 0):.2f} SAR)**
+                        - **Why:** Dynamic support/resistance in trends
+                        - **How:** Buy pullbacks to EMA 20 in uptrends
+                        - **Status:** Price is {price_vs_ema20:+.2f}% from EMA 20
+                        - **Signal:** {'🟢 Price above - bullish' if price_vs_ema20 > 0 else '🔴 Price below - bearish'}
+                        
+                        **2. ADX ({adx_current:.1f})**
+                        - **Why:** Confirms trend strength (>25 = strong)
+                        - **How:** Only trade when ADX > 25 and rising
+                        - **Status:** {'🟢 Strong trend' if adx_current > 30 else '🟡 Moderate' if adx_current > 25 else '🔴 Weak'}
+                        - **Action:** {'Continue trending strategy' if adx_current > 25 else 'Wait for ADX > 25'}
+                        
+                        **3. MACD ({macd_histogram:.3f})**
+                        - **Why:** Shows momentum direction and strength
+                        - **How:** Enter when histogram turns positive/negative
+                        - **Status:** {'🟢 Bullish momentum' if macd_histogram > 0 else '🔴 Bearish momentum'}
+                        - **Signal:** MACD {'above' if macd_val > macd_signal else 'below'} signal line
+                        """)
+                    
+                    with col2:
+                        st.markdown("**❌ AVOID THESE (Unreliable in Trends):**")
+                        st.markdown(f"""
+                        **1. RSI Overbought/Oversold**
+                        - **Why:** Strong trends stay "overbought" for weeks
+                        - **Current RSI:** {rsi_current:.1f}
+                        - **Problem:** {('Looks "overbought" but trend may continue' if rsi_current > 70 else 'May give false buy signals')}
+                        - **❌ Do NOT:** Use RSI 30/70 reversals
+                        
+                        **2. Bollinger Band Mean Reversion**
+                        - **Why:** Price rides the bands in strong trends
+                        - **Current Position:** {bb_position:.0f}% of band
+                        - **Problem:** Fading the band = fighting the trend
+                        - **❌ Do NOT:** Sell at upper band or buy at lower band
+                        
+                        **3. Stochastic Reversals**
+                        - **Why:** Stays oversold/overbought in trends
+                        - **Problem:** Generates false reversal signals
+                        - **❌ Do NOT:** Counter-trend trade based on stochastic
+                        """)
+                    
+                    st.markdown("---")
+                    st.markdown("#### Precise Entry Strategy:")
+                    
+                    # Confirmation scoring
+                    confirmation_score = 0
+                    confirmations = []
+                    
+                    if (trend_direction == "BULLISH" and price_vs_ema20 < 2 and price_vs_ema20 > -3) or \
+                       (trend_direction == "BEARISH" and price_vs_ema20 > -2 and price_vs_ema20 < 3):
+                        confirmation_score += 1
+                        confirmations.append("✓ Price near EMA 20 (pullback opportunity)")
+                    
+                    if adx_current > 25:
+                        confirmation_score += 1
+                        confirmations.append(f"✓ ADX confirms trend strength ({adx_current:.1f})")
+                    
+                    if (trend_direction == "BULLISH" and macd_histogram > 0) or \
+                       (trend_direction == "BEARISH" and macd_histogram < 0):
+                        confirmation_score += 1
+                        confirmations.append(f"✓ MACD aligned with trend (histogram: {macd_histogram:.3f})")
+                    
+                    if ema_alignment_bull or ema_alignment_bear:
+                        confirmation_score += 1
+                        confirmations.append("✓ Perfect EMA alignment")
+                    
+                    if volume_surge:
+                        confirmation_score += 1
+                        confirmations.append("✓ Volume surge detected")
+                    
+                    entry_col1, entry_col2 = st.columns(2)
+                    
+                    with entry_col1:
+                        st.markdown("**🎯 OPTIMAL ENTRY SETUP:**")
+                        
+                        if trend_direction == "BULLISH":
+                            st.success(f"""
+                            **Bullish Trend Entry:**
+                            1. **Wait for:** Price to pull back to EMA 20 ({latest.get('EMA_20', 0):.2f} SAR)
+                            2. **Confirm:** ADX stays > 25 (currently {adx_current:.1f})
+                            3. **Trigger:** MACD histogram turns positive OR price bounces off EMA 20
+                            4. **Entry Price:** {latest.get('EMA_20', 0):.2f} SAR ± {atr_current * 0.5:.2f} SAR
+                            5. **Stop Loss:** {latest.get('EMA_20', 0) - (2 * atr_current):.2f} SAR (below EMA 20 - 2x ATR)
+                            6. **Target 1 (50%):** {latest['Close'] + (3 * atr_current):.2f} SAR (3:1 R:R)
+                            7. **Target 2 (50%):** Trail stop using EMA 20
+                            """)
+                        elif trend_direction == "BEARISH":
+                            st.error(f"""
+                            **Bearish Trend Entry:**
+                            1. **Wait for:** Price to rally to EMA 20 ({latest.get('EMA_20', 0):.2f} SAR)
+                            2. **Confirm:** ADX stays > 25 (currently {adx_current:.1f})
+                            3. **Trigger:** MACD histogram turns negative OR price rejects EMA 20
+                            4. **Entry Price:** {latest.get('EMA_20', 0):.2f} SAR ± {atr_current * 0.5:.2f} SAR
+                            5. **Stop Loss:** {latest.get('EMA_20', 0) + (2 * atr_current):.2f} SAR (above EMA 20 + 2x ATR)
+                            6. **Target 1 (50%):** {latest['Close'] - (3 * atr_current):.2f} SAR (3:1 R:R)
+                            7. **Target 2 (50%):** Trail stop using EMA 20
+                            """)
+                        else:
+                            st.info("""
+                            **Trend Direction Unclear:**
+                            - Wait for clearer EMA alignment
+                            - Monitor ADX for direction confirmation
+                            - Avoid trading until trend establishes
+                            """)
+                    
+                    with entry_col2:
+                        st.markdown("**⚠️ RISK MANAGEMENT:**")
+                        position_size = 2 if adx_current > 35 else 1.5
+                        st.info(f"""
+                        **Position Sizing:**
+                        - Recommended: {position_size}% of capital
+                        - Reason: {'Very strong trend (ADX > 35)' if adx_current > 35 else 'Strong trend'}
+                        - Max Risk per Trade: 1% of capital
+                        
+                        **Stop Loss Logic:**
+                        - Use 2x ATR = {2 * atr_current:.2f} SAR
+                        - Place below/above EMA 20 (dynamic support/resistance)
+                        - Never move stop against your position
+                        
+                        **Profit Taking:**
+                        - Take 50% at 3:1 R:R
+                        - Trail remaining 50% with EMA 20
+                        - Exit if ADX starts declining sharply
+                        - Exit if price closes below/above EMA 20
+                        """)
+                    
+                    st.markdown("---")
+                    st.markdown("#### Multi-Indicator Confirmation Check:")
+                    
+                    if confirmation_score >= 3:
+                        st.success(f"**Strong Setup: {confirmation_score}/5 confirmations**")
+                        for conf in confirmations:
+                            st.write(conf)
+                        st.success("**🎯 HIGH PROBABILITY SETUP - Consider Entry**")
+                    elif confirmation_score >= 2:
+                        st.warning(f"**Moderate Setup: {confirmation_score}/5 confirmations**")
+                        for conf in confirmations:
+                            st.write(conf)
+                        st.info("**⚠ WAIT for more confirmations before entry**")
+                    else:
+                        st.error(f"**Weak Setup: {confirmation_score}/5 confirmations**")
+                        st.write("**❌ DO NOT TRADE - Insufficient confirmation**")
+                
+                elif adx_current > 20:
+                    st.markdown(f"""
+                    <div class="info-card">
+                        <h4>MODERATE {trend_direction} TREND</h4>
+                        <p><strong>ADX:</strong> {adx_current:.1f} (Building strength - not fully established)</p>
+                        <p><strong>Strategy:</strong> Wait for ADX > 25 OR trade smaller positions with tighter stops</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    st.markdown("**What to Monitor:**")
+                    st.write(f"• ADX rising toward 25 (currently {adx_current:.1f})")
+                    st.write(f"• EMA alignment improving ({'Bullish' if uptrend else 'Bearish'} bias)")
+                    st.write(f"• MACD histogram expanding ({'Positive' if macd_histogram > 0 else 'Negative'})")
+                    st.write(f"• Price staying above/below EMA 50 ({latest.get('EMA_50', 0):.2f} SAR)")
+                
+                else:
+                    st.markdown(f"""
+                    <div class="warning-card">
+                        <h4>WEAK TREND - DO NOT TRADE</h4>
+                        <p><strong>ADX:</strong> {adx_current:.1f} (Too low - trend not established)</p>
+                        <p><strong>Action:</strong> Wait on sidelines until ADX rises above 25</p>
+                        <p><strong>Risk:</strong> Classified as TREND but behaving like RANGE - high whipsaw risk</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    st.warning("**⚠ This is a FALSE TREND regime - treat as RANGE-bound instead**")
+            
+            elif current_regime == "RANGE":
+                st.markdown("""
+                <div class="action-card">
+                    <h4>RANGE-BOUND MARKET DETECTED</h4>
+                    <p><strong>Strategy Type:</strong> Mean Reversion (Buy Low, Sell High)</p>
+                    <p><strong>Market Behavior:</strong> Price oscillating between support and resistance</p>
+                    <p><strong>Success Rate:</strong> High win rate but small profits per trade</p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                st.markdown("#### Why These Indicators Work in RANGE Markets:")
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.markdown("**✅ PRIORITY INDICATORS (Use These):**")
+                    st.markdown(f"""
+                    **1. RSI ({rsi_current:.1f})**
+                    - **Why:** Excellent for overbought/oversold in ranges
+                    - **How:** Buy at RSI < 30, Sell at RSI > 70
+                    - **Status:** {'🟢 Oversold - BUY zone' if rsi_current < 30 else ('🔴 Overbought - SELL zone' if rsi_current > 70 else '🟡 Neutral')}
+                    - **Action:** {'Buy signal active' if rsi_current < 30 else ('Sell signal active' if rsi_current > 70 else 'Wait for extremes')}
+                    
+                    **2. Bollinger Bands (Position: {bb_position:.0f}%)**
+                    - **Why:** Price bounces from bands in ranges
+                    - **Upper:** {bb_upper:.2f} SAR (resistance)
+                    - **Middle:** {bb_middle:.2f} SAR (mean)
+                    - **Lower:** {bb_lower:.2f} SAR (support)
+                    - **Status:** {'🔴 Near upper - consider selling' if bb_position > 80 else ('🟢 Near lower - consider buying' if bb_position < 20 else '🟡 Middle zone')}
+                    
+                    **3. Support/Resistance Levels**
+                    - **Why:** Clear boundaries in range markets
+                    - **Range High:** {range_high:.2f} SAR (resistance)
+                    - **Range Mid:** {range_mid:.2f} SAR (pivot)
+                    - **Range Low:** {range_low:.2f} SAR (support)
+                    - **Width:** {range_width_pct:.1f}% ({'Good range' if range_width_pct > 5 else 'Tight range'})
+                    """)
+                
+                with col2:
+                    st.markdown("**❌ AVOID THESE (Unreliable in Ranges):**")
+                    st.markdown(f"""
+                    **1. ADX Trend Following**
+                    - **Why:** ADX is low ({adx_current:.1f}) = no trend
+                    - **Current:** {'Below 20 - confirms range' if adx_current < 20 else 'Rising - range may break'}
+                    - **Problem:** Trend indicators give false signals
+                    - **❌ Do NOT:** Use EMA crossovers or momentum entries
+                    
+                    **2. MACD Crossovers**
+                    - **Why:** Generates whipsaws in sideways markets
+                    - **Problem:** Too many false breakout signals
+                    - **❌ Do NOT:** Trade MACD crosses in ranges
+                    
+                    **3. Breakout Strategies**
+                    - **Why:** Most breakouts fail in ranges (false breakouts)
+                    - **Statistics:** 70%+ of breakouts fail in ranges
+                    - **❌ Do NOT:** Chase breakouts without confirmation
+                    """)
+                
+                st.markdown("---")
+                st.markdown("#### Precise Entry Strategy:")
+                
+                # Calculate buy/sell scores
+                buy_score = 0
+                buy_signals = []
+                
+                if rsi_current < 30:
+                    buy_score += 2
+                    buy_signals.append(f"✓✓ RSI oversold ({rsi_current:.1f})")
+                elif rsi_current < 40:
+                    buy_score += 1
+                    buy_signals.append(f"✓ RSI approaching oversold ({rsi_current:.1f})")
+                
+                if bb_position < 20:
+                    buy_score += 2
+                    buy_signals.append(f"✓✓ Price at lower BB ({bb_position:.0f}%)")
+                elif bb_position < 35:
+                    buy_score += 1
+                    buy_signals.append(f"✓ Price below middle BB ({bb_position:.0f}%)")
+                
+                if latest['Close'] < (range_low * 1.02):
+                    buy_score += 2
+                    buy_signals.append(f"✓✓ Price near support ({range_low:.2f})")
+                
+                sell_score = 0
+                sell_signals = []
+                
+                if rsi_current > 70:
+                    sell_score += 2
+                    sell_signals.append(f"✓✓ RSI overbought ({rsi_current:.1f})")
+                elif rsi_current > 60:
+                    sell_score += 1
+                    sell_signals.append(f"✓ RSI approaching overbought ({rsi_current:.1f})")
+                
+                if bb_position > 80:
+                    sell_score += 2
+                    sell_signals.append(f"✓✓ Price at upper BB ({bb_position:.0f}%)")
+                elif bb_position > 65:
+                    sell_score += 1
+                    sell_signals.append(f"✓ Price above middle BB ({bb_position:.0f}%)")
+                
+                if latest['Close'] > (range_high * 0.98):
+                    sell_score += 2
+                    sell_signals.append(f"✓✓ Price near resistance ({range_high:.2f})")
+                
+                entry_col1, entry_col2 = st.columns(2)
+                
+                with entry_col1:
+                    st.markdown("**🎯 BUY SETUP (Long Entry):**")
+                    
+                    if buy_score >= 4:
+                        st.success(f"""
+                        **STRONG BUY SIGNAL ({buy_score}/6)**
+                        
+                        **Entry Conditions:**
+                        {chr(10).join(buy_signals)}
+                        
+                        **Execution Plan:**
+                        1. **Entry:** {latest['Close']:.2f} SAR (current) or {range_low * 1.01:.2f} SAR (support)
+                        2. **Stop Loss:** {range_low - atr_current:.2f} SAR (below range)
+                        3. **Target 1 (50%):** {range_mid:.2f} SAR (range middle)
+                        4. **Target 2 (50%):** {range_high * 0.98:.2f} SAR (near resistance)
+                        5. **Position Size:** 1.5% of capital
+                        6. **R:R Ratio:** {((range_high * 0.98 - latest['Close']) / (latest['Close'] - (range_low - atr_current))):.1f}:1
+                        """)
+                    elif buy_score >= 2:
+                        st.info(f"""
+                        **MODERATE BUY ({buy_score}/6)**
+                        
+                        {chr(10).join(buy_signals) if buy_signals else 'Waiting for signals...'}
+                        
+                        **Wait for:** Additional confirmation
+                        - RSI to drop below 30
+                        - Price to touch lower BB
+                        - Support level test
+                        """)
+                    else:
+                        st.error(f"""
+                        **NO BUY SIGNAL ({buy_score}/6)**
+                        
+                        **Current Status:** Not in buy zone
+                        **Wait for:** Price to reach {range_low * 1.02:.2f} SAR
+                        """)
+                
+                with entry_col2:
+                    st.markdown("**🎯 SELL SETUP (Short Entry):**")
+                    
+                    if sell_score >= 4:
+                        st.success(f"""
+                        **STRONG SELL SIGNAL ({sell_score}/6)**
+                        
+                        **Entry Conditions:**
+                        {chr(10).join(sell_signals)}
+                        
+                        **Execution Plan:**
+                        1. **Entry:** {latest['Close']:.2f} SAR (current) or {range_high * 0.99:.2f} SAR (resistance)
+                        2. **Stop Loss:** {range_high + atr_current:.2f} SAR (above range)
+                        3. **Target 1 (50%):** {range_mid:.2f} SAR (range middle)
+                        4. **Target 2 (50%):** {range_low * 1.02:.2f} SAR (near support)
+                        5. **Position Size:** 1.5% of capital
+                        6. **R:R Ratio:** {((latest['Close'] - range_low * 1.02) / ((range_high + atr_current) - latest['Close'])):.1f}:1
+                        """)
+                    elif sell_score >= 2:
+                        st.info(f"""
+                        **MODERATE SELL ({sell_score}/6)**
+                        
+                        {chr(10).join(sell_signals) if sell_signals else 'Waiting for signals...'}
+                        
+                        **Wait for:** Additional confirmation
+                        - RSI to rise above 70
+                        - Price to touch upper BB
+                        - Resistance level test
+                        """)
+                    else:
+                        st.error(f"""
+                        **NO SELL SIGNAL ({sell_score}/6)**
+                        
+                        **Current Status:** Not in sell zone
+                        **Wait for:** Price to reach {range_high * 0.98:.2f} SAR
+                        """)
+                
+                st.markdown("---")
+                st.markdown("#### Range Breakout Warning:")
+                
+                if adx_current > 18:
+                    st.warning(f"""
+                    **⚠ ADX Rising to {adx_current:.1f} - Range May Break Soon**
+                    
+                    Watch for:
+                    - Price closing above {range_high:.2f} SAR (bullish breakout)
+                    - Price closing below {range_low:.2f} SAR (bearish breakdown)
+                    - Volume surge on breakout (confirmation)
+                    - ADX continuing to rise above 20
+                    
+                    **If breakout occurs:**
+                    1. Close range-trading positions
+                    2. Wait for retest of broken level
+                    3. Switch to trend-following strategy
+                    4. Use EMA 20 as new support/resistance
+                    """)
+                else:
+                    st.info(f"""
+                    **✓ Range Stable (ADX: {adx_current:.1f})**
+                    
+                    Range is holding well - continue mean reversion strategy
+                    """)
+            
+            else:  # VOLATILE
+                st.markdown("""
+                <div class="warning-card">
+                    <h4>⚠️ HIGH VOLATILITY REGIME ⚠️</h4>
+                    <p><strong>Market State:</strong> Unpredictable price swings and erratic behavior</p>
+                    <p><strong>Risk Level:</strong> EXTREME - Most strategies fail in volatile markets</p>
+                    <p><strong>Recommended Action:</strong> Reduce exposure or stay in cash</p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                st.markdown("#### Why Most Indicators Fail in VOLATILE Markets:")
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.markdown("**⚠️ INDICATORS TO USE (With Extreme Caution):**")
+                    st.markdown(f"""
+                    **1. ATR ({atr_pct:.2f}%)**
+                    - **Why:** Measures volatility magnitude
+                    - **How:** Wait for ATR to decline before trading
+                    - **Status:** {'🔴 VERY HIGH - avoid trading' if atr_pct > 4 else ('🟡 HIGH - reduce size' if atr_pct > 3 else '🟢 Normalizing')}
+                    - **Threshold:** Wait for ATR < {atr_pct * 0.7:.2f}%
+                    
+                    **2. Bollinger Band Width ({((bb_upper - bb_lower) / bb_middle * 100):.1f}%)**
+                    - **Why:** Shows volatility expansion
+                    - **Current:** {'🔴 Extremely wide' if ((bb_upper - bb_lower) / bb_middle) > 0.1 else '🟡 Wide'}
+                    - **Wait for:** Bands to contract before trading
+                    
+                    **3. ADX ({adx_current:.1f})**
+                    - **Why:** Helps spot when volatility transitions to trend
+                    - **Status:** {'🔴 Choppy' if adx_current < 20 else '🟡 Trend developing'}
+                    - **Action:** Only trade if ADX rises above 25
+                    """)
+                
+                with col2:
+                    st.markdown("**❌ AVOID ALL TRADITIONAL STRATEGIES:**")
+                    st.markdown("""
+                    **1. Trend Following**
+                    - **Why:** No clear trend in volatile markets
+                    - **Problem:** Whipsaws and false breakouts
+                    - **❌ Do NOT:** Use EMA crossovers or momentum
+                    
+                    **2. Mean Reversion**
+                    - **Why:** No stable range to revert to
+                    - **Problem:** RSI/BB signals get violated immediately
+                    - **❌ Do NOT:** Buy oversold or sell overbought
+                    
+                    **3. Breakout Trading**
+                    - **Why:** 90%+ of breakouts fail in volatility
+                    - **Problem:** Extreme false signals
+                    - **❌ Do NOT:** Chase price moves
+                    
+                    **4. Tight Stops**
+                    - **Why:** Will get stopped out on noise
+                    - **Problem:** Random price swings trigger stops
+                    - **❌ Do NOT:** Use normal stop distances
+                    """)
+                
+                st.markdown("---")
+                st.markdown("#### Survival Strategy for VOLATILE Markets:")
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.markdown("**🛡️ DEFENSIVE ACTIONS:**")
+                    st.error(f"""
+                    **1. REDUCE POSITION SIZE**
+                    - Normal: 1.5-2% per trade
+                    - Volatile: 0.5-1% MAX per trade
+                    - Current Recommendation: {0.5 if atr_pct > 4 else 0.75}%
+                    
+                    **2. WIDEN STOP LOSSES**
+                    - Normal: 2x ATR = {2 * atr_current:.2f} SAR
+                    - Volatile: 3x ATR = {3 * atr_current:.2f} SAR
+                    - Reason: Avoid getting stopped on noise
+                    
+                    **3. TAKE QUICK PROFITS**
+                    - Normal: 3:1 R:R
+                    - Volatile: 1.5:1 R:R (take profits fast)
+                    - Reason: Gains evaporate quickly
+                    
+                    **4. CONSIDER SITTING OUT**
+                    - Best traders know when NOT to trade
+                    - Preserve capital for better opportunities
+                    - No shame in staying in cash
+                    """)
+                
+                with col2:
+                    st.markdown("**👀 WATCH FOR REGIME CHANGE:**")
+                    st.info(f"""
+                    **Signs Volatility is Ending:**
+                    
+                    ✓ ATR declining for 3+ consecutive days
+                    - Current: {atr_pct:.2f}%
+                    - Target: < {atr_pct * 0.7:.2f}%
+                    
+                    ✓ ADX rising above 20
+                    - Current: {adx_current:.1f}
+                    - Target: > 20 (trend developing)
+                    
+                    ✓ Bollinger Bands contracting
+                    - Current Width: {((bb_upper - bb_lower) / bb_middle * 100):.1f}%
+                    - Target: < 8%
+                    
+                    ✓ Price respecting EMA 20
+                    - Current: {abs(price_vs_ema20):.1f}% from EMA 20
+                    - Target: < 3%
+                    
+                    ✓ 5-day volatility decreasing
+                    - Current: {abs(recent_5d_change):.1f}%
+                    - Target: < 2%
+                    """)
+                
+                st.markdown("---")
+                
+                if adx_current > 15 or regime_stability > 50:
+                    st.markdown("#### Advanced: Breakout Strategy (Experts Only)")
+                    st.warning(f"""
+                    **Only if you must trade volatile markets:**
+                    
+                    **Breakout Rules:**
+                    1. Wait for consolidation (price range < 3% for 5+ days)
+                    2. Volume must surge 150%+ on breakout
+                    3. ADX must rise above 20 within 2 days
+                    4. Enter ONLY after retest of breakout level
+                    5. Stop loss: Opposite side of consolidation
+                    6. Position size: 0.5% maximum
+                    
+                    **Current Status:**
+                    - ADX: {adx_current:.1f} ({'✓ Acceptable' if adx_current > 15 else '✗ Too low'})
+                    - Consolidation: {'✓ Detected' if abs(recent_5d_change) < 3 else '✗ Not yet'}
+                    - Volume: {'✓ Surging' if volume_surge else '✗ Normal'}
+                    
+                    **Verdict:** {'⚠ Setup developing - monitor closely' if adx_current > 15 and abs(recent_5d_change) < 3 else '❌ No setup - stay out'}
+                    """)
+                else:
+                    st.error("""
+                    **❌ NO BREAKOUT OPPORTUNITIES**
+                    
+                    Market is too chaotic for any strategy.
+                    Best action: Wait on sidelines until conditions improve.
+                    """)
+            
+            st.markdown("---")
+            
+            # UNIVERSAL RISK ASSESSMENT (Enhanced)
+            st.markdown("### Comprehensive Risk Assessment")
+            
+            risk_score = 0
+            risk_factors = []
+            
+            if atr_pct > 4:
+                risk_score += 3
+                risk_factors.append("🔴 Extreme volatility (ATR > 4%)")
+            elif atr_pct > 3:
+                risk_score += 2
+                risk_factors.append("🟡 High volatility (ATR > 3%)")
+            elif atr_pct < 2:
+                risk_score += 0
+                risk_factors.append("🟢 Low volatility (ATR < 2%)")
+            else:
+                risk_score += 1
+                risk_factors.append("🟡 Moderate volatility")
+            
+            if regime_unstable:
+                risk_score += 3
+                risk_factors.append("🔴 Regime unstable (3+ changes in 10 days)")
+            elif regime_stability < 40:
+                risk_score += 2
+                risk_factors.append("🟡 Low regime stability (<40%)")
+            elif regime_stability > 70:
+                risk_score += 0
+                risk_factors.append("🟢 High regime stability (>70%)")
+            else:
+                risk_score += 1
+                risk_factors.append("🟡 Moderate stability")
+            
+            if abs(recent_5d_change) > 5:
+                risk_score += 2
+                risk_factors.append(f"🔴 Extreme 5-day move ({recent_5d_change:+.1f}%)")
+            elif abs(recent_5d_change) > 3:
+                risk_score += 1
+                risk_factors.append(f"🟡 High 5-day move ({recent_5d_change:+.1f}%)")
+            else:
+                risk_factors.append(f"🟢 Normal 5-day move ({recent_5d_change:+.1f}%)")
+            
+            if current_regime == "TREND" and adx_current < 20:
+                risk_score += 2
+                risk_factors.append("🔴 ADX conflicts with TREND regime")
+            elif current_regime == "RANGE" and adx_current > 25:
+                risk_score += 2
+                risk_factors.append("🔴 ADX conflicts with RANGE regime (breakout likely)")
+            
+            col1, col2 = st.columns([1, 2])
+            
+            with col1:
+                if risk_score <= 2:
+                    st.success(f"""
+                    **RISK LEVEL: LOW**
+                    
+                    Score: {risk_score}/10
+                    
+                    **Recommended Position Size:**
+                    - Conservative: 1.5%
+                    - Aggressive: 2.0%
+                    
+                    **Trading Approach:**
+                    ✓ Normal position sizing
+                    ✓ Standard stop distances
+                    ✓ Multiple positions OK
+                    """)
+                elif risk_score <= 5:
+                    st.warning(f"""
+                    **RISK LEVEL: MODERATE**
+                    
+                    Score: {risk_score}/10
+                    
+                    **Recommended Position Size:**
+                    - Conservative: 1.0%
+                    - Aggressive: 1.5%
+                    
+                    **Trading Approach:**
+                    ⚠ Reduce position sizing
+                    ⚠ Tighter risk management
+                    ⚠ Limit concurrent trades
+                    """)
+                else:
+                    st.error(f"""
+                    **RISK LEVEL: HIGH**
+                    
+                    Score: {risk_score}/10
+                    
+                    **Recommended Position Size:**
+                    - Conservative: 0%
+                    - Aggressive: 0.5%
+                    
+                    **Trading Approach:**
+                    ❌ Consider sitting out
+                    ❌ Maximum 1 position
+                    ❌ Tight stops required
+                    """)
+            
+            with col2:
+                st.markdown("**Risk Factors Breakdown:**")
+                for factor in risk_factors:
+                    st.write(factor)
+                
+                if risk_score > 5:
+                    st.error("""
+                    **⚠️ HIGH RISK ENVIRONMENT ⚠️**
+                    
+                    Consider these protective measures:
+                    • Reduce ALL position sizes by 50%
+                    • Use wider stops (3x ATR instead of 2x)
+                    • Take profits earlier (2:1 R:R instead of 3:1)
+                    • Avoid overlapping positions
+                    • Keep maximum 30% capital deployed
+                    • Review positions daily
+                    """)
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+
