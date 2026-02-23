@@ -1942,11 +1942,15 @@ def main():
         symbol_input = st.session_state.analyzed_symbol
         additional_charts = ['ADX', 'RSI', 'MACD']
         
+        # Add spacing at top of results page
+        st.markdown("<div style='margin-top: 4rem;'></div>", unsafe_allow_html=True)
+        
         btn_col1, btn_col2 = st.columns(2, gap="medium")
         
         with btn_col1:
             if st.button("← New Analysis", type="secondary", use_container_width=True):
                 st.session_state.show_results = False
+                st.rerun()
         
         with btn_col2:
             csv = df.to_csv(index=False)
