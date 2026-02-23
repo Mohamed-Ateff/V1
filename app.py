@@ -1964,6 +1964,7 @@ def main():
         latest = df.iloc[-1]
         first = df.iloc[0]
         
+        # Fetch stock name dynamically from Yahoo Finance
         try:
             stock_info = yf.Ticker(symbol_input)
             stock_name = stock_info.info.get('longName', stock_info.info.get('shortName', symbol_input))
