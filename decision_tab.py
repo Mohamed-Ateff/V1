@@ -1,0 +1,939 @@
+"""
+Decision Intelligence Tab v3
+Advanced probability engine with historical analogs, scenario analysis,
+conditional win rates, and confidence intervals.
+"""
+
+import streamlit as st
+import pandas as pd
+import numpy as np
+from datetime import datetime, timedelta
+
+# Lazy-import sibling modules only when needed to avoid circular imports
+def _import_pa():
+    from price_action_tab import _compute_trade_setup
+    return _compute_trade_setup
+
+def _import_vp():
+    from volume_profile_tab import _compute_volume_profile, _vp_signal
+    return _compute_volume_profile, _vp_signal
+
+def _import_pt():
+    from patterns_tab import _detect_candlestick, _detect_chart
+    return _detect_candlestick, _detect_chart
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DESIGN TOKENS  (shared style with other tabs)
+# ─────────────────────────────────────────────────────────────────────────────
+BULL  = "#4caf50"
+BEAR  = "#f44336"
+NEUT  = "#ff9800"
+INFO  = "#2196f3"
+PURP  = "#9c27b0"
+BG    = "#181818"
+BG2   = "#212121"
+BDR   = "#303030"
+
+
+def _sec(title, color=INFO):
+    return (
+        f"<div style='font-size:1rem;color:#ffffff;font-weight:700;"
+        f"margin:2rem 0 1rem 0;border-bottom:2px solid {color}33;"
+        f"padding-bottom:0.5rem;'>{title}</div>"
+    )
+
+
+def _glowbar(pct, color=BULL, height="8px"):
+    pct = max(0, min(100, pct))
+    return (
+        f"<div style='background:{BDR};border-radius:999px;height:{height};overflow:hidden;'>"
+        f"<div style='width:{pct}%;height:100%;"
+        f"background:linear-gradient(90deg,{color}99,{color});border-radius:999px;'></div></div>"
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SIGNAL SUMMARY HELPERS  (compute signals from other tabs without importing
+# their full render functions)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _get_pa_signal(df, current_price):
+    """Re-derive the Price Action tab signal (Market Structure + Trade Setup)."""
+    try:
+        recent_20  = df.tail(20)
+        swing_high = float(recent_20["High"].max())
+        swing_low  = float(recent_20["Low"].min())
+        higher_high = df["High"].iloc[-5:].max() > df["High"].iloc[-15:-5].max()
+        higher_low  = df["Low"].iloc[-5:].min()  > df["Low"].iloc[-15:-5].min()
+        lower_low   = df["Low"].iloc[-5:].min()  < df["Low"].iloc[-15:-5].min()
+        lower_high  = df["High"].iloc[-5:].max() < df["High"].iloc[-15:-5].max()
+        if higher_high and higher_low:
+            trend, t_col = "UPTREND",   BULL
+        elif lower_low and lower_high:
+            trend, t_col = "DOWNTREND", BEAR
+        else:
+            trend, t_col = "SIDEWAYS",  NEUT
+
+        res1 = float(df["High"].max())
+        res2 = float(df["High"].nlargest(2).iloc[-1]) if len(df) >= 2 else res1
+        sup1 = float(df["Low"].min())
+        sup2 = float(df["Low"].nsmallest(2).iloc[-1]) if len(df) >= 2 else sup1
+
+        ma   = df["Close"].rolling(window=20).mean()
+        zone_width = 1.5
+        r_zone_lo  = res1 - zone_width;  r_zone_hi = res1 + zone_width
+        s_zone_lo  = sup1 - zone_width;  s_zone_hi = sup1 + zone_width
+        r_touches  = len(df[df["High"] >= r_zone_lo])
+        s_touches  = len(df[df["Low"]  <= s_zone_hi])
+        r_str = "STRONG" if r_touches >= 5 else "MODERATE" if r_touches >= 3 else "WEAK"
+        s_str = "STRONG" if s_touches >= 5 else "MODERATE" if s_touches >= 3 else "WEAK"
+        in_r  = r_zone_lo <= current_price <= r_zone_hi
+        in_s  = s_zone_lo <= current_price <= s_zone_hi
+
+        _compute_trade_setup = _import_pa()
+        ts = _compute_trade_setup(
+            df=df, current_price=current_price, trend=trend,
+            sup1=sup1, sup2=sup2, res1=res1, res2=res2,
+            swing_low=swing_low, swing_high=swing_high,
+            ma_series=ma, s_touches=s_touches, r_touches=r_touches,
+            s_str=s_str, r_str=r_str, in_s=in_s, in_r=in_r,
+        )
+
+        if ts is None:
+            return None
+        if ts.get("no_trade"):
+            signal = "WAIT"
+            conf   = 0
+            color  = "#555"
+            sub    = ts.get("no_trade_reason", "No clear setup")
+        else:
+            signal = "BUY"
+            conf   = ts.get("conf", 0)
+            color  = BULL
+            sub    = f"Confidence {conf}% · {trend}"
+        return dict(label="Market Structure", signal=signal, conf=conf,
+                    color=color, trend=trend, trend_col=t_col, sub=sub)
+    except Exception:
+        return None
+
+
+def _get_vp_signal(df, current_price):
+    """Re-derive the Volume Profile tab signal."""
+    try:
+        if "Volume" not in df.columns or df["Volume"].sum() == 0:
+            return None
+        _compute_volume_profile, _vp_signal = _import_vp()
+        vp = _compute_volume_profile(df, bins=40)
+        if vp is None:
+            return None
+        sig = _vp_signal(vp, current_price, df)
+        raw_sig = sig["signal"]
+        display_sig = "BUY" if raw_sig == "BUY" else "SELL" if raw_sig == "SELL" else "WAIT"
+        if raw_sig == "BUY":
+            color = BULL
+        elif raw_sig == "SELL":
+            color = BEAR
+        elif raw_sig == "WATCH":
+            color = NEUT
+        else:
+            color = "#555"
+        pct_from_poc = (current_price / vp["poc"] - 1) * 100 if vp["poc"] else 0
+        sub = f"Score {sig['score']}/100 · {sig['zone']}"
+        return dict(label="Volume Profile", signal=display_sig,
+                    score=sig["score"], color=color,
+                    poc=vp["poc"], vah=vp["vah"], val=vp["val"], sub=sub)
+    except Exception:
+        return None
+
+
+def _get_pattern_signal(df):
+    """Re-derive the Patterns tab signal."""
+    try:
+        _detect_candlestick, _detect_chart = _import_pt()
+        cs  = _detect_candlestick(df)
+        ch  = _detect_chart(df)
+        all_p = cs + ch
+
+        recent_dates = set(df["Date"].tail(10).dt.normalize().tolist())
+        active = [p for p in all_p
+                  if pd.to_datetime(p["date"]).normalize() in recent_dates]
+
+        bull_cnt = sum(1 for p in active if p["type"] == "Bullish")
+        bear_cnt = sum(1 for p in active if p["type"] == "Bearish")
+        net_bias = bull_cnt - bear_cnt
+
+        if net_bias > 0:
+            signal, color = "BUY",  BULL
+        elif net_bias < 0:
+            signal, color = "SELL", BEAR
+        else:
+            signal, color = "WAIT", NEUT
+
+        strongest = max(active, key=lambda p: p["strength"]) if active else None
+        if strongest:
+            sub = f"{strongest['pattern']} · {strongest['strength']}% strength"
+        elif not active:
+            sub = "No active patterns in last 10 sessions"
+        else:
+            sub = f"{bull_cnt} bullish, {bear_cnt} bearish"
+
+        return dict(label="Pattern Signal", signal=signal,
+                    bull=bull_cnt, bear=bear_cnt, active=len(active),
+                    color=color, sub=sub)
+    except Exception:
+        return None
+
+
+def _render_signal_summaries(df, current_price):
+    """Render 3 signal sub-cards (Market Structure, Pattern Signal, Volume Profile) side by side."""
+    df = df.copy()
+    if "Date" in df.columns:
+        df["Date"] = pd.to_datetime(df["Date"])
+
+    pa  = _get_pa_signal(df, current_price)
+    vp  = _get_vp_signal(df, current_price)
+    pat = _get_pattern_signal(df)
+
+    def _mini_card_html(card):
+        c   = card["color"]
+        sbg = c + "18"
+        stats = card.get("stats", [])
+        stats_rows = "".join([
+            f"<div style='display:flex;justify-content:space-between;align-items:center;"
+            f"padding:0.3rem 0;border-bottom:1px solid {BDR};'>"
+            f"<span style='font-size:0.63rem;color:#666;text-transform:uppercase;"
+            f"letter-spacing:0.6px;font-weight:600;'>{sn}</span>"
+            f"<span style='font-size:0.82rem;font-weight:800;color:{sc};'>{sv}</span>"
+            f"</div>"
+            for sn, sv, sc in stats
+        ])
+        return (
+            f"<div style='background:{BG2};border:1px solid {BDR};"
+            f"border-top:3px solid {c};border-radius:14px;"
+            f"padding:1.1rem 1.2rem;'>"
+            f"<div style='font-size:0.58rem;color:#666;text-transform:uppercase;"
+            f"letter-spacing:1px;font-weight:700;margin-bottom:0.55rem;'>{card['label']}</div>"
+            f"<div style='display:inline-block;background:{sbg};"
+            f"border:1.5px solid {c};border-radius:8px;"
+            f"padding:0.2rem 0.7rem;margin-bottom:0.55rem;'>"
+            f"<span style='font-size:1.2rem;font-weight:900;color:{c};"
+            f"letter-spacing:0.5px;'>{card['signal']}</span>"
+            f"</div>"
+            f"<div style='font-size:0.7rem;color:#777;margin-bottom:0.55rem;"
+            f"line-height:1.4;'>{card['sub']}</div>"
+            + _glowbar(card["bar"], c, "4px") +
+            f"<div style='margin-top:0.6rem;'>{stats_rows}</div>"
+            f"</div>"
+        )
+
+    sub_cards = []
+    if pa:
+        sub_cards.append(dict(
+            label="Market Structure",
+            signal=pa["signal"],
+            color=pa["color"],
+            bar=pa["conf"] if pa.get("conf") else 0,
+            sub=pa["sub"],
+            stats=[
+                ("Trend",  pa["trend"],  pa["trend_col"]),
+                ("Setup",  pa["signal"], pa["color"]),
+            ],
+        ))
+    if pat:
+        pat_bar = min(100, max(0, (pat["bull"] + pat["bear"]) * 12))
+        sub_cards.append(dict(
+            label="Pattern Signal",
+            signal=pat["signal"],
+            color=pat["color"],
+            bar=pat_bar,
+            sub=pat["sub"],
+            stats=[
+                ("Active",   str(pat["active"]), INFO),
+                ("Bullish",  str(pat["bull"]),    BULL),
+                ("Bearish",  str(pat["bear"]),    BEAR),
+            ],
+        ))
+    if vp:
+        sub_cards.append(dict(
+            label="Volume Profile",
+            signal=vp["signal"],
+            color=vp["color"],
+            bar=vp.get("score", 0),
+            sub=vp["sub"],
+            stats=[
+                ("VAL",   f"${vp['val']:.2f}",       BULL),
+                ("POC",   f"${vp['poc']:.2f}",       "#FFD700"),
+                ("VAH",   f"${vp['vah']:.2f}",       BEAR),
+                ("Score", f"{vp.get('score',0)}/100", vp["color"]),
+            ],
+        ))
+
+    if not sub_cards:
+        return
+
+    while len(sub_cards) < 3:
+        sub_cards.append(None)
+
+    col1, col2, col3 = st.columns(3, gap="small")
+    for col, card in zip([col1, col2, col3], sub_cards[:3]):
+        with col:
+            if card:
+                st.markdown(_mini_card_html(card), unsafe_allow_html=True)
+            else:
+                st.markdown(
+                    f"<div style='background:{BG2};border:1px solid {BDR};"
+                    f"border-radius:14px;padding:1.1rem 1.2rem;opacity:0.25;"
+                    f"text-align:center;color:#555;font-size:0.75rem;'>—</div>",
+                    unsafe_allow_html=True,
+                )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# LOW-LEVEL HELPERS
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _fv(df, col, bars_back=0, default=None):
+    if col not in df.columns:
+        return default
+    s = df[col].dropna()
+    if len(s) <= bars_back:
+        return default
+    v = s.iloc[-(1 + bars_back)]
+    return float(v) if not (isinstance(v, float) and np.isnan(v)) else default
+
+
+def _col(df, *names):
+    for n in names:
+        v = _fv(df, n)
+        if v is not None:
+            return v
+    return None
+
+
+def _pct(a, b):
+    """Safe (a/b - 1) * 100."""
+    if b and b != 0:
+        return (float(a) / float(b) - 1) * 100
+    return 0.0
+
+
+def _quartile(lst, q):
+    """q in [0,1]."""
+    if not lst:
+        return 0.0
+    s = sorted(lst)
+    idx = int(len(s) * q)
+    return float(s[min(idx, len(s) - 1)])
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SCORING ENGINE  (unchanged from v2 — produces composite score + factors)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _score_engine(df, cp):
+    close  = df["Close"].astype(float)
+    high   = df["High"].astype(float)
+    low    = df["Low"].astype(float)
+    volume = (df["Volume"].astype(float) if "Volume" in df.columns
+              else pd.Series(np.ones(len(close))))
+    n = len(close)
+
+    e20    = _fv(df, "EMA_20")  or cp
+    e50    = _fv(df, "EMA_50")  or cp
+    e200   = _fv(df, "EMA_200") or cp
+    rsi    = _col(df, "RSI_14") or 50.0
+    macd   = _col(df, "MACD_12_26_9") or 0.0
+    macd_s = _col(df, "MACDs_12_26_9") or 0.0
+    macd_h = _col(df, "MACDh_12_26_9") or 0.0
+    macd_h_prev = _fv(df, "MACDh_12_26_9", bars_back=1) or 0.0
+    adx    = _col(df, "ADX_14") or 15.0
+    atr    = _col(df, "ATR_14") or (cp * 0.02)
+    sk     = _col(df, "STOCHk_14_3_3") or 50.0
+    sd_val = _col(df, "STOCHd_14_3_3") or 50.0
+    sk_p   = _fv(df, "STOCHk_14_3_3", bars_back=1) or 50.0
+    sd_p   = _fv(df, "STOCHd_14_3_3", bars_back=1) or 50.0
+    bbl    = _col(df, "BBL_20_2.0", "BBL_20") or (cp * 0.97)
+    bbu    = _col(df, "BBU_20_2.0", "BBU_20") or (cp * 1.03)
+    mfi    = _col(df, "MFI_14")
+    cmf    = _col(df, "CMF_20")
+    cci    = _col(df, "CCI_20", "CCI_20_0.015")
+    regime = (df.iloc[-1].get("REGIME", "VOLATILE")
+              if "REGIME" in df.columns else "VOLATILE")
+
+    vol_20  = float(volume.iloc[-20:].mean()) if n >= 20 else float(volume.mean())
+    vol_cur = float(volume.iloc[-1])
+    vol_ratio = vol_cur / vol_20 if vol_20 > 0 else 1.0
+
+    obv_rising = None
+    if "OBV" in df.columns:
+        obv_s = df["OBV"].dropna()
+        if len(obv_s) >= 10:
+            obv_rising = float(obv_s.iloc[-1]) > float(obv_s.iloc[-10])
+
+    lb = min(252, n)
+    w52h = float(high.iloc[-lb:].max())
+    w52l = float(low.iloc[-lb:].min())
+    w52_pos = (cp - w52l) / (w52h - w52l) * 100 if (w52h - w52l) > 0 else 50.0
+
+    atr_pct = atr / cp * 100 if cp > 0 else 2.0
+    p5d  = _pct(cp, float(close.iloc[-5]))  if n >= 6  else 0.0
+    p20d = _pct(cp, float(close.iloc[-20])) if n >= 21 else 0.0
+    p60d = _pct(cp, float(close.iloc[-60])) if n >= 61 else 0.0
+    bb_rng = bbu - bbl
+    bb_pct = (cp - bbl) / bb_rng if bb_rng > 0 else 0.5
+
+    factors = []
+
+    def F(name, pts, max_pts, cat, direction):
+        factors.append({"name": name, "pts": pts, "max": max_pts,
+                        "cat": cat, "dir": direction})
+
+    above_all = cp > e20 > e50 > e200
+    below_all = cp < e20 < e50 < e200
+    above_2   = cp > e20 and cp > e50
+    below_2   = cp < e20 and cp < e50
+
+    if above_all:
+        F("EMA Stack Full Bull — price above EMA20, EMA50, EMA200", 8, 8, "Trend", 1)
+    elif above_2:
+        F("EMA Stack Partial Bull — price above EMA20 and EMA50", 5, 8, "Trend", 1)
+    elif cp > e20:
+        F("Price above EMA20 only (weak bull)", 2, 8, "Trend", 1)
+    elif below_all:
+        F("EMA Stack Full Bear — price below EMA20, EMA50, EMA200", -8, 8, "Trend", -1)
+    elif below_2:
+        F("EMA Stack Partial Bear — price below EMA20 and EMA50", -5, 8, "Trend", -1)
+    elif cp < e20:
+        F("Price below EMA20 only (weak bear)", -2, 8, "Trend", -1)
+
+    macd_p1  = _fv(df, "MACD_12_26_9",  bars_back=1) or macd
+    macds_p1 = _fv(df, "MACDs_12_26_9", bars_back=1) or macd_s
+    cross_up   = macd > macd_s and macd_p1 <= macds_p1
+    cross_down = macd < macd_s and macd_p1 >= macds_p1
+    hist_acc   = macd_h > macd_h_prev
+
+    if cross_up:
+        F("MACD bullish crossover — fresh buy signal", 6, 6, "Momentum", 1)
+    elif macd > macd_s and hist_acc:
+        F("MACD bullish and accelerating", 4, 6, "Momentum", 1)
+    elif macd > macd_s:
+        F("MACD above signal line (bullish)", 2, 6, "Momentum", 1)
+    elif cross_down:
+        F("MACD bearish crossover — fresh sell signal", -6, 6, "Momentum", -1)
+    elif macd < macd_s and not hist_acc:
+        F("MACD bearish and weakening", -4, 6, "Momentum", -1)
+    elif macd < macd_s:
+        F("MACD below signal line (bearish)", -2, 6, "Momentum", -1)
+
+    if rsi < 25:
+        F(f"RSI deeply oversold ({rsi:.0f}) — extreme fear zone", 6, 6, "Momentum", 1)
+    elif rsi < 35:
+        F(f"RSI oversold ({rsi:.0f})", 4, 6, "Momentum", 1)
+    elif rsi > 80:
+        F(f"RSI deeply overbought ({rsi:.0f}) — extreme greed zone", -6, 6, "Momentum", -1)
+    elif rsi > 70:
+        F(f"RSI overbought ({rsi:.0f})", -4, 6, "Momentum", -1)
+    elif 45 <= rsi <= 65:
+        F(f"RSI neutral ({rsi:.0f}) — no directional edge", 0, 6, "Momentum", 0)
+
+    if sk < 25 and sk > sd_val and sk_p <= sd_p:
+        F(f"Stoch bullish crossover from oversold ({sk:.0f})", 4, 4, "Momentum", 1)
+    elif sk < 25:
+        F(f"Stoch oversold ({sk:.0f})", 2, 4, "Momentum", 1)
+    elif sk > 75 and sk < sd_val and sk_p >= sd_p:
+        F(f"Stoch bearish crossover from overbought ({sk:.0f})", -4, 4, "Momentum", -1)
+    elif sk > 75:
+        F(f"Stoch overbought ({sk:.0f})", -2, 4, "Momentum", -1)
+
+    if bb_pct < 0.05:
+        F("Price at lower Bollinger Band — 2-sigma oversold", 4, 4, "Volatility", 1)
+    elif bb_pct < 0.20:
+        F("Price near lower BB — value zone", 2, 4, "Volatility", 1)
+    elif bb_pct > 0.95:
+        F("Price at upper Bollinger Band — 2-sigma overbought", -4, 4, "Volatility", -1)
+    elif bb_pct > 0.80:
+        F("Price near upper BB — extended", -2, 4, "Volatility", -1)
+
+    pos_di = _col(df, "DMP_14") or 20.0
+    neg_di = _col(df, "DMN_14") or 20.0
+    if adx > 30 and pos_di > neg_di:
+        F(f"Strong bullish trend — ADX {adx:.0f}, +DI above -DI", 4, 4, "Trend", 1)
+    elif adx > 20 and pos_di > neg_di:
+        F(f"Bullish trend — ADX {adx:.0f}", 2, 4, "Trend", 1)
+    elif adx > 30 and neg_di > pos_di:
+        F(f"Strong bearish trend — ADX {adx:.0f}, -DI above +DI", -4, 4, "Trend", -1)
+    elif adx > 20 and neg_di > pos_di:
+        F(f"Bearish trend — ADX {adx:.0f}", -2, 4, "Trend", -1)
+    elif adx < 15:
+        F(f"No trend — ADX {adx:.0f}, choppy", 0, 4, "Trend", 0)
+
+    if vol_ratio > 2.0 and p5d > 1:
+        F(f"Heavy volume ({vol_ratio:.1f}x) on up-move — institutional buying", 3, 3, "Volume", 1)
+    elif vol_ratio > 1.5 and p5d > 0:
+        F(f"Above-avg volume ({vol_ratio:.1f}x) confirming rally", 2, 3, "Volume", 1)
+    elif vol_ratio > 2.0 and p5d < -1:
+        F(f"Heavy volume ({vol_ratio:.1f}x) on down-move — institutional selling", -3, 3, "Volume", -1)
+    elif vol_ratio > 1.5 and p5d < 0:
+        F(f"Above-avg volume ({vol_ratio:.1f}x) confirming decline", -2, 3, "Volume", -1)
+
+    if obv_rising is not None:
+        if obv_rising and p5d >= 0:
+            F("OBV rising — smart money accumulating", 2, 2, "Volume", 1)
+        elif not obv_rising and p5d <= 0:
+            F("OBV falling — smart money distributing", -2, 2, "Volume", -1)
+        elif obv_rising and p5d < 0:
+            F("OBV up vs falling price — hidden accumulation signal", 1, 2, "Volume", 1)
+
+    if mfi is not None:
+        if mfi < 20:
+            F(f"MFI oversold ({mfi:.0f}) — money flowing in at lows", 2, 2, "Volume", 1)
+        elif mfi > 80:
+            F(f"MFI overbought ({mfi:.0f}) — money outflow at highs", -2, 2, "Volume", -1)
+    if cmf is not None:
+        if cmf > 0.15:
+            F(f"CMF positive ({cmf:.2f}) — sustained accumulation", 1, 1, "Volume", 1)
+        elif cmf < -0.15:
+            F(f"CMF negative ({cmf:.2f}) — sustained distribution", -1, 1, "Volume", -1)
+
+    if cci is not None:
+        if cci < -150:
+            F(f"CCI deeply oversold ({cci:.0f})", 2, 2, "Momentum", 1)
+        elif cci > 150:
+            F(f"CCI overbought ({cci:.0f})", -2, 2, "Momentum", -1)
+
+    if w52_pos >= 85 and p20d > 0:
+        F(f"Near 52W high ({w52_pos:.0f}th pct) with positive momentum", 3, 3, "Momentum", 1)
+    elif w52_pos <= 15:
+        F(f"Near 52W low ({w52_pos:.0f}th pct) — maximum pessimism", 3, 3, "Momentum", 1)
+    elif w52_pos >= 85 and p20d < 0:
+        F(f"Near 52W high but losing momentum — potential top", -2, 3, "Momentum", -1)
+
+    running_score = sum(f["pts"] for f in factors)
+    if regime == "TREND":
+        if running_score > 0:
+            F("TRENDING regime — trend-following has highest win rate now", 3, 3, "Regime", 1)
+        else:
+            F("TRENDING regime — confirms current downtrend direction", -3, 3, "Regime", -1)
+    elif regime == "RANGE":
+        F("RANGE regime — mean reversion valid, extremes favour reversal", 1, 3, "Regime", 0)
+    else:
+        F("VOLATILE regime — mixed signals, expect whipsaws", -1, 3, "Regime", 0)
+
+    total_pts = sum(f["pts"] for f in factors)
+    total_max = sum(f["max"] for f in factors)
+    pct = total_pts / total_max * 100 if total_max > 0 else 0.0
+
+    bull_n = sum(1 for f in factors if f["dir"] > 0)
+    bear_n = sum(1 for f in factors if f["dir"] < 0)
+
+    if pct >= 50:
+        verdict = "BUY";       confidence = min(95, int(40 + pct * 0.6))
+    elif pct >= 25:
+        verdict = "LEAN BULL"; confidence = min(70, int(30 + pct * 0.7))
+    elif pct <= -45:
+        verdict = "SELL";      confidence = min(95, int(40 + abs(pct) * 0.6))
+    elif pct <= -20:
+        verdict = "LEAN BEAR"; confidence = min(70, int(30 + abs(pct) * 0.7))
+    else:
+        verdict = "WAIT";      confidence = min(80, 40 + min(bull_n, bear_n) * 5)
+
+    is_actionable = verdict in ("BUY", "SELL")
+    is_lean       = verdict in ("LEAN BULL", "LEAN BEAR")
+    is_bullish    = verdict in ("BUY", "LEAN BULL")
+
+    entry = cp
+    stop  = round(max(cp * 0.5, cp - atr * 2), 2) if is_bullish else round(cp + atr * 2, 2)
+    t1    = round(cp + atr * 1.5, 2) if is_bullish else round(cp - atr * 1.5, 2)
+    t2    = round(cp + atr * 3.0, 2) if is_bullish else round(cp - atr * 3.0, 2)
+    t3    = round(cp + atr * 5.0, 2) if is_bullish else round(cp - atr * 5.0, 2)
+    risk_pct = abs(cp - stop) / cp * 100 if cp > 0 else 2.0
+    rr1 = abs(t1 - cp) / max(0.01, abs(cp - stop))
+    rr2 = abs(t2 - cp) / max(0.01, abs(cp - stop))
+
+    return {
+        "verdict": verdict, "confidence": confidence,
+        "is_actionable": is_actionable, "is_lean": is_lean, "is_bullish": is_bullish,
+        "pct": round(pct, 1), "total_pts": total_pts, "total_max": total_max,
+        "factors": factors, "bull_n": bull_n, "bear_n": bear_n,
+        "entry": entry, "stop": stop, "t1": t1, "t2": t2, "t3": t3,
+        "risk_pct": round(risk_pct, 1), "rr1": round(rr1, 1), "rr2": round(rr2, 1),
+        "rsi": round(rsi, 1), "adx": round(adx, 1),
+        "sk": round(sk, 1), "macd_h": round(macd_h, 4),
+        "bb_pct": round(bb_pct * 100, 0), "vol_ratio": round(vol_ratio, 2),
+        "atr_pct": round(atr_pct, 2), "atr_abs": round(atr, 4),
+        "regime": regime,
+        "w52_pos": round(w52_pos, 1), "p5d": round(p5d, 2),
+        "p20d": round(p20d, 2), "p60d": round(p60d, 2),
+        "e20": round(e20, 2), "e50": round(e50, 2), "e200": round(e200, 2),
+        "w52h": round(w52h, 2), "w52l": round(w52l, 2), "cp": round(cp, 2),
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ADVANCED PROBABILITY ENGINE
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _probability_engine(df, d):
+    """
+    Multi-layer probability model:
+      Layer 1 - Historical base rate at each horizon (unconditional)
+      Layer 2 - Historical ANALOG setups (same RSI zone + EMA side + MACD dir)
+      Layer 3 - Regime-conditional win rates
+      Layer 4 - Score-based Bayesian adjustment
+      Layer 5 - Momentum persistence (short-term trend continuation bias)
+      Layer 6 - Volatility dampening (high ATR -> pull toward 50%)
+      Layer 7 - Confidence interval from analog spread + ATR scaling
+    Returns rich dict per horizon: prob_up, n_analogs, analog_win_rate,
+      avg_ret, median_ret, p10, p25, p75, p90, ci_lo, ci_hi,
+      bull_target, base_target, bear_target,
+      bull_probability, base_probability, bear_probability,
+      bull_ret, base_ret, bear_ret,
+      regime_win_rate, n_regime_analogs,
+      key_driver, driver_contribution,
+      when_right_avg, when_wrong_avg, ev
+    """
+    close  = df["Close"].astype(float)
+    high   = df["High"].astype(float)
+    low    = df["Low"].astype(float)
+    n      = len(close)
+    cp     = d["cp"]
+    atr_pct  = d["atr_pct"]
+    regime   = d["regime"]
+    rsi_now  = d["rsi"]
+    pct_score = d["pct"]
+    is_bullish = d["is_bullish"]
+    p5d      = d["p5d"]
+
+    # Current indicator states (categorical)
+    above_e20  = cp > d["e20"]
+    macd_bull  = d["macd_h"] > 0
+    rsi_zone   = ("oversold" if rsi_now < 35 else
+                  "overbought" if rsi_now > 65 else "neutral")
+
+    results = {}
+
+    for days in [5, 10, 20]:
+        min_needed = days + 5
+        if n < min_needed:
+            results[days] = _fallback_horizon(days, d)
+            continue
+
+        # ── Layer 1: Unconditional base rate ────────────────────────────
+        window    = min(150, n - days - 1)
+        all_rets  = []
+        for i in range(window):
+            p0 = float(close.iloc[-(days + 1 + i)])
+            pN = float(close.iloc[-(1 + i)])
+            all_rets.append(_pct(pN, p0))
+
+        uncond_win_rate = sum(1 for r in all_rets if r > 0) / len(all_rets) if all_rets else 0.5
+        uncond_avg      = float(np.mean(all_rets)) if all_rets else 0.0
+
+        # ── Layer 2: Analog setups ───────────────────────────────────────
+        # Match: same EMA20 side, same RSI zone, same MACD direction
+        analog_rets     = []
+        regime_rets     = []
+        strong_rets     = []  # analogs where score also in same direction
+
+        for i in range(min(250, n - days - 1)):
+            bar_idx = -(days + 1 + i)
+            if abs(bar_idx) >= n:
+                break
+
+            # Reconstruct past state
+            past_close   = float(close.iloc[bar_idx])
+            past_e20_raw = _fv(df, "EMA_20", bars_back=days + i)
+            past_rsi_raw = _fv(df, "RSI_14", bars_back=days + i)
+            past_macd_h  = _fv(df, "MACDh_12_26_9", bars_back=days + i)
+            past_regime  = None
+            if "REGIME" in df.columns:
+                reg_s = df["REGIME"].dropna()
+                reg_idx = -(days + 1 + i)
+                if abs(reg_idx) < len(reg_s):
+                    past_regime = reg_s.iloc[reg_idx]
+
+            past_above_e20 = (past_close > past_e20_raw) if past_e20_raw else above_e20
+            past_rsi_zone  = ("oversold"  if (past_rsi_raw or 50) < 35 else
+                              "overbought" if (past_rsi_raw or 50) > 65 else "neutral")
+            past_macd_bull = (past_macd_h or 0) > 0
+
+            # Forward return FROM that analog point
+            p0 = float(close.iloc[bar_idx])
+            pN_idx = bar_idx + days
+            if pN_idx >= 0:
+                pN_idx = -1
+            pN = float(close.iloc[pN_idx]) if abs(pN_idx) <= n else p0
+            fwd_ret = _pct(pN, p0)
+
+            # Regime analog
+            if past_regime == regime:
+                regime_rets.append(fwd_ret)
+
+            # Full analog: same EMA side + same RSI zone
+            same_ema  = past_above_e20 == above_e20
+            same_rsi  = past_rsi_zone  == rsi_zone
+            same_macd = past_macd_bull == macd_bull
+
+            if same_ema and same_rsi:
+                analog_rets.append(fwd_ret)
+                if same_macd:
+                    strong_rets.append(fwd_ret)
+
+        # Choose best dataset (strong > analog > regime > unconditional)
+        if len(strong_rets) >= 10:
+            best_rets = strong_rets
+            dataset_label = f"{len(strong_rets)} strong analogs (EMA+RSI+MACD match)"
+        elif len(analog_rets) >= 8:
+            best_rets = analog_rets
+            dataset_label = f"{len(analog_rets)} analogs (EMA+RSI zone match)"
+        elif len(regime_rets) >= 8:
+            best_rets = regime_rets
+            dataset_label = f"{len(regime_rets)} regime-matched periods"
+        else:
+            best_rets = all_rets
+            dataset_label = f"{len(all_rets)} unconditional historical periods"
+
+        m = len(best_rets)
+        if m == 0:
+            results[days] = _fallback_horizon(days, d)
+            continue
+
+        s_rets     = sorted(best_rets)
+        wins       = sum(1 for r in best_rets if r > 0)
+        analog_wr  = wins / m
+        avg_ret    = float(np.mean(best_rets))
+        median_ret = float(np.median(best_rets))
+        p10        = _quartile(s_rets, 0.10)
+        p25        = _quartile(s_rets, 0.25)
+        p75        = _quartile(s_rets, 0.75)
+        p90        = _quartile(s_rets, 0.90)
+
+        # ── Layer 3: Score-based Bayesian update ────────────────────────
+        # Shift analog win rate toward score direction
+        # Each 10% of max score = ~2.5% adjustment
+        score_adj  = float(np.clip(pct_score / 100 * 0.20, -0.18, 0.18))
+
+        # ── Layer 4: Momentum bias ───────────────────────────────────────
+        mom_adj = 0.0
+        if abs(p5d) > 2:
+            mom_adj = float(np.clip(p5d / 100 * 0.15, -0.06, 0.06))
+
+        # ── Layer 5: Regime multiplier ───────────────────────────────────
+        reg_adj = 0.0
+        if regime == "TREND":
+            reg_adj = 0.04 if is_bullish else -0.04
+        elif regime == "VOLATILE":
+            # In volatile regimes dampen toward 50% — less predictable
+            analog_wr = analog_wr * 0.7 + 0.5 * 0.3
+
+        # ── Layer 6: Volatility dampening ────────────────────────────────
+        raw_prob = analog_wr + score_adj + mom_adj + reg_adj
+        if atr_pct > 4:
+            damp = float(np.clip((atr_pct - 4) / 10, 0, 0.5)) * 0.20
+            raw_prob = raw_prob * (1 - damp) + 0.5 * damp
+
+        prob_up = float(np.clip(raw_prob, 0.05, 0.95))
+
+        # ── Layer 7: Confidence interval ────────────────────────────────
+        # Use interquartile range from analogs blended with ATR projection
+        daily_vol   = atr_pct / 1.414
+        atr_proj    = daily_vol * (days ** 0.5)
+        spread_half = max(abs(p75 - p25) / 2, atr_proj * 0.8)
+        ci_lo  = round(cp * (1 + (avg_ret - spread_half * 1.28) / 100), 2)
+        ci_hi  = round(cp * (1 + (avg_ret + spread_half * 1.28) / 100), 2)
+
+        # ── Scenarios ────────────────────────────────────────────────────
+        # Bull case  = 75th–90th percentile of analog returns
+        # Base case  = median of analog returns
+        # Bear case  = 10th–25th percentile
+        bull_ret  = round((p75 + p90) / 2, 2)
+        base_ret  = round(median_ret, 2)
+        bear_ret  = round((p10 + p25) / 2, 2)
+
+        bull_target = round(cp * (1 + bull_ret / 100), 2)
+        base_target = round(cp * (1 + base_ret / 100), 2)
+        bear_target = round(cp * (1 + bear_ret / 100), 2)
+
+        # Assign scenario probabilities
+        # Bull scenario = fraction of analogs above p75
+        bull_p = sum(1 for r in best_rets if r >= p75) / m
+        bear_p = sum(1 for r in best_rets if r <= p25) / m
+        base_p = 1 - bull_p - bear_p
+
+        # Expected value (from entry, accounting for prob distribution)
+        when_right_avg = float(np.mean([r for r in best_rets if r > 0])) if any(r > 0 for r in best_rets) else 0.0
+        when_wrong_avg = float(np.mean([r for r in best_rets if r <= 0])) if any(r <= 0 for r in best_rets) else 0.0
+        ev = round(prob_up * when_right_avg + (1 - prob_up) * when_wrong_avg, 2)
+
+        # Regime-specific win rate
+        regime_wr = None
+        if len(regime_rets) >= 5:
+            regime_wr = round(sum(1 for r in regime_rets if r > 0) / len(regime_rets) * 100, 1)
+
+        # Key driver (which signal group contributes most to bullish/bearish lean)
+        cat_scores = {}
+        for f in d["factors"]:
+            cat = f["cat"]
+            cat_scores[cat] = cat_scores.get(cat, 0) + f["pts"]
+        if cat_scores:
+            key_driver = max(cat_scores, key=lambda k: abs(cat_scores[k]))
+            driver_pts = cat_scores[key_driver]
+        else:
+            key_driver = "N/A"
+            driver_pts = 0
+
+        results[days] = {
+            "prob_up":           round(prob_up * 100, 1),
+            "n_analogs":         m,
+            "dataset_label":     dataset_label,
+            "analog_win_rate":   round(analog_wr * 100, 1),
+            "avg_ret":           round(avg_ret, 2),
+            "median_ret":        round(median_ret, 2),
+            "p10":               round(p10, 2), "p25": round(p25, 2),
+            "p75":               round(p75, 2), "p90": round(p90, 2),
+            "ci_lo":             ci_lo, "ci_hi": ci_hi,
+            "bull_ret":          bull_ret, "base_ret": base_ret, "bear_ret": bear_ret,
+            "bull_target":       bull_target, "base_target": base_target, "bear_target": bear_target,
+            "bull_prob":         round(bull_p * 100, 0),
+            "base_prob":         round(base_p * 100, 0),
+            "bear_prob":         round(bear_p * 100, 0),
+            "when_right_avg":    round(when_right_avg, 2),
+            "when_wrong_avg":    round(when_wrong_avg, 2),
+            "ev":                ev,
+            "regime_win_rate":   regime_wr,
+            "key_driver":        key_driver,
+            "driver_pts":        driver_pts,
+            "score_adj":         round(score_adj * 100, 1),
+            "atr_proj":          round(atr_proj, 1),
+        }
+
+    return results
+
+
+def _fallback_horizon(days, d):
+    atr_pct = d["atr_pct"]
+    cp      = d["cp"]
+    pct     = d["pct"]
+    prob_up = float(np.clip(0.5 + pct / 100 * 0.3, 0.1, 0.9))
+    daily_vol = atr_pct / 1.414
+    mv = daily_vol * (days ** 0.5) * (1 if prob_up > 0.5 else -1)
+    return {
+        "prob_up": round(prob_up * 100, 1),
+        "n_analogs": 0, "dataset_label": "insufficient history",
+        "analog_win_rate": round(prob_up * 100, 1),
+        "avg_ret": round(mv, 2), "median_ret": round(mv, 2),
+        "p10": round(-atr_pct * 2, 2), "p25": round(-atr_pct, 2),
+        "p75": round(atr_pct, 2),      "p90": round(atr_pct * 2, 2),
+        "ci_lo": round(cp * (1 - atr_pct * 0.03), 2),
+        "ci_hi": round(cp * (1 + atr_pct * 0.03), 2),
+        "bull_ret": round(atr_pct * 1.5, 2),
+        "base_ret": round(mv, 2),
+        "bear_ret": round(-atr_pct * 1.5, 2),
+        "bull_target": round(cp * (1 + atr_pct * 0.015), 2),
+        "base_target": round(cp * (1 + mv / 100), 2),
+        "bear_target": round(cp * (1 - atr_pct * 0.015), 2),
+        "bull_prob": 25.0, "base_prob": 50.0, "bear_prob": 25.0,
+        "when_right_avg": round(abs(mv) * 1.2, 2),
+        "when_wrong_avg": round(-abs(mv) * 0.8, 2),
+        "ev": round(mv * 0.5, 2),
+        "regime_win_rate": None,
+        "key_driver": "N/A", "driver_pts": 0,
+        "score_adj": 0.0, "atr_proj": round(daily_vol * (days ** 0.5), 1),
+    }
+
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# RENDER
+# ─────────────────────────────────────────────────────────────────────────────
+
+def render_decision_tab(df, symbol_input, stock_name, current_price):
+
+    d    = _score_engine(df, current_price)
+    prob = _probability_engine(df, d)
+
+    V = d["verdict"]
+    if V == "BUY":
+        vc, vlbl = BULL, "BUY"
+        vsub = "Strong Bullish Signal"
+    elif V == "SELL":
+        vc, vlbl = BEAR, "SELL"
+        vsub = "Strong Bearish Signal"
+    elif V == "LEAN BULL":
+        vc, vlbl = BULL, "LEAN BULL"
+        vsub = "Weak Bullish \u2014 Wait for Confirmation"
+    elif V == "LEAN BEAR":
+        vc, vlbl = NEUT, "LEAN BEAR"
+        vsub = "Weak Bearish \u2014 Watch for Breakdown"
+    else:
+        vc, vlbl = "#FFC107", "WAIT"
+        vsub = "No Clear Edge \u2014 Signals Mixed"
+
+    conf_c    = BULL if d["confidence"] >= 65 else NEUT if d["confidence"] >= 40 else BEAR
+    score_pct = max(2, min(100, abs(d["pct"])))
+    display_v = "BUY" if V in ("BUY", "LEAN BULL") else "SELL" if V in ("SELL", "LEAN BEAR") else "WAIT"
+
+    # ── HERO CARD ────────────────────────────────────────────────────────────
+    vc_glow = vc + "22"
+    st.markdown(
+        f"<div style='background:{BG2};"
+        f"border:1px solid {BDR};border-left:5px solid {vc};border-radius:14px;"
+        f"padding:1.8rem 2rem;margin-bottom:1rem;'>"
+        # header row
+        f"<div style='display:flex;align-items:center;justify-content:space-between;"
+        f"margin-bottom:1.3rem;'>"
+        f"<div>"
+        f"<div style='font-size:0.58rem;color:#555;text-transform:uppercase;"
+        f"letter-spacing:1.4px;font-weight:700;margin-bottom:0.2rem;'>Decision Intelligence</div>"
+        f"<div style='font-size:0.95rem;color:#ccc;font-weight:600;'>"
+        f"{symbol_input} &nbsp;·&nbsp; {stock_name}</div>"
+        f"</div>"
+        f"<div style='font-size:0.65rem;color:#555;font-style:italic;'>Algorithmic · Not financial advice</div>"
+        f"</div>"
+        # 3-column content
+        f"<div style='display:grid;grid-template-columns:auto 1fr auto;gap:2rem;align-items:center;'>"
+        # left: verdict
+        f"<div style='text-align:center;'>"
+        f"<div style='background:{vc_glow};border:2px solid {vc};"
+        f"border-radius:12px;padding:0.6rem 1.4rem;display:inline-block;'>"
+        f"<div style='font-size:2.4rem;font-weight:900;color:{vc};"
+        f"letter-spacing:1px;line-height:1;'>{display_v}</div>"
+        f"</div>"
+        f"<div style='font-size:0.7rem;color:#888;margin-top:0.5rem;font-weight:600;'>{vsub}</div>"
+        f"</div>"
+        # center: score
+        f"<div>"
+        f"<div style='display:flex;justify-content:space-between;margin-bottom:0.3rem;'>"
+        f"<span style='font-size:0.62rem;color:#666;text-transform:uppercase;"
+        f"letter-spacing:0.8px;font-weight:700;'>Composite Score</span>"
+        f"<span style='font-size:0.75rem;color:#ccc;font-weight:800;'>"
+        f"{d['total_pts']:+d} pts&nbsp;/&nbsp;±{d['total_max']}</span>"
+        f"</div>"
+        + _glowbar(score_pct, vc, "8px") +
+        f"<div style='display:flex;justify-content:space-between;margin-top:0.6rem;'>"
+        f"<span style='font-size:0.68rem;color:{BULL};font-weight:700;"
+        f"background:{BULL}18;border-radius:6px;padding:0.2rem 0.5rem;'>"
+        f"▲&nbsp;{d['bull_n']} Bullish</span>"
+        f"<span style='font-size:0.68rem;color:{BEAR};font-weight:700;"
+        f"background:{BEAR}18;border-radius:6px;padding:0.2rem 0.5rem;'>"
+        f"▼&nbsp;{d['bear_n']} Bearish</span>"
+        f"</div>"
+        f"</div>"
+        # right: confidence
+        f"<div style='text-align:center;background:{BG};"
+        f"border:1px solid {BDR};border-radius:14px;padding:1rem 1.4rem;min-width:90px;'>"
+        f"<div style='font-size:2rem;font-weight:900;color:{conf_c};"
+        f"line-height:1;'>{d['confidence']}%</div>"
+        f"<div style='font-size:0.58rem;text-transform:uppercase;letter-spacing:1px;"
+        f"color:#555;margin-top:0.25rem;font-weight:700;'>Confidence</div>"
+        f"<div style='height:1px;background:{BDR};margin:0.5rem 0;'></div>"
+        f"<div style='font-size:0.65rem;color:#777;'>"
+        f"Regime&nbsp;<b style='color:#ccc;'>{d['regime']}</b></div>"
+        f"</div>"
+        f"</div></div>",
+        unsafe_allow_html=True,
+    )
+
+    # ── 3 SUB-CARDS: Market Structure · Pattern Signal · Volume Profile ───
+    st.markdown(_sec("Signal Overview", INFO), unsafe_allow_html=True)
+    _render_signal_summaries(df, current_price)

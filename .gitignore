@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Database (contains user credentials)
+users.db
+
+# Dev/debug scripts
+check_imports.py
+check_result.txt
+fix_chart.py
+fix_levels.py
+fix_ucw.py
+inspect_chart.py
+overwrite_vp.py
+_patch2.py
+_split_app.py
+
+# VS Code
+.vscode/
