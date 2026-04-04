@@ -1,3 +1,4 @@
+import streamlit as st
 import yfinance as yf
 import pandas as pd
 import pandas_ta as ta
@@ -5,6 +6,17 @@ import numpy as np
 from datetime import datetime, timedelta
 import warnings
 warnings.filterwarnings('ignore')
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _cached_download(symbol: str, start: str, end: str) -> pd.DataFrame | None:
+    """Cached yfinance download — avoids re-downloading if symbol/dates unchanged."""
+    try:
+        df = yf.download(symbol, start=start, end=end, progress=False)
+        return df if df is not None and not df.empty else None
+    except Exception:
+        return None
+
 
 class RegimeAnalyzer:
 
@@ -34,7 +46,7 @@ class RegimeAnalyzer:
 
             _end_exclusive = (datetime.strptime(self.end_date, '%Y-%m-%d') + timedelta(days=1)).strftime('%Y-%m-%d')
 
-            df = yf.download(self.symbol, start=self.start_date, end=_end_exclusive, progress=False)
+            df = _cached_download(self.symbol, self.start_date, _end_exclusive)
 
         except Exception as e:
 
@@ -44,11 +56,11 @@ class RegimeAnalyzer:
 
         
 
-        if df is None or df.empty:
+        if df is None or len(df) == 0:
 
             return None
 
-        
+        df = df.copy()  # don't mutate the cached object
 
         df = df.reset_index()
 

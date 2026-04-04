@@ -2990,6 +2990,31 @@ def main():
                                         st.session_state.df = df
                                         st.session_state.analyzed_symbol = symbol_input
                                         st.session_state.additional_charts = ['ADX','RSI','MACD']
+
+                                        # Pre-warm AI Analysis + Trade Validator caches while
+                                        # the spinner is still showing — tabs load instantly on click.
+                                        try:
+                                            from gemini_tab import (
+                                                _ml_predict, _historical_analogy,
+                                                _price_predictor, _monte_carlo,
+                                            )
+                                            _ml_predict(df, horizon=5)
+                                            _ml_predict(df, horizon=10)
+                                            _ml_predict(df, horizon=20)
+                                            _price_predictor(df, horizon=20)
+                                            _historical_analogy(df, k=25, horizon=5)
+                                            _historical_analogy(df, k=25, horizon=10)
+                                            _historical_analogy(df, k=25, horizon=20)
+                                            _monte_carlo(df, days=20)
+                                        except Exception:
+                                            pass
+                                        try:
+                                            from decision_tab import _score_engine
+                                            _cp = float(df["Close"].iloc[-1])
+                                            _score_engine(df, _cp)
+                                        except Exception:
+                                            pass
+
                                         st.session_state.show_results = True
                                 except Exception as e:
                                     st.error(f"Error: {str(e)}")
@@ -3875,31 +3900,16 @@ def main():
 
         
 
-        # Fetch stock name dynamically from Yahoo Finance
-
+        # Stock name — cached helper avoids slow uncached .info call
         try:
-
-            stock_info = yf.Ticker(symbol_input)
-
-            stock_name = stock_info.info.get('longName', stock_info.info.get('shortName', symbol_input))
-
-        except:
-
+            from signal_engine import get_stock_name as _gsn
+            stock_name = _gsn(symbol_input) or symbol_input
+        except Exception:
             stock_name = symbol_input
-
         st.session_state.analyzed_stock_name = stock_name
 
-        
-
-        try:
-
-            _live = yf.Ticker(symbol_input).fast_info.last_price
-
-            current_price = float(_live) if _live and float(_live) > 0 else float(latest['Close'])
-
-        except Exception:
-
-            current_price = float(latest['Close'])
+        # Live price — use already-downloaded Close (no extra network call)
+        current_price = float(latest['Close'])
 
         period_change = ((current_price - first['Close']) / first['Close']) * 100
 
@@ -4280,8 +4290,11 @@ def main():
         from patterns_tab import patterns_tab
         from volume_profile_tab import volume_profile_tab
         from smc_tab import smc_tab
+        from trade_validator_tab import trade_validator_tab
 
-        tab_dec, tab0, tab1, tab2, tab_vp, tab_smc, tab4 = st.tabs([
+        # AI cache pre-warm removed — tabs compute on demand (Streamlit lazy-loads tab content)
+
+        tab_dec, tab0, tab1, tab2, tab_vp, tab_smc, tab4, tab_tv = st.tabs([
             "Decision",
             "Regime",
             "Signals",
@@ -4289,6 +4302,7 @@ def main():
             "Volume Profile",
             "SMC",
             "AI Analysis",
+            "Trade Validator",
         ])
 
         with tab_dec:
@@ -4319,6 +4333,8 @@ def main():
                 recent_5d_change, recent_20d_change,
 
             )
+        with tab_tv:
+            trade_validator_tab(df, latest, current_price)
 
 
 

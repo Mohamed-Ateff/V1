@@ -363,12 +363,13 @@ def signal_analysis_tab(df, info_icon):
                 "best_regime": best_regime_for_ind,
                 "regime_performance": regime_perf,
                 "chart_func": chart_func,
+                "expectancy": expectancy,
                 "max_gain": data.get("max_gain", 0),
                 "max_loss": data.get("max_loss", 0),
                 "signals": indicator_signals,
             })
 
-        indicator_performance.sort(key=lambda x: (x["accuracy"], x["total_signals"]), reverse=True)
+        indicator_performance.sort(key=lambda x: (x["expectancy"], x["total_signals"]), reverse=True)
         top_indicators = indicator_performance[:4]
 
         if not top_indicators:

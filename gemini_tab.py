@@ -502,8 +502,10 @@ def _probability_engine(df, latest, current_price, score, slope_pct, r2):
 #  ML ENGINE  (4-Model Ensemble with Purged Walk-Forward CV)
 # ══════════════════════════════════════════════════════════════════════════════
 
-def _build_ml_features(df):
+@st.cache_data(ttl=300, show_spinner=False)
+def _build_ml_features(_df):
     """Enhanced feature engineering: 40+ features for maximum predictive power."""
+    df = _df
     c        = df['Close']
     hi       = df['High']   if 'High'   in df.columns else c
     lo       = df['Low']    if 'Low'    in df.columns else c
@@ -647,7 +649,8 @@ def _build_ml_features(df):
     return feat
 
 
-def _ml_predict(df, horizon=10):
+@st.cache_data(ttl=300, show_spinner=False)
+def _ml_predict(_df, horizon=10):
     """
     5-model ensemble + Platt calibration + TimeSeriesSplit cross-validation.
     Models: XGBoost · LightGBM · RandomForest · ExtraTrees · GradientBoosting.
@@ -666,6 +669,7 @@ def _ml_predict(df, horizon=10):
     except ImportError:
         return None
 
+    df = _df
     feat = _build_ml_features(df)
     if len(feat) < 60:
         return None
@@ -830,7 +834,8 @@ def _ml_predict(df, horizon=10):
     }
 
 
-def _price_predictor(df, horizon=20):
+@st.cache_data(ttl=300, show_spinner=False)
+def _price_predictor(_df, horizon=20):
     """
     XGBoost quantile regression: predicts actual SAR price at p10/p25/p50/p75/p90.
     Target = log-return at horizon days, back-transformed to SAR price.
@@ -843,6 +848,7 @@ def _price_predictor(df, horizon=20):
     except ImportError:
         return None
 
+    df = _df
     feat = _build_ml_features(df)
     if len(feat) < 60:
         return None
@@ -917,7 +923,8 @@ def _price_predictor(df, horizon=20):
 #  HISTORICAL PATTERN MATCHING  (K-Nearest-Neighbours analogy engine)
 # ══════════════════════════════════════════════════════════════════════════════
 
-def _historical_analogy(df, k=25, horizon=10):
+@st.cache_data(ttl=300, show_spinner=False)
+def _historical_analogy(_df, k=25, horizon=10):
     """
     Find the k most similar past market setups using KNN on all 45 features.
     Report what actually happened in those cases — fully transparent, zero black-box.
@@ -929,6 +936,7 @@ def _historical_analogy(df, k=25, horizon=10):
     except ImportError:
         return None
 
+    df = _df
     feat = _build_ml_features(df)
     if len(feat) < k + horizon + 20:
         return None
@@ -991,8 +999,10 @@ def _historical_analogy(df, k=25, horizon=10):
 #  MONTE CARLO  (1 000 paths, log-normal returns)
 # ══════════════════════════════════════════════════════════════════════════════
 
-def _monte_carlo(df, days=20, n_sims=1000):
+@st.cache_data(ttl=300, show_spinner=False)
+def _monte_carlo(_df, days=20, n_sims=1000):
     """Monte Carlo simulation using historical log-return statistics."""
+    df = _df
     close = df['Close'].values
     if len(close) < 40:
         return None
@@ -1099,6 +1109,8 @@ def _build_mc_chart(mc, df):
     return fig
 
 
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 #  MAIN TAB FUNCTION
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1108,8 +1120,8 @@ def gemini_tab(df, symbol_input, stock_name, latest,
                annual_vol, current_regime, adx_current, rsi_current,
                atr_pct, price_vs_ema20, price_vs_ema200,
                recent_5d_change, recent_20d_change):
-    """Main AI Analysis tab."""
-    
+    """Smart Money Trade Scanner — actionable setups only."""
+
     theme_palette = st.session_state.get('theme_palette', {})
     global BG, BG2, BDR
     BG  = theme_palette.get('panel', BG)
@@ -1117,163 +1129,40 @@ def gemini_tab(df, symbol_input, stock_name, latest,
     BDR = theme_palette.get('border', BDR)
 
     if len(df) < 30:
-        st.warning("Not enough data for AI analysis. Need at least 30 days.")
+        st.warning("Not enough data for analysis. Need at least 30 days.")
         return
-
-    # Convert latest to dict if it's a Series
     if hasattr(latest, 'to_dict'):
         latest = latest.to_dict()
-    
     if current_price <= 0:
         st.error("Invalid price data.")
         return
 
-    # ── Compute everything ───────────────────────────────────────────────────
-    score, factor_scores, signals = _compute_ai_score(latest, df, current_price)
+    cp = current_price
+
+    # ── Compute signals ───────────────────────────────────────────────────────
+    score, factor_scores, signals = _compute_ai_score(latest, df, cp)
     decision, dec_col, dec_reason = _decision_from_score(score)
     resistances, supports = _find_levels(df)
     fibs = _fibonacci(df)
     forecast_prices, slope_pct, r2 = _forecast(df, days=20)
-    probabilities = _probability_engine(df, latest, current_price, score, slope_pct, r2)
 
-    # Target / Stop calculation
-    target_price = forecast_prices[-1] if forecast_prices else current_price
-    sl_price = current_price * 0.95  # 5% stop loss
-    target_pct = (target_price / current_price - 1) * 100
-    sl_pct = (sl_price / current_price - 1) * 100
-    tgt_col = BULL if target_pct > 0 else BEAR
-    sl_col = BEAR
-    tgt_sign = "+" if target_pct > 0 else ""
-    sl_sign = ""
+    sup1 = supports[0]    if supports          else cp * 0.95
+    sup2 = supports[1]    if len(supports) > 1 else cp * 0.90
+    res1 = resistances[0] if resistances        else cp * 1.05
+    res2 = resistances[1] if len(resistances) > 1 else cp * 1.10
 
-    # Score band color
-    if score >= 65:   score_band_col = BULL
-    elif score >= 52: score_band_col = "#8BC34A"
-    elif score >= 48: score_band_col = NEUT
-    elif score >= 35: score_band_col = "#FF9800"
-    else:             score_band_col = BEAR
-
-    # Count bullish/bearish/neutral factors
-    bull_f = sum(1 for s in factor_scores.values() if s >= 60)
-    bear_f = sum(1 for s in factor_scores.values() if s <= 40)
-    neut_f = 12 - bull_f - bear_f
-
-    # Score dots
-    score_dots = ""
-    for fname, fscore in factor_scores.items():
-        dot_col = BULL if fscore >= 60 else BEAR if fscore <= 40 else NEUT
-        score_dots += f"<span style='color:{dot_col};font-size:1.2rem;'>●</span> "
-
-    # Top drivers
-    sorted_factors = sorted(factor_scores.items(), key=lambda x: x[1], reverse=True)
-    top_bull_drv = [f[0] for f in sorted_factors[:3] if f[1] >= 60]
-    top_bear_drv = [f[0] for f in sorted_factors[-3:] if f[1] <= 40]
-    driver_str = f"<span style='color:{BULL};'>{' · '.join(top_bull_drv)}</span>" if top_bull_drv else "<span style='color:#757575;'>None strong</span>"
-
-    # ══════════════════════════════════════════════════════════════════════════
-    #  HERO PANEL
-    # ══════════════════════════════════════════════════════════════════════════
-    
-    hero_html = (
-        f"<div style='background:linear-gradient(135deg,{BG2} 0%,{BG} 100%);"
-        f"border:1px solid {BDR};border-left:5px solid {dec_col};"
-        f"border-radius:16px;padding:1.6rem 2rem;margin-bottom:1.4rem;'>"
-        # Row 1: Decision + Score
-        f"<div style='display:flex;justify-content:space-between;align-items:flex-start;"
-        f"flex-wrap:wrap;gap:1rem;margin-bottom:1.1rem;'>"
-        f"<div>"
-        f"<div style='font-size:0.62rem;color:#9e9e9e;text-transform:uppercase;"
-        f"letter-spacing:1.2px;font-weight:700;margin-bottom:0.3rem;'>Decision</div>"
-        f"<div style='font-size:4rem;font-weight:900;color:{dec_col};line-height:1;"
-        f"letter-spacing:-1px;'>{decision}</div>"
-        f"</div>"
-        f"<div style='text-align:right;'>"
-        f"<div style='font-size:0.62rem;color:#9e9e9e;text-transform:uppercase;"
-        f"letter-spacing:1.2px;font-weight:700;margin-bottom:0.3rem;'>AI Score</div>"
-        f"<div style='font-size:3rem;font-weight:900;color:{score_band_col};"
-        f"line-height:1;letter-spacing:-1px;'>{score}<span style='font-size:1.2rem;"
-        f"color:#757575;font-weight:600;'>/100</span></div>"
-        f"<div style='font-size:0.72rem;color:#757575;margin-top:0.3rem;'>"
-        f"{bull_f} bullish · {bear_f} bearish · {neut_f} neutral</div>"
-        f"</div>"
-        f"</div>"
-        # Score dots
-        f"<div style='margin-bottom:1rem;'>{score_dots}"
-        f"<span style='font-size:0.62rem;color:#757575;margin-left:0.5rem;'>"
-        f"Each dot = 1 of 12 indicators ("
-        f"<span style='color:{BULL};'>●</span> bullish "
-        f"<span style='color:{NEUT};'>●</span> neutral "
-        f"<span style='color:{BEAR};'>●</span> bearish)</span>"
-        f"</div>"
-        # Row 2: Target + Stop + Current
-        f"<div style='display:flex;gap:1.5rem;flex-wrap:wrap;margin-bottom:1rem;'>"
-        f"<div style='background:{BG};border-radius:10px;padding:0.7rem 1.1rem;"
-        f"border:1px solid {BDR};flex:1;min-width:140px;'>"
-        f"<div style='font-size:0.6rem;color:#9e9e9e;text-transform:uppercase;"
-        f"letter-spacing:0.8px;font-weight:700;margin-bottom:0.3rem;'>20-Day Target</div>"
-        f"<div style='font-size:1.5rem;font-weight:800;color:{tgt_col};'>"
-        f"${target_price:,.2f}</div>"
-        f"<div style='font-size:0.75rem;color:{tgt_col};'>"
-        f"{tgt_sign}{target_pct:.1f}% from current</div>"
-        f"</div>"
-        f"<div style='background:{BG};border-radius:10px;padding:0.7rem 1.1rem;"
-        f"border:1px solid {BDR};flex:1;min-width:140px;'>"
-        f"<div style='font-size:0.6rem;color:#9e9e9e;text-transform:uppercase;"
-        f"letter-spacing:0.8px;font-weight:700;margin-bottom:0.3rem;'>Stop Loss</div>"
-        f"<div style='font-size:1.5rem;font-weight:800;color:{sl_col};'>"
-        f"${sl_price:,.2f}</div>"
-        f"<div style='font-size:0.75rem;color:{sl_col};'>"
-        f"{sl_pct:.1f}% from current</div>"
-        f"</div>"
-        f"<div style='background:{BG};border-radius:10px;padding:0.7rem 1.1rem;"
-        f"border:1px solid {BDR};flex:1;min-width:140px;'>"
-        f"<div style='font-size:0.6rem;color:#9e9e9e;text-transform:uppercase;"
-        f"letter-spacing:0.8px;font-weight:700;margin-bottom:0.3rem;'>Current Price</div>"
-        f"<div style='font-size:1.5rem;font-weight:800;color:#ffffff;'>"
-        f"${current_price:,.2f}</div>"
-        f"<div style='font-size:0.75rem;color:#757575;'>Live quote</div>"
-        f"</div>"
-        f"</div>"
-        # Row 3: Top drivers
-        f"<div style='font-size:0.78rem;color:#9e9e9e;padding-top:0.8rem;"
-        f"border-top:1px solid {BDR};'>"
-        f"<span style='color:#757575;font-size:0.68rem;text-transform:uppercase;"
-        f"letter-spacing:0.7px;font-weight:700;'>Top bullish drivers: </span>"
-        f"{driver_str}"
-        + (f"  <span style='color:#757575;font-size:0.68rem;text-transform:uppercase;"
-           f"letter-spacing:0.7px;font-weight:700;'>· Bearish: </span>"
-           f"<span style='color:{BEAR};'>{' · '.join(top_bear_drv)}</span>" if top_bear_drv else "")
-        + f"</div>"
-        f"</div>"
-    )
-    st.markdown(hero_html, unsafe_allow_html=True)
-
-    # ══════════════════════════════════════════════════════════════════════════
-    #  CHART
-    # ══════════════════════════════════════════════════════════════════════════
-    
-    st.markdown(_sec("Technical Chart", INFO), unsafe_allow_html=True)
-    fig = _build_chart(df, current_price, supports, resistances, fibs, forecast_prices)
-    st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
-
-    # ══════════════════════════════════════════════════════════════════════════
-    #  MACHINE LEARNING PREDICTION
-    # ══════════════════════════════════════════════════════════════════════════
-
-    st.markdown(_sec("🤖 Machine Learning — Directional Probability", PURP), unsafe_allow_html=True)
-
-    st.markdown(
-        f"<div style='font-size:0.75rem;color:#757575;margin:-0.6rem 0 1rem;'>"
-        f"<b style='color:#9e9e9e;'>5-model ensemble</b> (XGBoost · LightGBM · RF · ET · GB) · "
-        f"Platt calibration · TimeSeriesSplit CV · "
-        f"<b style='color:#9e9e9e;'>{len(df)} bars</b> · "
-        f"<b style='color:#9e9e9e;'>{len(_build_ml_features(df).dropna().columns)} features</b>. "
-        f"Quantile price targets via <b style='color:#9e9e9e;'>XGBoost quantile regression</b> — "
-        f"<b style='color:#9e9e9e;'>zero lookahead bias throughout.</b></div>",
-        unsafe_allow_html=True,
+    _atr = max(
+        (atr_pct / 100) * cp if (atr_pct and atr_pct > 0) else cp * 0.02,
+        cp * 0.005,
     )
 
-    with st.spinner("Analysing historical patterns · Training 5-model ensemble…"):
+    recent_20  = df.tail(20)
+    swing_high = float(recent_20['High'].max()) if 'High' in df.columns else cp * 1.05
+    swing_low  = float(recent_20['Low'].min())  if 'Low'  in df.columns else cp * 0.95
+    _rsi       = rsi_current or 50
+
+    # ── ML + historical engines ───────────────────────────────────────────────
+    with st.spinner("Scanning for trade opportunities\u2026"):
         ml5   = _ml_predict(df, horizon=5)
         ml10  = _ml_predict(df, horizon=10)
         ml20  = _ml_predict(df, horizon=20)
@@ -1281,421 +1170,625 @@ def gemini_tab(df, symbol_input, stock_name, latest,
         ana5  = _historical_analogy(df, k=25, horizon=5)
         ana10 = _historical_analogy(df, k=25, horizon=10)
         ana20 = _historical_analogy(df, k=25, horizon=20)
-        mc    = _monte_carlo(df, days=20, n_sims=1000)
 
-    if ml5 is None and ml10 is None and ml20 is None and ana5 is None:
-        st.info("Need at least 60 days of history for ML prediction. Extend the date range.")
+    # ══════════════════════════════════════════════════════════════════════════
+    #  SIGNAL AGGREGATION
+    # ══════════════════════════════════════════════════════════════════════════
+    bp = 0       # bull points
+    rp = 0       # risk / bear points
+    bull_ev = [] # (icon, title, detail, color)
+    bear_ev = []
+
+    # 1. AI Score (12-indicator engine)
+    n_bull_i = sum(1 for v in factor_scores.values() if v >= 60)
+    n_bear_i = sum(1 for v in factor_scores.values() if v <= 40)
+    if score >= 65:
+        bp += 3
+        bull_ev.append(('\u25b2', f'AI Score {score}/100 \u2014 strong bullish',
+                        f'{n_bull_i}/12 indicators bullish', BULL))
+    elif score >= 55:
+        bp += 2
+        bull_ev.append(('\u25b2', f'AI Score {score}/100 \u2014 bullish tilt',
+                        f'{n_bull_i} indicators support upside', BULL))
+    elif score <= 35:
+        rp += 3
+        bear_ev.append(('\u25bc', f'AI Score {score}/100 \u2014 strong bearish',
+                        f'{n_bear_i}/12 indicators bearish', BEAR))
+    elif score <= 45:
+        rp += 2
+        bear_ev.append(('\u25bc', f'AI Score {score}/100 \u2014 bearish tilt',
+                        f'{n_bear_i} indicators negative', BEAR))
+
+    # 2. ML Ensemble (5/10/20 day)
+    for ml, lbl in [(ml5, '5D'), (ml10, '10D'), (ml20, '20D')]:
+        if not ml:
+            continue
+        _up = ml['up_prob']
+        _ac = ml['accuracy']
+        if _up >= 55:
+            bp += 2
+            bull_ev.append(('\u25b2', f'{lbl} ML \u2192 {_up:.0f}% UP',
+                            f'Accuracy {_ac:.0f}% on {ml["test_size"]} bars', BULL))
+        elif _up <= 45:
+            rp += 2
+            bear_ev.append(('\u25bc', f'{lbl} ML \u2192 {100 - _up:.0f}% DOWN',
+                            f'Accuracy {_ac:.0f}% on {ml["test_size"]} bars', BEAR))
+
+    # 3. Historical pattern match (5/10/20 day)
+    for ana, lbl in [(ana5, '5D'), (ana10, '10D'), (ana20, '20D')]:
+        if not ana:
+            continue
+        _wr = ana['w_win_rate']
+        if _wr >= 55:
+            bp += 1
+            bull_ev.append(('\u25b2', f'{lbl} Pattern \u2192 {_wr:.0f}% won',
+                            f'{ana["n_up"]}/{ana["n_similar"]} up \u00b7 median {ana["median_return"]:+.1f}%', BULL))
+        elif _wr <= 45:
+            rp += 1
+            bear_ev.append(('\u25bc', f'{lbl} Pattern \u2192 {100 - _wr:.0f}% lost',
+                            f'{ana["n_down"]}/{ana["n_similar"]} down', BEAR))
+
+    # 4. Key indicator signals (skip RSI \u2014 handled separately)
+    for _icon, _title, _detail, _color in signals[:6]:
+        if 'RSI' in _title:
+            continue
+        if _color == BULL:
+            bp += 1
+            bull_ev.append((_icon, _title, _detail, BULL))
+        elif _color == BEAR:
+            rp += 1
+            bear_ev.append((_icon, _title, _detail, BEAR))
+
+    # 5. RSI
+    if _rsi < 30:
+        bp += 2
+        bull_ev.append(('\u26a1', f'RSI deeply oversold ({_rsi:.0f})', 'High bounce probability', BULL))
+    elif _rsi < 40:
+        bp += 1
+        bull_ev.append(('\u25b2', f'RSI low ({_rsi:.0f})', 'Approaching oversold', BULL))
+    elif _rsi > 70:
+        rp += 2
+        bear_ev.append(('\u26a0', f'RSI overbought ({_rsi:.0f})', 'Pullback risk elevated', BEAR))
+    elif _rsi > 60:
+        rp += 1
+        bear_ev.append(('\u26a0', f'RSI high ({_rsi:.0f})', 'Approaching overbought', BEAR))
+
+    # 6. Support / resistance proximity
+    pct_sup = (cp - sup1) / cp * 100
+    pct_res = (res1 - cp) / cp * 100
+    if 0 <= pct_sup <= 3:
+        bp += 2
+        bull_ev.append(('\u25b2', f'Near support {sup1:.2f} ({pct_sup:.1f}% above)',
+                        'Quality long entry zone', BULL))
+    if 0 <= pct_res <= 3:
+        rp += 1
+        bear_ev.append(('\u26a0', f'Near resistance {res1:.2f} ({pct_res:.1f}% below)',
+                        'Supply zone overhead', BEAR))
+
+    # ── Trade decision ────────────────────────────────────────────────────────
+    total_pts = max(bp + rp, 1)
+    is_trade  = bp >= 5 and bp >= rp + 3
+    confidence = min(round(bp / total_pts * 100), 94) if is_trade else 0
+
+    # Aggregate ML / pattern stats
+    ml_probs = [m['up_prob']  for m in [ml5, ml10, ml20] if m]
+    avg_ml   = round(sum(ml_probs) / len(ml_probs), 1) if ml_probs else None
+
+    ana_wrs  = [a['w_win_rate'] for a in [ana5, ana10, ana20] if a]
+    avg_wr   = round(sum(ana_wrs) / len(ana_wrs), 1) if ana_wrs else None
+
+    n_feat = next((m['n_features'] for m in [ml20, ml10, ml5] if m), 40)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    #  RENDER
+    # ══════════════════════════════════════════════════════════════════════════
+
+    # ── Pre-compute trade levels for hero card and chart ──────────────────────
+    _entry = cp
+    _sl_struct = min(swing_low, sup1) - _atr * 0.3
+    _stop  = max(_sl_struct, _entry - _atr * 2.0, _entry * 0.92)
+    _risk  = max(_entry - _stop, 0.001)
+
+    # Target 1: ML median price or 1.5× risk to nearest resistance
+    _use_ml_t = pt20 is not None and pt20.get('p50') is not None and pt20['p50'] > _entry
+    if _use_ml_t:
+        _t1 = pt20['p50']
+        _t2 = pt20.get('p75') or (_entry + _risk * 2.5)
+        if _t1 <= _entry: _t1 = _entry + _risk * 1.5
+        if _t2 <= _t1:    _t2 = _entry + _risk * 2.5
     else:
-        # ── HERO: Historical Pattern Match ───────────────────────────────────
-        st.markdown(
-            _sec('🔍 Historical Pattern Match — What Happened in Similar Setups?', INFO),
-            unsafe_allow_html=True,
+        _t1 = min(_entry + _risk * 1.5, res1) if res1 > _entry else _entry + _risk * 1.5
+        _t2 = min(_entry + _risk * 2.5, res2) if res2 > _entry else _entry + _risk * 2.5
+    _rr1    = round((_t1 - _entry) / _risk, 2) if _risk > 0 else 0
+    _rr2    = round((_t2 - _entry) / _risk, 2) if _risk > 0 else 0
+    _sl_pct = round(abs(_stop - _entry) / _entry * 100, 2)
+    _t1_pct = round((_t1 - _entry) / _entry * 100, 2)
+    _t2_pct = round((_t2 - _entry) / _entry * 100, 2)
+
+    # ── Display values ─────────────────────────────────────────────────────────
+    hero_col   = BULL if is_trade else (NEUT if bp > rp else '#757575')
+    hero_txt   = 'TRADE OPPORTUNITY' if is_trade else 'NO TRADE'
+    hero_dir   = '\u25b2 LONG' if is_trade else ('\u25c6 HOLD' if bp >= rp else '\u25bc AVOID')
+    hero_sub   = (
+        f'Confidence {confidence}% \u2014 {bp} bullish vs {rp} bearish signals'
+        if is_trade else
+        f'Not enough conviction \u2014 {bp} bull vs {rp} bear signals'
+    )
+    score_col  = BULL if score >= 55 else (BEAR if score <= 45 else NEUT)
+    ml_d_col   = BULL if (avg_ml or 50) >= 55 else (BEAR if (avg_ml or 50) <= 45 else NEUT)
+    wr_d_col   = BULL if (avg_wr or 50) >= 55 else (BEAR if (avg_wr or 50) <= 45 else NEUT)
+    ml_str     = f'{avg_ml:.0f}% UP' if avg_ml else 'N/A'
+    wr_str     = f'{avg_wr:.0f}%'    if avg_wr else 'N/A'
+
+    # AI Score: break down into bullish/bearish indicators
+    bull_inds  = [(k, v) for k, v in factor_scores.items() if v >= 60]
+    bear_inds  = [(k, v) for k, v in factor_scores.items() if v <= 40]
+    neut_inds  = [(k, v) for k, v in factor_scores.items() if 40 < v < 60]
+    _score_txt = (
+        f"{len(bull_inds)}/12 bullish, {len(bear_inds)}/12 bearish, {len(neut_inds)} neutral"
+    )
+    _top_bull  = ', '.join(k for k, v in sorted(bull_inds, key=lambda x: x[1], reverse=True)[:3])
+    _top_bear  = ', '.join(k for k, v in sorted(bear_inds, key=lambda x: x[1])[:3])
+
+    # ML Probability: pick best accuracy model for display
+    _best_ml_acc  = None
+    _best_ml_name = None
+    for _ml in [ml20, ml10, ml5]:
+        if _ml and _ml.get('model_accs'):
+            _best_acc_entry = max(_ml['model_accs'].items(), key=lambda x: x[1])
+            _best_ml_name, _best_ml_acc = _best_acc_entry
+            break
+    _ml_acc_str = f'{_best_ml_acc:.0f}% ({_best_ml_name})' if _best_ml_acc else 'N/A'
+
+    # Top ML features
+    _top_feats = []
+    for _ml in [ml20, ml10, ml5]:
+        if _ml and _ml.get('top_features'):
+            _top_feats = _ml['top_features'][:3]
+            break
+    _feat_str = ', '.join(nm for nm, _ in _top_feats) if _top_feats else 'N/A'
+
+    # Pattern Win Rate: best analog stats
+    _best_ana    = next((a for a in [ana20, ana10, ana5] if a), None)
+    _ana_n       = _best_ana['n_similar']    if _best_ana else 0
+    _ana_best    = _best_ana['best_case']    if _best_ana else None
+    _ana_worst   = _best_ana['worst_case']   if _best_ana else None
+    _ana_med     = _best_ana['median_return'] if _best_ana else None
+    _ana_hor     = _best_ana['horizon']      if _best_ana else 20
+
+    # ── 1. HERO CARD — Deep AI Analysis ─────────────────────────────────────
+    # ── Market context extras ────────────────────────────────────────────────
+    _hist_hi  = float(df['High'].tail(252).max()) if len(df) >= 50 else cp * 1.3
+    _hist_lo  = float(df['Low'].tail(252).min())  if len(df) >= 50 else cp * 0.7
+    _52w_pos  = round((cp - _hist_lo) / max(_hist_hi - _hist_lo, 0.01) * 100, 1)
+    _52w_col  = BULL if _52w_pos >= 65 else (BEAR if _52w_pos <= 35 else NEUT)
+    _adx_lbl  = ("Strong Trend" if (adx_current or 0) >= 30
+                 else ("Trending" if (adx_current or 0) >= 20 else "Weak/Range"))
+    _adx_col  = BULL if (adx_current or 0) >= 25 else (NEUT if (adx_current or 0) >= 15 else '#666')
+    _rsi_lbl  = ("Oversold" if _rsi < 35 else ("Overbought" if _rsi > 65 else "Neutral"))
+    _rsi_col  = BULL if _rsi < 35 else (BEAR if _rsi > 65 else '#9e9e9e')
+    _reg_col  = (BULL if (current_regime or '') == "TREND" else
+                 (INFO if (current_regime or '') == "BREAKOUT" else '#666'))
+    _ema20c   = BULL if (price_vs_ema20  or 0) > 0 else BEAR
+    _ema200c  = BULL if (price_vs_ema200 or 0) > 0 else BEAR
+    _5dc      = BULL if (recent_5d_change  or 0) >= 0 else BEAR
+    _20dc     = BULL if (recent_20d_change or 0) >= 0 else BEAR
+
+    # Edge narrative
+    if is_trade:
+        _edge_txt = (
+            f"{len(bull_inds)}/12 technical indicators bullish · "
+            f"ML ensemble {avg_ml:.0f}% UP probability across 5/10/20-day horizons · "
+            f"{avg_wr:.0f}% historical win rate from {_ana_n} analog setups. "
+            f"Regime: {current_regime or 'Unknown'}. Strong BUY setup confirmed."
+        ) if (avg_ml and avg_wr) else (
+            f"{bp} bullish vs {rp} bearish signal points · "
+            f"Regime: {current_regime or 'Unknown'} · {confidence}% confidence."
         )
-        st.markdown(
-            f"<div style='font-size:0.75rem;color:#757575;margin:-0.6rem 0 1rem;'>"
-            f"Searched <b style='color:#9e9e9e;'>{len(df)}</b> historical bars of this stock · "
-            f"Found the <b style='color:#9e9e9e;'>25 most similar market setups</b> using KNN "
-            f"on <b style='color:#9e9e9e;'>45 technical features</b> · Closer matches weighted higher."
-            f"</div>",
-            unsafe_allow_html=True,
+    else:
+        _dir_bias = "Bearish pressure dominant" if rp > bp else "Mixed — no clear edge"
+        _edge_txt = (
+            f"{bp} bull vs {rp} bear signal points. {_dir_bias}. "
+            f"Wait for stronger multi-engine alignment before entering a position."
         )
 
-        for ana, hrzn_lbl, hrzn_days in [
-            (ana5, '5-Day', 5), (ana10, '10-Day', 10), (ana20, '20-Day', 20)
-        ]:
-            if ana is None:
-                continue
-            cp_val  = float(df['Close'].iloc[-1])
-            up_c    = BULL if ana['direction'] == 'UP' else BEAR
-            wwr     = ana['w_win_rate']
-            avg_r   = ana['avg_return']
-            med_r   = ana['median_return']
-            best_r  = ana['best_case']
-            worst_r = ana['worst_case']
-            n_up    = ana['n_up']
-            n_dn    = ana['n_down']
-            n_tot   = ana['n_similar']
+    def _ctx_tile(lbl, val, col):
+        return (
+            f"<div style='text-align:center;padding:0.35rem 0.2rem;'>"
+            f"<div style='font-size:0.48rem;color:#555;text-transform:uppercase;"
+            f"letter-spacing:0.5px;font-weight:700;margin-bottom:0.15rem;'>{lbl}</div>"
+            f"<div style='font-size:0.82rem;font-weight:800;color:{col};'>{val}</div>"
+            f"</div>"
+        )
 
-            if   wwr >= 70: sig_lbl, sig_col = 'STRONG BUY SIGNAL',  BULL
-            elif wwr >= 60: sig_lbl, sig_col = 'BUY SIGNAL',         '#8BC34A'
-            elif wwr >= 55: sig_lbl, sig_col = 'WEAK BUY',           NEUT
-            elif wwr <= 30: sig_lbl, sig_col = 'STRONG SELL SIGNAL', BEAR
-            elif wwr <= 40: sig_lbl, sig_col = 'SELL SIGNAL',        '#FF9800'
-            elif wwr <= 45: sig_lbl, sig_col = 'WEAK SELL',          NEUT
-            else:           sig_lbl, sig_col = 'NEUTRAL',            '#757575'
+    def _stat_tile_g(lbl, big_val, sub, t_col, bar_val=None):
+        bar_html = (
+            f"<div style='background:{BDR};border-radius:999px;height:3px;"
+            f"overflow:hidden;margin:0.3rem 0;'>"
+            f"<div style='width:{int(min(bar_val,100))}%;height:100%;background:{t_col};"
+            f"border-radius:999px;'></div></div>"
+        ) if bar_val is not None else ""
+        return (
+            f"<div style='background:{BG};border-radius:12px;padding:0.85rem 0.9rem;"
+            f"border:1px solid {BDR};border-top:3px solid {t_col};'>"
+            f"<div style='font-size:0.49rem;color:#9e9e9e;text-transform:uppercase;"
+            f"letter-spacing:0.7px;font-weight:700;margin-bottom:0.2rem;'>{lbl}</div>"
+            f"<div style='font-size:1.8rem;font-weight:900;color:{t_col};line-height:1;'>{big_val}</div>"
+            f"{bar_html}"
+            f"<div style='font-size:0.62rem;color:#666;margin-top:0.25rem;'>{sub}</div>"
+            f"</div>"
+        )
 
-            win_pct   = n_up / n_tot * 100
-            loss_pct  = n_dn / n_tot * 100
-            avg_sign  = '+' if avg_r  >= 0 else ''
-            med_sign  = '+' if med_r  >= 0 else ''
-            best_sign = '+' if best_r >= 0 else ''
-            wrst_sign = '+' if worst_r >= 0 else ''
-            proj_price = round(cp_val * (1 + med_r / 100), 2)
+    _ml_sub  = f"Accuracy: {_ml_acc_str}" if _ml_acc_str != 'N/A' else "5 models · 3 horizons"
+    _wr_sub  = (f"Best: +{_ana_best:.1f}% / Worst: {_ana_worst:.1f}%"
+                if _ana_best is not None else f"{_ana_n} analog setups")
 
+    st.markdown(
+        f"<div style='background:linear-gradient(135deg,{BG2} 0%,{BG} 100%);"
+        f"border:1px solid {BDR};border-left:6px solid {hero_col};"
+        f"border-radius:16px;padding:1.6rem 2rem;margin-bottom:1.2rem;'>"
+
+        # ── Row 1: direction verdict + AI score + signal edge
+        f"<div style='display:flex;justify-content:space-between;align-items:flex-start;"
+        f"flex-wrap:wrap;gap:1.5rem;margin-bottom:1rem;'>"
+        f"<div>"
+        f"<div style='font-size:0.55rem;color:#9e9e9e;text-transform:uppercase;"
+        f"letter-spacing:2px;font-weight:700;margin-bottom:0.25rem;'>Deep AI Analysis</div>"
+        f"<div style='font-size:3rem;font-weight:900;color:{hero_col};"
+        f"line-height:1;letter-spacing:-1.5px;'>{hero_dir}</div>"
+        f"<div style='font-size:0.8rem;color:#9e9e9e;margin-top:0.3rem;'>{hero_sub}</div>"
+        f"</div>"
+        f"<div style='display:flex;gap:2.5rem;text-align:right;flex-shrink:0;'>"
+        f"<div>"
+        f"<div style='font-size:0.5rem;color:#9e9e9e;text-transform:uppercase;"
+        f"letter-spacing:1px;font-weight:700;margin-bottom:0.15rem;'>AI Score</div>"
+        f"<div style='font-size:2.6rem;font-weight:900;color:{score_col};line-height:1;'>"
+        f"{score}<span style='font-size:0.85rem;color:#555;'>/100</span></div>"
+        f"<div style='font-size:0.6rem;color:#555;'>"
+        f"{len(bull_inds)}&#9650; &middot; {len(bear_inds)}&#9660; &middot; {len(neut_inds)} neutral</div>"
+        f"</div>"
+        f"<div>"
+        f"<div style='font-size:0.5rem;color:#9e9e9e;text-transform:uppercase;"
+        f"letter-spacing:1px;font-weight:700;margin-bottom:0.15rem;'>Signal Edge</div>"
+        f"<div style='font-size:2.6rem;font-weight:900;color:{hero_col};line-height:1;'>"
+        f"{'HIGH' if bp >= rp + 5 else ('MOD' if bp >= rp + 2 else ('LOW' if bp >= rp else 'NONE'))}"
+        f"</div>"
+        f"<div style='font-size:0.6rem;color:#555;'>{bp} bull &middot; {rp} bear pts</div>"
+        f"</div>"
+        f"</div>"
+        f"</div>"
+
+        # ── Edge narrative
+        f"<div style='background:{hero_col}10;border:1px solid {hero_col}2E;"
+        f"border-radius:10px;padding:0.7rem 1rem;margin-bottom:1.1rem;"
+        f"font-size:0.78rem;color:#bbb;line-height:1.65;'>{_edge_txt}</div>"
+
+        # ── 4-stat grid
+        f"<div style='display:grid;grid-template-columns:repeat(4,1fr);"
+        f"gap:0.6rem;padding-top:0.85rem;border-top:1px solid {BDR};margin-bottom:1rem;'>"
+        + _stat_tile_g("AI Score (12 indicators)", str(score), _score_txt, score_col, score)
+        + _stat_tile_g("ML Ensemble (avg 5/10/20d)", ml_str, _ml_sub, ml_d_col, avg_ml or 50)
+        + _stat_tile_g(f"Pattern Win Rate ({_ana_hor}d)", wr_str, _wr_sub, wr_d_col, avg_wr or 50)
+        + _stat_tile_g("Top ML Drivers", (_feat_str[:26] if _feat_str != 'N/A' else '—'),
+                       "XGBoost feature importance", INFO)
+        + f"</div>"
+
+        # ── Context strip (6 tiles)
+        f"<div style='display:grid;grid-template-columns:repeat(6,1fr);"
+        f"gap:0.5rem;padding-top:0.75rem;border-top:1px solid {BDR};'>"
+        + _ctx_tile("Regime",   current_regime or "—",                                _reg_col)
+        + _ctx_tile("ADX",      f"{adx_current:.0f} &middot; {_adx_lbl}" if adx_current else "—", _adx_col)
+        + _ctx_tile("RSI",      f"{_rsi:.0f} &middot; {_rsi_lbl}",                   _rsi_col)
+        + _ctx_tile("EMA 200",  f"{'+' if (price_vs_ema200 or 0) >= 0 else ''}{(price_vs_ema200 or 0):.1f}%", _ema200c)
+        + _ctx_tile("5D Chg",   f"{(recent_5d_change  or 0):+.1f}%",                _5dc)
+        + _ctx_tile("52W Pos",  f"{_52w_pos:.0f}th pct",                             _52w_col)
+        + f"</div>"
+
+        f"</div>",
+        unsafe_allow_html=True,
+    )
+
+    # ── PRICE LADDER (BUY / is_trade only) ──────────────────────────────────
+    # ── PRICE LADDER (BUY / is_trade only) ──────────────────────────────────
+    if is_trade:
+        try:
+            from _levels import price_ladder_html as _g_plh
+            _g_t3 = round(_entry + (_entry - _stop) * 5.0, 2)
+            st.markdown(_g_plh(_entry, _stop, _t1, _t2, _g_t3, True), unsafe_allow_html=True)
+        except Exception:
+            pass
+
+    # ── 5. PROBABILITY BREAKDOWN — 5 / 10 / 20 Day ──────────────────────────
+    st.markdown(_sec('Probability Breakdown — 5 / 10 / 20 Day', PURP),
+                unsafe_allow_html=True)
+
+    def _scale_pt(val, scale):
+        if val is None:
+            return None
+        return round(_entry + (val - _entry) * scale, 2)
+
+    horizons_data = [
+        (ml5,  ana5,  '5-Day',  'Next 5 days',  0.30),
+        (ml10, ana10, '10-Day', 'Next 2 weeks', 0.60),
+        (ml20, ana20, '20-Day', 'Next month',   1.00),
+    ]
+    pb_cols = st.columns(3, gap='medium')
+
+    for col, (ml, ana, label, desc, pt_scale) in zip(pb_cols, horizons_data):
+        ml_prob  = ml['up_prob']         if ml  else None
+        wr_val   = ana['w_win_rate']     if ana else None
+        med_ret  = ana['median_return']  if ana else None
+        best_ret = ana['best_case']      if ana else None
+        wrst_ret = ana['worst_case']     if ana else None
+        n_sim    = ana['n_similar']      if ana else 0
+        n_up     = ana['n_up']           if ana else 0
+        n_dn     = ana.get('n_down', 0) if ana else 0
+
+        _p25 = _scale_pt(pt20.get('p25') if pt20 else None, pt_scale)
+        _p50 = _scale_pt(pt20.get('p50') if pt20 else None, pt_scale)
+        _p75 = _scale_pt(pt20.get('p75') if pt20 else None, pt_scale)
+
+        up_p = ml_prob or 50
+        dn_p = 100 - up_p
+        wv   = wr_val  or 50
+
+        # Confluence badge
+        ml_bull  = up_p >= 55;  ml_bear = up_p <= 45
+        ana_bull = wv   >= 55;  ana_bear = wv  <= 45
+        if   ml_bull and ana_bull:  conf_lbl, conf_col_h = '&#9679; BOTH AGREE UP',    BULL
+        elif ml_bear and ana_bear:  conf_lbl, conf_col_h = '&#9679; BOTH AGREE DOWN',  BEAR
+        elif ml_bull or  ana_bull:  conf_lbl, conf_col_h = '&#9680; MIXED — LEAN UP',  NEUT
+        elif ml_bear or  ana_bear:  conf_lbl, conf_col_h = '&#9681; MIXED — LEAN DOWN', '#FF7043'
+        else:                       conf_lbl, conf_col_h = '&#9675; NEUTRAL',              '#555'
+
+        pc = BULL if up_p >= 55 else (BEAR if up_p <= 45 else NEUT)
+        wc = BULL if wv   >= 55 else (BEAR if wv   <= 45 else NEUT)
+        mc = BULL if (med_ret or 0) >= 0 else BEAR
+
+        # Expected value (simple: win_rate × median_return)
+        _ev = round((wv / 100) * (med_ret or 0), 2) if med_ret is not None else None
+        _ev_col = BULL if (_ev or 0) >= 0 else BEAR
+
+        # Price zone helper
+        def _pz(price, clr, tier):
+            if price is None:
+                return ''
+            pct = (price - _entry) / _entry * 100
+            sgn = '+' if pct >= 0 else ''
+            return (
+                f"<div style='display:flex;justify-content:space-between;"
+                f"align-items:center;padding:0.32rem 0.7rem;border-radius:8px;"
+                f"background:{clr}15;border:1px solid {clr}40;margin-bottom:0.25rem;'>"
+                f"<span style='font-size:0.6rem;color:#666;font-weight:600;'>{tier}</span>"
+                f"<div style='text-align:right;'>"
+                f"<span style='font-size:0.82rem;font-weight:900;color:{clr};'>{price:.2f}</span>"
+                f"<span style='font-size:0.65rem;color:{clr};margin-left:0.35rem;'>"
+                f"{sgn}{pct:.1f}%</span>"
+                f"</div></div>"
+            )
+
+        # ML probability ring (CSS conic-gradient)
+        _ring_deg = int(up_p * 3.6)
+        _ring_html = (
+            f"<div style='position:relative;width:72px;height:72px;"
+            f"flex-shrink:0;'>"
+            f"<div style='width:72px;height:72px;border-radius:50%;"
+            f"background:conic-gradient({pc} 0deg {_ring_deg}deg,"
+            f" {BEAR} {_ring_deg}deg 360deg);'></div>"
+            f"<div style='position:absolute;top:9px;left:9px;width:54px;height:54px;"
+            f"border-radius:50%;background:{BG2};"
+            f"display:flex;flex-direction:column;align-items:center;"
+            f"justify-content:center;'>"
+            f"<span style='font-size:1.1rem;font-weight:900;color:{pc};"
+            f"line-height:1;'>{up_p:.0f}%</span>"
+            f"<span style='font-size:0.45rem;color:#555;text-transform:uppercase;"
+            f"letter-spacing:0.3px;'>UP</span>"
+            f"</div></div>"
+        )
+
+        # Precompute conditional HTML blocks
+        _wr_cnt   = f"{n_up}&#8593; / {n_dn}&#8595; of {n_sim}" if wr_val is not None else 'no data'
+        _wr_num   = f"{wv:.0f}%" if wr_val is not None else 'N/A'
+
+        if _p50 is not None:
+            _zone_html = (
+                f"<div style='font-size:0.55rem;color:#9e9e9e;text-transform:uppercase;"
+                f"letter-spacing:0.5px;font-weight:700;margin-bottom:0.35rem;"
+                f"margin-top:0.65rem;'>Price Forecast ({label})</div>"
+                + (_pz(_p75, BULL, 'Bull case') if _p75 is not None else '')
+                + _pz(_p50, NEUT, 'Base case')
+                + (_pz(_p25, '#FF7043', 'Bear case') if _p25 is not None else '')
+            )
+        else:
+            _zone_html = ''
+
+        if wr_val is not None and med_ret is not None and best_ret is not None and wrst_ret is not None:
+            _hist_html = (
+                f"<div style='font-size:0.55rem;color:#9e9e9e;text-transform:uppercase;"
+                f"letter-spacing:0.5px;font-weight:700;margin:0.65rem 0 0.35rem;'>"
+                f"Historical Outcomes ({n_sim} setups)</div>"
+                f"<div style='display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.28rem;'>"
+                f"<div style='background:{BULL}12;border:1px solid {BULL}30;"
+                f"border-radius:8px;padding:0.38rem;text-align:center;'>"
+                f"<div style='font-size:0.47rem;color:#9e9e9e;margin-bottom:0.08rem;'>BEST</div>"
+                f"<div style='font-size:0.95rem;font-weight:900;color:{BULL};'>"
+                f"+{best_ret:.1f}%</div></div>"
+                f"<div style='background:{mc}15;border:1px solid {mc}38;"
+                f"border-radius:8px;padding:0.38rem;text-align:center;'>"
+                f"<div style='font-size:0.47rem;color:#9e9e9e;margin-bottom:0.08rem;'>MEDIAN</div>"
+                f"<div style='font-size:0.95rem;font-weight:900;color:{mc};'>"
+                f"{med_ret:+.1f}%</div></div>"
+                f"<div style='background:{BEAR}12;border:1px solid {BEAR}30;"
+                f"border-radius:8px;padding:0.38rem;text-align:center;'>"
+                f"<div style='font-size:0.47rem;color:#9e9e9e;margin-bottom:0.08rem;'>WORST</div>"
+                f"<div style='font-size:0.95rem;font-weight:900;color:{BEAR};'>"
+                f"{wrst_ret:.1f}%</div></div>"
+                f"</div>"
+            )
+            _ev_html = (
+                f"<div style='display:flex;justify-content:space-between;"
+                f"align-items:center;margin-top:0.55rem;padding:0.38rem 0.7rem;"
+                f"background:{_ev_col}10;border:1px solid {_ev_col}30;"
+                f"border-radius:8px;'>"
+                f"<span style='font-size:0.58rem;color:#666;font-weight:600;'>"
+                f"Expected Value</span>"
+                f"<span style='font-size:0.9rem;font-weight:900;color:{_ev_col};'>"
+                f"{_ev:+.2f}%</span>"
+                f"</div>"
+            ) if _ev is not None else ''
+        else:
+            _hist_html = ''
+            _ev_html   = ''
+
+        with col:
             st.markdown(
                 f"<div style='background:{BG2};border:1px solid {BDR};"
-                f"border-left:4px solid {up_c};border-radius:12px;"
-                f"padding:1.1rem 1.25rem;margin-bottom:0.75rem;'>"
+                f"border-top:4px solid {pc};border-radius:16px;"
+                f"padding:1.2rem 1.1rem;height:100%;'>"
+
                 # Header row
                 f"<div style='display:flex;justify-content:space-between;"
-                f"align-items:center;margin-bottom:0.65rem;'>"
+                f"align-items:flex-start;margin-bottom:0.7rem;'>"
                 f"<div>"
-                f"<span style='font-size:0.62rem;color:#9e9e9e;text-transform:uppercase;"
-                f"letter-spacing:1px;font-weight:700;'>{hrzn_lbl} Outlook</span>"
-                f"<span style='margin-left:0.75rem;background:{sig_col}22;"
-                f"border:1px solid {sig_col}55;color:{sig_col};"
-                f"border-radius:6px;padding:0.18rem 0.65rem;"
-                f"font-size:0.7rem;font-weight:800;'>{sig_lbl}</span>"
+                f"<div style='font-size:0.62rem;color:#9e9e9e;text-transform:uppercase;"
+                f"letter-spacing:1px;font-weight:700;margin-bottom:0.15rem;'>"
+                f"{label} &middot; {desc}</div>"
+                f"<div style='font-size:0.78rem;font-weight:800;color:{conf_col_h};'>"
+                f"{conf_lbl}</div>"
                 f"</div>"
-                f"<div style='text-align:right;'>"
-                f"<div style='font-size:2rem;font-weight:900;color:{up_c};"
-                f"line-height:1;letter-spacing:-1px;'>"
-                f"{'▲' if ana['direction']=='UP' else '▼'} {wwr:.0f}%</div>"
-                f"<div style='font-size:0.65rem;color:#757575;'>weighted win rate</div>"
+                + _ring_html +
                 f"</div>"
+
+                # ML vs History row
+                f"<div style='display:grid;grid-template-columns:1fr 1fr;gap:0.45rem;"
+                f"margin-bottom:0.6rem;'>"
+                f"<div style='background:{BG};border:1px solid {pc}50;"
+                f"border-radius:10px;padding:0.6rem 0.7rem;text-align:center;'>"
+                f"<div style='font-size:0.5rem;color:#9e9e9e;text-transform:uppercase;"
+                f"letter-spacing:0.5px;margin-bottom:0.1rem;'>ML Model</div>"
+                f"<div style='font-size:1.75rem;font-weight:900;color:{pc};line-height:1;'>"
+                f"{up_p:.0f}%</div>"
+                f"<div style='font-size:0.6rem;color:#666;margin-top:0.08rem;'>chance UP</div>"
                 f"</div>"
-                # Win/loss bar
-                f"<div style='display:flex;border-radius:5px;overflow:hidden;"
-                f"height:8px;margin-bottom:0.55rem;'>"
-                f"<div style='background:{BULL};width:{win_pct:.0f}%;'></div>"
-                f"<div style='background:{BEAR};width:{loss_pct:.0f}%;'></div>"
+                f"<div style='background:{BG};border:1px solid {wc}50;"
+                f"border-radius:10px;padding:0.6rem 0.7rem;text-align:center;'>"
+                f"<div style='font-size:0.5rem;color:#9e9e9e;text-transform:uppercase;"
+                f"letter-spacing:0.5px;margin-bottom:0.1rem;'>History</div>"
+                f"<div style='font-size:1.75rem;font-weight:900;color:{wc};line-height:1;'>"
+                f"{_wr_num}</div>"
+                f"<div style='font-size:0.6rem;color:#666;margin-top:0.08rem;'>{_wr_cnt}</div>"
+                f"</div></div>"
+
+                # Split bar (up vs down)
+                f"<div style='display:flex;border-radius:6px;overflow:hidden;"
+                f"height:8px;margin-bottom:0.7rem;'>"
+                f"<div style='background:{BULL};width:{up_p}%;'></div>"
+                f"<div style='background:{BEAR};width:{dn_p}%;'></div>"
                 f"</div>"
-                # Stats grid
-                f"<div style='display:grid;grid-template-columns:repeat(5,1fr);"
-                f"gap:0.5rem;margin-bottom:0.5rem;'>"
-                f"<div style='text-align:center;'>"
-                f"<div style='font-size:0.62rem;color:#555;text-transform:uppercase;"
-                f"letter-spacing:0.5px;'>Won</div>"
-                f"<div style='font-size:1.05rem;font-weight:800;color:{BULL};'>"
-                f"{n_up}/{n_tot}</div></div>"
-                f"<div style='text-align:center;'>"
-                f"<div style='font-size:0.62rem;color:#555;text-transform:uppercase;"
-                f"letter-spacing:0.5px;'>Avg Return</div>"
-                f"<div style='font-size:1.05rem;font-weight:800;"
-                f"color:{BULL if avg_r >= 0 else BEAR};'>"
-                f"{avg_sign}{avg_r:.1f}%</div></div>"
-                f"<div style='text-align:center;'>"
-                f"<div style='font-size:0.62rem;color:#555;text-transform:uppercase;"
-                f"letter-spacing:0.5px;'>Median</div>"
-                f"<div style='font-size:1.05rem;font-weight:800;"
-                f"color:{BULL if med_r >= 0 else BEAR};'>"
-                f"{med_sign}{med_r:.1f}%</div></div>"
-                f"<div style='text-align:center;'>"
-                f"<div style='font-size:0.62rem;color:#555;text-transform:uppercase;"
-                f"letter-spacing:0.5px;'>Best P90</div>"
-                f"<div style='font-size:1.05rem;font-weight:800;color:{BULL};'>"
-                f"{best_sign}{best_r:.1f}%</div></div>"
-                f"<div style='text-align:center;'>"
-                f"<div style='font-size:0.62rem;color:#555;text-transform:uppercase;"
-                f"letter-spacing:0.5px;'>Worst P10</div>"
-                f"<div style='font-size:1.05rem;font-weight:800;color:{BEAR};'>"
-                f"{wrst_sign}{worst_r:.1f}%</div></div>"
-                f"</div>"
-                # Projected price
-                f"<div style='border-top:1px solid {BDR};padding-top:0.5rem;"
-                f"display:flex;align-items:center;gap:1rem;'>"
-                f"<span style='font-size:0.62rem;color:#555;'>Median projected price "
-                f"in {hrzn_days} days:</span>"
-                f"<span style='font-size:1.1rem;font-weight:800;color:{up_c};'>"
-                f"{proj_price:.2f} SAR</span>"
-                f"<span style='font-size:0.65rem;color:{up_c};'>"
-                f"({med_sign}{med_r:.1f}%)</span>"
-                f"</div>"
-                f"</div>",
-                unsafe_allow_html=True,
-            )
-
-        st.markdown(
-            f"<div style='font-size:0.62rem;color:#424242;margin-bottom:1.5rem;'>"
-            f"How to read: the 25 past moments with the most similar combination of RSI, MACD, "
-            f"EMA alignment, volume, momentum &amp; 40+ signals were found in this stock's own "
-            f"history. Win rate = % of those cases where price was higher after the stated period. "
-            f"Past results do not guarantee future performance.</div>",
-            unsafe_allow_html=True,
-        )
-
-        # ── 5-model ensemble directional cards ───────────────────────────────
-        st.markdown(
-            _sec('🤖 5-Model Ensemble — Directional Probability', PURP),
-            unsafe_allow_html=True,
-        )
-
-        # ── 3 horizon cards ──────────────────────────────────────────────────
-        h_cols = st.columns(3, gap="small")
-        for col, ml, label in zip(h_cols,
-                                  [ml5, ml10, ml20],
-                                  ["5-Day", "10-Day", "20-Day"]):
-            with col:
-                if ml is None:
-                    st.markdown(
-                        f"<div style='background:{BG2};border:1px solid {BDR};border-radius:12px;"
-                        f"padding:1rem;text-align:center;color:#505050;'>{label}<br/>Not enough data</div>",
-                        unsafe_allow_html=True,
-                    )
-                    continue
-
-                up_p      = ml['up_prob']
-                direc     = ml['direction']
-                acc       = ml['accuracy']
-                color     = BULL if direc == 'UP' else BEAR
-                accs_html = ""
-                if ml.get('model_accs'):
-                    accs_html = (
-                        "<br/><span style='color:#424242;font-size:0.57rem;'>"
-                        + " · ".join(f"{k}:{v}%" for k, v in ml['model_accs'].items())
-                        + "</span>"
-                    )
-
-                if acc >= 58:   rel_txt, rel_col = "Strong Signal",    BULL
-                elif acc >= 54: rel_txt, rel_col = "Moderate Signal",  "#8BC34A"
-                elif acc >= 50: rel_txt, rel_col = "Weak Signal",      NEUT
-                else:           rel_txt, rel_col = "Below-random",     "#757575"
-
-                bar_pct = up_p if direc == 'UP' else (100 - up_p)
-
-                st.markdown(
-                    f"<div style='background:{BG2};border:1px solid {BDR};"
-                    f"border-top:3px solid {color};border-radius:12px;padding:1.1rem;'>"
-                    f"<div style='font-size:0.58rem;color:#9e9e9e;text-transform:uppercase;"
-                    f"letter-spacing:0.9px;font-weight:700;margin-bottom:0.5rem;'>{label} Outlook</div>"
-                    f"<div style='font-size:2.8rem;font-weight:900;color:{color};line-height:1;"
-                    f"letter-spacing:-1px;'>{'▲' if direc=='UP' else '▼'} {up_p:.0f}%</div>"
-                    f"<div style='font-size:0.78rem;color:{color};font-weight:700;"
-                    f"margin:0.25rem 0 0.5rem;'>{direc}</div>"
-                    f"<div style='background:{BDR};border-radius:4px;height:5px;margin-bottom:0.6rem;'>"
-                    f"<div style='background:{color};width:{bar_pct:.0f}%;height:100%;border-radius:4px;'></div></div>"
-                    f"<div style='font-size:0.63rem;color:#757575;line-height:1.6;'>"
-                    f"<span style='color:{rel_col};font-weight:700;'>{rel_txt}</span><br/>"
-                    f"Historical accuracy: <b style='color:#c8c8c8;'>{acc:.1f}%</b><br/>"
-                    f"Tested on {ml['test_size']} bars · {ml['model_name']}{accs_html}"
-                    f"</div></div>",
-                    unsafe_allow_html=True,
-                )
-
-        # ── AI Price Target (quantile regression) ─────────────────────────────
-        if pt20:
-            st.markdown(
-                _sec('🎯  AI Price Target — 20-Day Quantile Forecast', INFO),
-                unsafe_allow_html=True,
-            )
-            cp_pt        = pt20['current']
-            mae          = pt20.get('mae')
-            pt_scenarios = [
-                ('🐻 Bear', 'P10', pt20.get('p10'), BEAR),
-                ('Low',     'P25', pt20.get('p25'), '#FF9800'),
-                ('📍 Base', 'P50', pt20.get('p50'), NEUT),
-                ('High',    'P75', pt20.get('p75'), '#8BC34A'),
-                ('🚀 Bull', 'P90', pt20.get('p90'), BULL),
-            ]
-            pt_cols = st.columns(5, gap='small')
-            for ptcol, (lbl, pctile, price, cc) in zip(pt_cols, pt_scenarios):
-                with ptcol:
-                    if price is None:
-                        st.markdown(
-                            f"<div style='background:{BG2};border:1px solid {BDR};"
-                            f"border-radius:10px;padding:0.7rem;text-align:center;"
-                            f"color:#505050;font-size:0.7rem;'>{lbl}<br/>—</div>",
-                            unsafe_allow_html=True,
-                        )
-                        continue
-                    pct   = (price / cp_pt - 1) * 100
-                    sign  = '+' if pct >= 0 else ''
-                    arrow = '▲' if pct >= 0 else '▼'
-                    st.markdown(
-                        f"<div style='background:{BG2};border:1px solid {BDR};"
-                        f"border-top:3px solid {cc};border-radius:12px;"
-                        f"padding:0.9rem 0.6rem;text-align:center;'>"
-                        f"<div style='font-size:0.52rem;color:#9e9e9e;"
-                        f"text-transform:uppercase;letter-spacing:0.8px;"
-                        f"font-weight:700;margin-bottom:0.3rem;'>{lbl} · {pctile}</div>"
-                        f"<div style='font-size:1.35rem;font-weight:900;color:{cc};"
-                        f"line-height:1.1;'>{price:.2f}</div>"
-                        f"<div style='font-size:0.7rem;color:{cc};font-weight:700;"
-                        f"margin-top:0.25rem;'>{arrow} {sign}{pct:.1f}%</div>"
-                        f"</div>",
-                        unsafe_allow_html=True,
-                    )
-            # Range indicator bar
-            p10v = pt20.get('p10') or cp_pt * 0.90
-            p90v = pt20.get('p90') or cp_pt * 1.10
-            rng  = max(p90v - p10v, 0.01)
-            pos  = min(100, max(0, (cp_pt - p10v) / rng * 100))
-            mae_str = f" · ±{mae:.2f} SAR median error" if mae else ""
-            st.markdown(
-                f"<div style='margin-top:0.6rem;background:{BG2};border:1px solid {BDR};"
-                f"border-radius:10px;padding:0.65rem 1rem;'>"
                 f"<div style='display:flex;justify-content:space-between;"
-                f"font-size:0.62rem;color:#555;margin-bottom:0.3rem;'>"
-                f"<span style='color:{BEAR};'>Bear P10 · {p10v:.2f}</span>"
-                f"<span style='color:#9e9e9e;'>◆ Now: {cp_pt:.2f} SAR</span>"
-                f"<span style='color:{BULL};'>Bull P90 · {p90v:.2f}</span>"
+                f"font-size:0.55rem;margin-bottom:0.55rem;'>"
+                f"<span style='color:{BULL};'>&#9650; {up_p:.0f}% UP</span>"
+                f"<span style='color:{BEAR};'>&#9660; {dn_p:.0f}% DOWN</span>"
                 f"</div>"
-                f"<div style='position:relative;background:{BDR};border-radius:5px;height:10px;'>"
-                f"<div style='background:linear-gradient(90deg,{BEAR}66,{NEUT}88,{BULL}66);"
-                f"width:100%;height:100%;border-radius:5px;'></div>"
-                f"<div style='position:absolute;top:50%;left:{pos:.0f}%;"
-                f"transform:translateX(-50%) translateY(-50%);"
-                f"width:14px;height:14px;background:#fff;border:2px solid {BG2};"
-                f"border-radius:50%;box-shadow:0 0 8px rgba(255,255,255,0.55);'></div>"
-                f"</div>"
-                f"<div style='font-size:0.6rem;color:#424242;margin-top:0.35rem;"
-                f"text-align:center;'>XGBoost quantile regression · "
-                f"{pt20['horizon']}-day horizon{mae_str}</div>"
-                f"</div>",
+
+                + _zone_html
+                + _hist_html
+                + _ev_html
+
+                + f"</div>",
                 unsafe_allow_html=True,
             )
 
-        # ── Feature importance (10-day model) ────────────────────────────────
-        ml_ref = ml10 or ml5 or ml20
-        if ml_ref and ml_ref['top_features']:
-            st.markdown(
-                f"<div style='font-size:0.72rem;color:#9e9e9e;font-weight:700;"
-                f"text-transform:uppercase;letter-spacing:0.7px;"
-                f"margin:1.2rem 0 0.5rem;'>What's driving the prediction</div>",
-                unsafe_allow_html=True,
-            )
-            feat_labels = {
-                'ret_1d': '1-Day Return', 'ret_3d': '3-Day Return', 'ret_5d': '5-Day Return',
-                'ret_10d': '10-Day Return', 'ret_20d': '20-Day Return',
-                'rsi': 'RSI', 'macd_hist': 'MACD Histogram',
-                'bb_pos': 'Bollinger %B', 'atr_norm': 'ATR (normalised)',
-                'dist_e20': 'Distance from EMA20', 'dist_e50': 'Distance from EMA50',
-                'dist_e200': 'Distance from EMA200', 'e20_e50': 'EMA20 vs EMA50',
-                'vol_ratio': 'Volume Ratio', 'adx': 'ADX', 'di_bull': 'DI+ > DI-',
-                'stoch_k': 'Stochastic %K', 'range_pos_20': '20-Day Range Position',
-                'rvol_20': 'Realised Volatility', 'obv_slope': 'OBV Slope',
-            }
-            hrzn = ml_ref['horizon']
-            names = [feat_labels.get(f[0], f[0]) for f in ml_ref['top_features']]
-            vals  = [f[1] for f in ml_ref['top_features']]
-            colors_fi = [BULL if v > vals[0] * 0.6 else PURP if v > vals[0] * 0.3 else "#555"
-                         for v in vals]
+    # ── METHODOLOGY NOTE ──────────────────────────────────────────────────────
+    st.markdown(
+        f"<div style='margin-top:1rem;padding:0.8rem 1rem;"
+        f"background:{BG2};border:1px solid {BDR};border-radius:10px;"
+        f"font-size:0.62rem;color:#555;'>"
+        f"<b style='color:#757575;'>Methodology:</b> "
+        f"Trade direction determined by {len(factor_scores)}-factor scoring engine, "
+        f"5-model ML ensemble (XGBoost · LightGBM · RF · ET · GB) with Platt calibration + "
+        f"TimeSeriesSplit CV, XGBoost quantile regression for price targets (P10–P90), "
+        f"and 25-nearest-neighbour historical pattern matching. "
+        f"Total data: {len(df)} bars · {n_feat} features. "
+        f"Past performance does not guarantee future results.</div>",
+        unsafe_allow_html=True,
+    )
 
-            fig_fi = go.Figure(go.Bar(
-                x=vals[::-1], y=names[::-1],
-                orientation='h',
-                marker=dict(color=colors_fi[::-1], line=dict(width=0)),
-                text=[f'{v:.1f}%' for v in vals[::-1]],
-                textposition='outside', textfont=dict(size=9, color='#9e9e9e'),
-            ))
-            fig_fi.update_layout(
-                height=max(200, len(names) * 28 + 30),
-                paper_bgcolor=BG2, plot_bgcolor=BG,
-                font=dict(color='#757575', size=10),
-                margin=dict(l=10, r=60, t=8, b=8),
-                xaxis=dict(title=f'Importance % ({hrzn}-day model)',
-                           gridcolor=BDR, zeroline=False, showgrid=True),
-                yaxis=dict(gridcolor='rgba(0,0,0,0)', showgrid=False),
-            )
-            st.plotly_chart(fig_fi, width="stretch", config={"displayModeBar": False})
 
-    # ══════════════════════════════════════════════════════════════════════════
-    #  MONTE CARLO SIMULATION
-    # ══════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════════════
+#  PUBLIC GETTER — called from Decision Tab
+# ══════════════════════════════════════════════════════════════════════════════
 
-    if mc:
-        st.markdown(_sec("🎲 Monte Carlo Simulation — 1,000 Random Paths · 20 Days", NEUT),
-                    unsafe_allow_html=True)
+def get_ai_signal(df, cp):
+    """Return a BUY signal dict for the Decision Tab, or None if no trade."""
+    if df is None or len(df) < 30:
+        return None
+    try:
+        latest = df.iloc[-1].to_dict()
+        score, factor_scores, signals = _compute_ai_score(latest, df, float(cp))
+        ml5  = _ml_predict(df, horizon=5)
+        ml10 = _ml_predict(df, horizon=10)
+        ml20 = _ml_predict(df, horizon=20)
+        ana5  = _historical_analogy(df, k=25, horizon=5)
+        ana10 = _historical_analogy(df, k=25, horizon=10)
+        ana20 = _historical_analogy(df, k=25, horizon=20)
 
-        daily_ann_vol = mc['sigma'] * np.sqrt(252) * 100
-        st.markdown(
-            f"<div style='font-size:0.75rem;color:#757575;margin:-0.6rem 0 1rem;'>"
-            f"Each path draws daily returns from this stock's own log-return distribution "
-            f"(μ={mc['mu']*100:.3f}%/day, σ={mc['sigma']*100:.2f}%/day · "
-            f"annualised vol = <b style='color:#9e9e9e;'>{daily_ann_vol:.1f}%</b>). "
-            f"No model — pure statistics.</div>",
-            unsafe_allow_html=True,
-        )
+        bp = 0; rp = 0
+        n_bull = sum(1 for v in factor_scores.values() if v >= 60)
+        n_bear = sum(1 for v in factor_scores.values() if v <= 40)
+        if score >= 65:   bp += 3
+        elif score >= 55: bp += 2
+        elif score <= 35: rp += 3
+        elif score <= 45: rp += 2
+        for _ml in [ml5, ml10, ml20]:
+            if _ml:
+                if   _ml['up_prob'] >= 55: bp += 2
+                elif _ml['up_prob'] <= 45: rp += 2
+        for _an in [ana5, ana10, ana20]:
+            if _an:
+                if   _an['w_win_rate'] >= 55: bp += 1
+                elif _an['w_win_rate'] <= 45: rp += 1
 
-        mc_left, mc_right = st.columns([2, 1], gap="medium")
+        if not (bp >= 5 and bp >= rp + 3):
+            return None
 
-        with mc_left:
-            fig_mc = _build_mc_chart(mc, df)
-            st.plotly_chart(fig_mc, width="stretch", config={"displayModeBar": False})
+        total_pts  = max(bp + rp, 1)
+        conf       = min(round(bp / total_pts * 100), 94)
+        ml_probs   = [m['up_prob']     for m in [ml5, ml10, ml20] if m]
+        ana_wrs    = [a['w_win_rate']  for a in [ana5, ana10, ana20] if a]
+        avg_ml     = round(sum(ml_probs) / len(ml_probs), 1) if ml_probs else None
+        avg_wr     = round(sum(ana_wrs)  / len(ana_wrs),  1) if ana_wrs  else None
+        ana_best   = next((a for a in [ana20, ana10, ana5] if a), None)
 
-        with mc_right:
-            cp = mc['current']
-
-            def _pct_str(price):
-                pct = (price / cp - 1) * 100
-                sign = "+" if pct >= 0 else ""
-                return f"{price:.2f}", f"{sign}{pct:.1f}%"
-
-            scenarios = [
-                ("🐻  Bear (5th %ile)",    mc['p5'],  BEAR),
-                ("Low (25th %ile)",        mc['p25'], "#FF9800"),
-                ("📍 Base (median)",       mc['p50'], NEUT),
-                ("High (75th %ile)",       mc['p75'], "#8BC34A"),
-                ("🚀  Bull (95th %ile)",   mc['p95'], BULL),
-            ]
-
-            for label, price, col in scenarios:
-                pv, ps = _pct_str(price)
-                st.markdown(
-                    f"<div style='background:{BG2};border:1px solid {BDR};"
-                    f"border-radius:8px;padding:0.5rem 0.85rem;margin-bottom:0.35rem;"
-                    f"display:flex;justify-content:space-between;align-items:center;'>"
-                    f"<span style='font-size:0.63rem;color:#757575;'>{label}</span>"
-                    f"<span style='color:{col};font-weight:700;font-size:0.92rem;'>{pv}"
-                    f" <span style='font-size:0.65rem;'>({ps})</span></span></div>",
-                    unsafe_allow_html=True,
-                )
-
-            prob_up = mc['prob_up']
-            p_col = BULL if prob_up > 55 else BEAR if prob_up < 45 else NEUT
-            st.markdown(
-                f"<div style='background:{BG2};border:2px solid {p_col}44;"
-                f"border-radius:12px;padding:0.85rem 1rem;margin-top:0.7rem;text-align:center;'>"
-                f"<div style='font-size:0.55rem;color:#9e9e9e;text-transform:uppercase;"
-                f"letter-spacing:0.9px;font-weight:700;margin-bottom:0.3rem;'>"
-                f"Probability above current price</div>"
-                f"<div style='font-size:2.4rem;font-weight:900;color:{p_col};line-height:1;'>"
-                f"{prob_up:.1f}%</div>"
-                f"<div style='font-size:0.62rem;color:#555;margin-top:0.22rem;'>"
-                f"in {mc['days']} days · 1,000 simulations</div>"
-                f"</div>",
-                unsafe_allow_html=True,
+        reasons = [f"AI Score {score}/100 — {n_bull}/12 indicators bullish"]
+        if avg_ml:
+            reasons.append(f"ML Ensemble: {avg_ml:.0f}% UP probability (5/10/20-day avg)")
+        if ana_best:
+            reasons.append(
+                f"Historical win rate: {ana_best['w_win_rate']:.0f}% "
+                f"from {ana_best['n_similar']} similar setups"
             )
 
-        # Histogram of final prices
-        fig_hist = go.Figure()
-        cp_line = mc['current']
-        above = [v for v in mc['final'] if v >= cp_line]
-        below = [v for v in mc['final'] if v <  cp_line]
-        for sub, col, name in [(above, 'rgba(76,175,80,0.55)', 'Above current'),
-                               (below, 'rgba(244,67,54,0.55)', 'Below current')]:
-            if sub:
-                fig_hist.add_trace(go.Histogram(
-                    x=sub, nbinsx=40,
-                    name=name,
-                    marker=dict(color=col, line=dict(width=0.3, color='rgba(0,0,0,0.3)')),
-                ))
-        fig_hist.add_vline(
-            x=cp_line, line_dash='dash', line_color='rgba(255,255,255,0.35)',
-            line_width=1.5, annotation_text=f'  Current {cp_line:.2f}',
-            annotation_font_color='#9e9e9e', annotation_font_size=9,
+        atr_ser  = (df["High"] - df["Low"]).rolling(14, min_periods=1).mean()
+        atr      = max(float(atr_ser.iloc[-1]), float(cp) * 0.005)
+        swing_lo = float(df["Low"].tail(20).min())
+        _stop    = max(swing_lo - atr * 0.3, float(cp) * 0.92)
+        _risk    = max(float(cp) - _stop, 0.001)
+        _t1      = round(float(cp) + _risk * 1.5, 2)
+        _t2      = round(float(cp) + _risk * 2.5, 2)
+        _t3      = round(float(cp) + _risk * 4.236, 2)
+
+        return dict(
+            color=BULL,
+            verdict_text="▲ LONG",
+            sublabel=f"Deep AI Analysis — Confidence {conf}%",
+            conf=conf,
+            reasons=reasons[:3],
+            entry=float(cp),
+            stop=round(_stop, 2),
+            t1=_t1,
+            t2=_t2,
+            t3=_t3,
         )
-        def _hex_to_rgba(h, a=0.53):
-            h = h.lstrip('#')
-            r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
-            return f'rgba({r},{g},{b},{a})'
-        for pval, pname, pcol in [(mc['p5'], 'P5', BEAR), (mc['p95'], 'P95', BULL)]:
-            fig_hist.add_vline(x=pval, line_dash='dot', line_color=_hex_to_rgba(pcol),
-                               line_width=1)
-        fig_hist.update_layout(
-            barmode='overlay', height=180,
-            paper_bgcolor=BG2, plot_bgcolor=BG,
-            font=dict(color='#757575', size=10),
-            margin=dict(l=10, r=10, t=8, b=8),
-            xaxis=dict(title='Price after 20 days', gridcolor=BDR, zeroline=False),
-            yaxis=dict(title='Paths', gridcolor=BDR),
-            legend=dict(bgcolor=BG2, bordercolor=BDR, borderwidth=1,
-                        font=dict(size=9), orientation='h', y=-0.35, x=0),
-            bargap=0.02,
-        )
-        st.plotly_chart(fig_hist, width="stretch", config={"displayModeBar": False})
-
-
-
-
-
+    except Exception:
+        return None

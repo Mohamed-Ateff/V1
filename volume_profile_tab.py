@@ -422,6 +422,19 @@ def volume_profile_tab(df, current_price):
         unsafe_allow_html=True,
     )
 
+    # ── Price Ladder (BUY only) ──────────────────────────────────────────────
+    if sig["signal"] == "BUY":
+        try:
+            from _levels import price_ladder_html as _plh
+            _vp_stop = sig.get("stop", current_price * 0.97)
+            _vp_t1   = sig.get("t1",   current_price * 1.05)
+            _vp_t2   = sig.get("t2",   current_price * 1.09)
+            _vp_R    = abs(current_price - _vp_stop)
+            _vp_t3   = round(current_price + 5.0 * _vp_R, 2)
+            st.markdown(_plh(current_price, _vp_stop, _vp_t1, _vp_t2, _vp_t3, True), unsafe_allow_html=True)
+        except Exception:
+            pass
+
     # ══ 2. KEY PRICE LEVELS — Volume Based ═══════════════════════════════════
     st.markdown(_sec("Key Price Levels — Volume Based", PURP), unsafe_allow_html=True)
 
@@ -490,133 +503,6 @@ def volume_profile_tab(df, current_price):
             unsafe_allow_html=True,
         )
 
-    # ══ 3. TRADE SETUP ════════════════════════════════════════════════════════
-    st.markdown(_sec("Trade Setup — Entry · Stop Loss · Targets", sig_col), unsafe_allow_html=True)
-
-    if sig["signal"] in ("BUY", "WATCH"):
-        sl_pct   = (sig["stop"] / sig["entry"] - 1) * 100
-        t1_pct   = (sig["t1"]   / sig["entry"] - 1) * 100
-        t2_pct   = (sig["t2"]   / sig["entry"] - 1) * 100
-        conf_pct = min(100, max(0, int(sig["score"] / 80 * 100)))
-
-        def _lr(label, price, color, is_cur=False):
-            bdr = f"border:1px solid {color};" if is_cur else f"border:1px solid {BDR};"
-            bg  = BG if is_cur else BG2
-            return (
-                f"<div style='display:flex;justify-content:space-between;align-items:center;"
-                f"{bdr}border-radius:8px;padding:0.45rem 0.8rem;margin-bottom:0.32rem;"
-                f"background:{bg};'>"
-                f"<span style='font-size:0.62rem;color:#666;font-weight:600;"
-                f"text-transform:uppercase;letter-spacing:0.5px;'>{label}</span>"
-                f"<span style='font-size:0.88rem;font-weight:900;color:{color};'>{price:.2f}</span>"
-                f"</div>"
-            )
-
-        lad_col, met_col = st.columns(2, gap="medium")
-
-        with lad_col:
-            ladder = (
-                _lr("TARGET 2",  sig["t2"],      '#8BC34A')
-              + _lr("TARGET 1",  sig["t1"],      BULL)
-              + _lr("PRICE",     current_price,  '#FFD700', is_cur=True)
-              + _lr("ENTRY",     sig["entry"],   INFO)
-              + _lr("STOP LOSS", sig["stop"],    BEAR)
-            )
-            st.markdown(
-                f"<div style='background:{BG2};border:1px solid {BDR};"
-                f"border-top:3px solid {sig_col};border-radius:14px;"
-                f"padding:1.2rem 1.2rem;'>"
-                f"<div style='font-size:0.56rem;color:#555;text-transform:uppercase;"
-                f"letter-spacing:1px;font-weight:700;margin-bottom:0.8rem;'>Price Ladder</div>"
-                f"{ladder}"
-                f"</div>",
-                unsafe_allow_html=True,
-            )
-
-        with met_col:
-            stats_rows = (
-                f"<div style='display:flex;justify-content:space-between;padding:0.38rem 0;"
-                f"border-bottom:1px solid {BDR};'>"
-                f"<span style='font-size:0.68rem;color:#666;'>Stop risk</span>"
-                f"<span style='font-size:0.78rem;font-weight:800;color:{BEAR};'>{sl_pct:.1f}%</span></div>"
-
-                f"<div style='display:flex;justify-content:space-between;padding:0.38rem 0;"
-                f"border-bottom:1px solid {BDR};'>"
-                f"<span style='font-size:0.68rem;color:#666;'>Target 1 gain</span>"
-                f"<span style='font-size:0.78rem;font-weight:800;color:{BULL};'>+{t1_pct:.1f}%</span></div>"
-
-                f"<div style='display:flex;justify-content:space-between;padding:0.38rem 0;"
-                f"border-bottom:1px solid {BDR};'>"
-                f"<span style='font-size:0.68rem;color:#666;'>Target 2 gain</span>"
-                f"<span style='font-size:0.78rem;font-weight:800;color:#8BC34A;'>+{t2_pct:.1f}%</span></div>"
-
-                f"<div style='display:flex;justify-content:space-between;padding:0.38rem 0;"
-                f"border-bottom:1px solid {BDR};'>"
-                f"<span style='font-size:0.68rem;color:#666;'>R:R to T1</span>"
-                f"<span style='font-size:0.78rem;font-weight:800;color:{BULL};'>{sig['rr1']:.1f}:1</span></div>"
-
-                f"<div style='display:flex;justify-content:space-between;padding:0.38rem 0;'>"
-                f"<span style='font-size:0.68rem;color:#666;'>R:R to T2</span>"
-                f"<span style='font-size:0.78rem;font-weight:800;color:#8BC34A;'>{sig['rr2']:.1f}:1</span></div>"
-            )
-            st.markdown(
-                f"<div style='background:{BG2};border:1px solid {BDR};"
-                f"border-top:3px solid {sig_col};border-radius:14px;"
-                f"padding:1.2rem 1.4rem;'>"
-                f"<div style='font-size:0.56rem;color:#555;text-transform:uppercase;"
-                f"letter-spacing:1px;font-weight:700;margin-bottom:0.5rem;'>Trade Metrics</div>"
-                f"<div style='display:flex;justify-content:space-between;align-items:baseline;"
-                f"margin-bottom:0.4rem;'>"
-                f"<span style='font-size:0.65rem;color:#666;'>Signal Confidence</span>"
-                f"<span style='font-size:1.2rem;font-weight:900;color:{sig_col};'>{conf_pct}%</span>"
-                f"</div>"
-                + _glowbar(conf_pct, sig_col, "6px") +
-                f"<div style='margin-top:0.75rem;'>{stats_rows}</div>"
-                f"</div>",
-                unsafe_allow_html=True,
-            )
-
-    else:
-        conf_pct = min(100, max(0, int(sig["score"] / 80 * 100)))
-        st.markdown(
-            f"<div style='background:{BG2};border:1px solid #44444488;"
-            f"border-left:5px solid #555;border-radius:14px;"
-            f"padding:1.5rem 2rem;'>"
-            f"<div style='font-size:0.65rem;color:#9e9e9e;text-transform:uppercase;"
-            f"letter-spacing:1px;font-weight:700;margin-bottom:0.5rem;'>"
-            f"Volume Profile — No Active Signal</div>"
-            f"<div style='font-size:2rem;font-weight:900;color:#555;"
-            f"letter-spacing:-0.5px;margin-bottom:0.4rem;'>NOT IN ZONE</div>"
-            f"<div style='font-size:0.85rem;color:#9e9e9e;margin-bottom:0.6rem;'>"
-            f"{sig['zone']}</div>"
-            f"<div style='margin-bottom:1rem;'>"
-            f"<div style='display:flex;justify-content:space-between;margin-bottom:0.25rem;'>"
-            f"<span style='font-size:0.67rem;color:#666;text-transform:uppercase;"
-            f"letter-spacing:0.5px;'>Confluence Score</span>"
-            f"<span style='font-size:0.78rem;font-weight:800;color:#555;'>{conf_pct}%</span>"
-            f"</div>"
-            + _glowbar(conf_pct, "#555", "5px") +
-            f"</div>"
-            f"<div style='border-top:1px solid {BDR};padding-top:0.8rem;"
-            f"display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.6rem;'>"
-            + "".join([
-                f"<div style='background:{BG};border-radius:10px;padding:0.65rem 0.85rem;'>"
-                f"<div style='font-size:0.62rem;color:#555;text-transform:uppercase;"
-                f"letter-spacing:0.5px;margin-bottom:0.2rem;'>{ln}</div>"
-                f"<div style='font-size:1.05rem;font-weight:800;color:{lc};'>{lv:.2f}</div>"
-                f"<div style='font-size:0.62rem;color:#555;margin-top:0.1rem;'>{ls}</div>"
-                f"</div>"
-                for ln, lv, lc, ls in [
-                    ("Watch: VAL", val, BULL,      "demand floor"),
-                    ("Watch: POC", poc, "#FFD700", "control level"),
-                    ("Watch: VAH", vah, BEAR,      "supply ceiling"),
-                ]
-            ]) +
-            f"</div>"
-            f"</div>",
-            unsafe_allow_html=True,
-        )
-
     # ══ 4. CHART ══════════════════════════════════════════════════════════════
     st.markdown(_sec("Volume Profile Chart", INFO), unsafe_allow_html=True)
     fig = _build_vp_chart(df, vp, sig, current_price, tail=90)
@@ -650,3 +536,42 @@ def volume_profile_tab(df, current_price):
         f"</div>",
         unsafe_allow_html=True,
     )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  PUBLIC GETTER — called from Decision Tab
+# ══════════════════════════════════════════════════════════════════════════════
+
+def get_vp_signal(df, cp):
+    """Return a BUY signal dict for the Decision Tab, or None if no trade."""
+    if df is None or len(df) < 30:
+        return None
+    if "Volume" not in df.columns or df["Volume"].sum() == 0:
+        return None
+    try:
+        df = df.copy()
+        if "Date" not in df.columns:
+            df = df.reset_index()
+        df["Date"] = pd.to_datetime(df["Date"])
+        vp = _compute_volume_profile(df, bins=40)
+        if vp is None:
+            return None
+        sig = _vp_signal(vp, float(cp), df)
+        if sig["signal"] != "BUY":
+            return None
+        _risk = max(abs(float(cp) - sig["stop"]), 0.001)
+        _t3   = round(float(cp) + _risk * 4.236, 2)
+        return dict(
+            color=BULL,
+            verdict_text="▲ BUY",
+            sublabel=sig["zone"],
+            conf=sig["score"],
+            reasons=sig["reasons"][:3],
+            entry=float(cp),
+            stop=round(sig["stop"], 2),
+            t1=round(sig["t1"], 2),
+            t2=round(sig["t2"], 2),
+            t3=_t3,
+        )
+    except Exception:
+        return None

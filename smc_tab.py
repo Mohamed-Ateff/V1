@@ -701,6 +701,19 @@ def smc_tab(df, current_price):
         unsafe_allow_html=True,
     )
 
+    # ── Price Ladder (BUY only) ──────────────────────────────────────────────
+    if plan["bias"] == "BUY":
+        try:
+            from _levels import price_ladder_html as _s_plh
+            _s_stop = plan["stop_loss"]
+            _s_t1   = plan["take_profit"]
+            _s_R    = abs(cp - _s_stop)
+            _s_t2   = round(cp + _s_R * 3.0, 2)
+            _s_t3   = round(cp + _s_R * 5.0, 2)
+            st.markdown(_s_plh(cp, _s_stop, _s_t1, _s_t2, _s_t3, True), unsafe_allow_html=True)
+        except Exception:
+            pass
+
     # ── 4 SIGNAL CARDS in a single 4-column row ────────────────────────────
     st.markdown(_sec("SMC Signal Breakdown", PURP), unsafe_allow_html=True)
 
@@ -726,14 +739,16 @@ def smc_tab(df, current_price):
             )
 
     # Market Structure
-    recent_sh = sh_prices[-3:] if len(sh_prices) >= 3 else sh_prices
-    recent_sl = sl_prices[-3:] if len(sl_prices) >= 3 else sl_prices
-    sh_labels = " → ".join([f"{p:.2f}" for _, p in recent_sh])
-    sl_labels = " → ".join([f"{p:.2f}" for _, p in recent_sl])
+    last_sh_str = (f"{sh_prices[-2][1]:.2f} → {sh_prices[-1][1]:.2f}"
+                   if len(sh_prices) >= 2 else
+                   f"{sh_prices[-1][1]:.2f}" if sh_prices else "—")
+    last_sl_str = (f"{sl_prices[-2][1]:.2f} → {sl_prices[-1][1]:.2f}"
+                   if len(sl_prices) >= 2 else
+                   f"{sl_prices[-1][1]:.2f}" if sl_prices else "—")
     _sig_card(sc1, trend_color, "Market Structure", trend, trend_color, [
-        ("Swing Highs", sh_labels, trend_color),
-        ("Swing Lows",  sl_labels, trend_color),
-        ("ATR (14)",    f"{plan['atr']:.2f}", "#aaa"),
+        ("Last Highs", last_sh_str, trend_color),
+        ("Last Lows",  last_sl_str, trend_color),
+        ("ATR (14)",   f"{plan['atr']:.2f}", "#aaa"),
     ])
 
     # Liquidity
@@ -750,12 +765,10 @@ def smc_tab(df, current_price):
 
     # CHoCH / BOS
     if choch:
-        ch_color = BULL if choch["direction"] == "Bullish" else BEAR
-        ch_badge = choch["type"]
-        ch_rows  = [
-            ("Type",      choch["type"],                                       ch_color),
-            ("Direction", choch["direction"],                                  ch_color),
-            ("Level",     f"{choch['level']:.2f}" if isinstance(choch['level'], float) else "—", "#aaa"),
+        ch_color  = BULL if choch["direction"] == "Bullish" else BEAR
+        ch_badge  = f"{choch['type']} {choch['direction'][:4]}"
+        ch_rows   = [
+            ("Level", f"{choch['level']:.2f}" if isinstance(choch['level'], float) else "—", ch_color),
         ]
         ch_footer = choch["desc"]
     else:
@@ -779,125 +792,9 @@ def smc_tab(df, current_price):
         fvg_range = "None"; fvg_col2 = "#555"; fvg_type = "—"
     _sig_card(sc4, ob_col2, "Order Block & FVG",
               ob_badge, ob_col2, [
-                  ("OB Zone",  ob_range,  ob_col2),
-                  ("OB Dir.",  ob["direction"] if ob else "—", ob_col2),
-                  ("FVG",      f"{fvg_type}: {fvg_range}", fvg_col2),
+                  ("OB Zone", ob_range,                    ob_col2),
+                  ("FVG",     f"{fvg_type}: {fvg_range}", fvg_col2),
               ])
-
-    # ── TRADE PLAN ────────────────────────────────────────────────────────────
-    st.markdown(_sec("Trade Plan — Entry · Stop Loss · Targets", bias_color), unsafe_allow_html=True)
-
-    sl_p  = plan["stop_loss"]
-    en_lo = plan["entry_lo"]
-    en_hi = plan["entry_hi"]
-    tp1_p = plan["tp1"]
-    tp2_p = plan["take_profit"]
-    cur   = float(cp)
-
-    near_str = "✓ Price in zone" if plan["near_entry"] else "Wait for retrace"
-    near_col = BULL if plan["near_entry"] else NEUT
-
-    sl_pct  = (sl_p  / cur - 1) * 100
-    tp1_pct = (tp1_p / cur - 1) * 100
-    tp2_pct = (tp2_p / cur - 1) * 100
-    risk_pct = abs(cur - sl_p) / cur * 100
-
-    lad_col, met_col = st.columns(2, gap="medium")
-
-    with lad_col:
-        def _ladder_row(label, price, color, is_current=False):
-            border = f"border:1px solid {color};" if is_current else f"border:1px solid {BDR};"
-            bg     = BG if is_current else BG2
-            return (
-                f"<div style='display:flex;justify-content:space-between;align-items:center;"
-                f"{border}border-radius:8px;padding:0.45rem 0.8rem;margin-bottom:0.32rem;"
-                f"background:{bg};'>"
-                f"<span style='font-size:0.62rem;color:#666;font-weight:600;"
-                f"text-transform:uppercase;letter-spacing:0.5px;'>{label}</span>"
-                f"<span style='font-size:0.88rem;font-weight:900;color:{color};'>{price:.2f}</span>"
-                f"</div>"
-            )
-
-        ladder = (
-            _ladder_row("TARGET 2", tp2_p, "#8BC34A")
-          + _ladder_row("TARGET 1", tp1_p, BULL)
-          + _ladder_row("PRICE",    cur,   GOLD, is_current=True)
-          + _ladder_row("ENTRY HI", en_hi, INFO)
-          + _ladder_row("ENTRY LO", en_lo, INFO)
-          + _ladder_row("STOP",     sl_p,  BEAR)
-        )
-        st.markdown(
-            f"<div style='background:{BG2};border:1px solid {BDR};"
-            f"border-top:3px solid {bias_color};border-radius:14px;"
-            f"padding:1.2rem 1.2rem;'>"
-            f"<div style='font-size:0.56rem;color:#555;text-transform:uppercase;"
-            f"letter-spacing:1px;font-weight:700;margin-bottom:0.8rem;'>Price Ladder</div>"
-            f"{ladder}"
-            f"</div>",
-            unsafe_allow_html=True,
-        )
-
-    with met_col:
-        notes_html = "".join([
-            f"<div style='display:flex;align-items:flex-start;gap:0.4rem;"
-            f"padding:0.3rem 0;border-bottom:1px solid {BDR};'>"
-            f"<span style='color:{bias_color};font-size:0.7rem;margin-top:0.05rem;'>▸</span>"
-            f"<span style='font-size:0.68rem;color:#999;line-height:1.45;'>{n}</span>"
-            f"</div>"
-            for n in plan["notes"]
-        ]) or f"<div style='font-size:0.68rem;color:#555;'>No aligned signals.</div>"
-
-        stats_rows = (
-            f"<div style='display:flex;justify-content:space-between;padding:0.38rem 0;"
-            f"border-bottom:1px solid {BDR};'>"
-            f"<span style='font-size:0.68rem;color:#666;'>Stop risk</span>"
-            f"<span style='font-size:0.78rem;font-weight:800;color:{BEAR};'>{risk_pct:.1f}%</span></div>"
-
-            f"<div style='display:flex;justify-content:space-between;padding:0.38rem 0;"
-            f"border-bottom:1px solid {BDR};'>"
-            f"<span style='font-size:0.68rem;color:#666;'>Target 1 gain</span>"
-            f"<span style='font-size:0.78rem;font-weight:800;color:{BULL};'>+{tp1_pct:.1f}%</span></div>"
-
-            f"<div style='display:flex;justify-content:space-between;padding:0.38rem 0;"
-            f"border-bottom:1px solid {BDR};'>"
-            f"<span style='font-size:0.68rem;color:#666;'>Target 2 gain</span>"
-            f"<span style='font-size:0.78rem;font-weight:800;color:#8BC34A;'>+{tp2_pct:.1f}%</span></div>"
-
-            f"<div style='display:flex;justify-content:space-between;padding:0.38rem 0;"
-            f"border-bottom:1px solid {BDR};'>"
-            f"<span style='font-size:0.68rem;color:#666;'>R:R</span>"
-            f"<span style='font-size:0.78rem;font-weight:800;color:{rr_color};'>1:{plan['rr']:.1f}</span></div>"
-
-            f"<div style='display:flex;justify-content:space-between;padding:0.38rem 0;"
-            f"border-bottom:1px solid {BDR};'>"
-            f"<span style='font-size:0.68rem;color:#666;'>Entry zone</span>"
-            f"<span style='font-size:0.78rem;font-weight:800;color:#fff;'>{en_lo:.2f} – {en_hi:.2f}</span></div>"
-
-            f"<div style='display:flex;justify-content:space-between;padding:0.38rem 0;'>"
-            f"<span style='font-size:0.68rem;color:#666;'>Price status</span>"
-            f"<span style='font-size:0.78rem;font-weight:800;color:{near_col};'>{near_str}</span></div>"
-        )
-        st.markdown(
-            f"<div style='background:{BG2};border:1px solid {BDR};"
-            f"border-top:3px solid {conf_color};border-radius:14px;"
-            f"padding:1.2rem 1.4rem;'>"
-            f"<div style='font-size:0.56rem;color:#555;text-transform:uppercase;"
-            f"letter-spacing:1px;font-weight:700;margin-bottom:0.5rem;'>Trade Metrics</div>"
-            f"<div style='display:flex;justify-content:space-between;align-items:baseline;"
-            f"margin-bottom:0.4rem;'>"
-            f"<span style='font-size:0.65rem;color:#666;'>Setup Confidence</span>"
-            f"<span style='font-size:1.2rem;font-weight:900;color:{conf_color};'>{conf}%</span>"
-            f"</div>"
-            + _glowbar(conf, conf_color, "6px") +
-            f"<div style='margin-top:0.75rem;'>{stats_rows}</div>"
-            f"<div style='margin-top:0.8rem;border-top:1px solid {BDR};padding-top:0.6rem;'>"
-            f"<div style='font-size:0.56rem;color:#555;text-transform:uppercase;"
-            f"letter-spacing:1px;font-weight:700;margin-bottom:0.4rem;'>Quality Factors</div>"
-            f"{notes_html}"
-            f"</div>"
-            f"</div>",
-            unsafe_allow_html=True,
-        )
 
     # ── CHART ─────────────────────────────────────────────────────────────────
     st.markdown(_sec("SMC Chart", INFO), unsafe_allow_html=True)
@@ -906,3 +803,66 @@ def smc_tab(df, current_price):
         ob, fvg, sweep, choch, plan, current_price
     )
     st.plotly_chart(fig, width='stretch')
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  PUBLIC GETTER — called from Decision Tab
+# ══════════════════════════════════════════════════════════════════════════════
+
+def get_smc_signal(df, cp):
+    """Return a BUY signal dict for the Decision Tab, or None if no trade."""
+    if df is None or len(df) < 30:
+        return None
+    try:
+        df = df.copy()
+        if "Date" not in df.columns:
+            df = df.reset_index()
+            if "index" in df.columns:
+                df.rename(columns={"index": "Date"}, inplace=True)
+        df["Date"] = pd.to_datetime(df["Date"])
+
+        swing_highs, swing_lows = _find_swing_points(df, left=3, right=3)
+        if len(swing_highs) < 2:
+            swing_highs = list(range(0, len(df) - 1, max(1, len(df) // 8)))
+        if len(swing_lows) < 2:
+            swing_lows  = list(range(0, len(df) - 1, max(1, len(df) // 8)))
+
+        trend, sh_prices, sl_prices  = _market_structure(df, swing_highs, swing_lows)
+        buy_side, sell_side, mh, ml  = _liquidity_zones(df, swing_highs, swing_lows)
+        sweep  = _detect_sweeps(df, buy_side, sell_side, mh, ml)
+        choch  = _detect_choch_bos(df, swing_highs, swing_lows, trend)
+        ob     = _find_order_block(df, swing_highs, swing_lows, trend, choch)
+        fvg    = _find_fvgs(df)
+        plan   = _build_trade_plan(
+            df, float(cp), trend, sweep, choch, ob, fvg,
+            buy_side, sell_side, mh, ml,
+        )
+        if plan["bias"] != "BUY":
+            return None
+
+        _risk = max(abs(float(cp) - plan["stop_loss"]), 0.001)
+        _t3   = round(float(cp) + _risk * 5.0, 2)
+
+        # Build reason list from notes
+        reasons = list(plan["notes"])[:3]
+        if not reasons:
+            reasons = [
+                f"SMC Score: {plan['score']:+d} — institutional bias confirmed",
+                f"Structure: {trend}",
+                f"R:R {plan['rr']:.1f}:1",
+            ]
+
+        return dict(
+            color=BULL,
+            verdict_text="▲ BUY",
+            sublabel=f"Smart Money Concepts — {trend}",
+            conf=plan["confidence"],
+            reasons=reasons,
+            entry=float(cp),
+            stop=plan["stop_loss"],
+            t1=plan["tp1"],
+            t2=plan["take_profit"],
+            t3=_t3,
+        )
+    except Exception:
+        return None

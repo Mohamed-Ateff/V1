@@ -541,14 +541,29 @@ def _score_engine(df, cp):
     is_lean       = verdict in ("LEAN BULL", "LEAN BEAR")
     is_bullish    = verdict in ("BUY", "LEAN BULL")
 
-    entry = cp
-    stop  = round(max(cp * 0.5, cp - atr * 2), 2) if is_bullish else round(cp + atr * 2, 2)
-    t1    = round(cp + atr * 1.5, 2) if is_bullish else round(cp - atr * 1.5, 2)
-    t2    = round(cp + atr * 3.0, 2) if is_bullish else round(cp - atr * 3.0, 2)
-    t3    = round(cp + atr * 5.0, 2) if is_bullish else round(cp - atr * 5.0, 2)
-    risk_pct = abs(cp - stop) / cp * 100 if cp > 0 else 2.0
-    rr1 = abs(t1 - cp) / max(0.01, abs(cp - stop))
-    rr2 = abs(t2 - cp) / max(0.01, abs(cp - stop))
+    entry  = cp
+
+    # ── STOP + TARGETS: delegate to shared _levels module ─────────────────
+    try:
+        from _levels import compute_structural_levels as _csl
+        _lv = _csl(df, cp, is_bullish)
+        stop         = _lv["stop"]
+        t1           = _lv["t1"];  t2 = _lv["t2"];  t3 = _lv["t3"]
+        risk_pct     = _lv["risk_pct"]
+        rr1          = _lv["rr1"]; rr2 = _lv["rr2"]
+        R            = _lv["R"]
+        entry_quality = _lv.get("entry_quality", "")
+        eq_col        = _lv.get("eq_col", "")
+    except Exception:
+        # Fallback: simple ATR-based levels
+        R        = atr * 1.5
+        stop     = round(cp - R, 2) if is_bullish else round(cp + R, 2)
+        t1       = round(cp + 1.618 * R, 2) if is_bullish else round(cp - 1.618 * R, 2)
+        t2       = round(cp + 2.618 * R, 2) if is_bullish else round(cp - 2.618 * R, 2)
+        t3       = round(cp + 4.236 * R, 2) if is_bullish else round(cp - 4.236 * R, 2)
+        risk_pct = round(R / cp * 100, 1) if cp > 0 else 2.0
+        rr1      = 1.6; rr2 = 2.6
+        entry_quality = ""; eq_col = ""
 
     return {
         "verdict": verdict, "confidence": confidence,
@@ -566,6 +581,7 @@ def _score_engine(df, cp):
         "p20d": round(p20d, 2), "p60d": round(p60d, 2),
         "e20": round(e20, 2), "e50": round(e50, 2), "e200": round(e200, 2),
         "w52h": round(w52h, 2), "w52l": round(w52l, 2), "cp": round(cp, 2),
+        "entry_quality": entry_quality, "eq_col": eq_col,
     }
 
 
@@ -850,90 +866,241 @@ def _fallback_horizon(days, d):
 def render_decision_tab(df, symbol_input, stock_name, current_price):
 
     d    = _score_engine(df, current_price)
-    prob = _probability_engine(df, d)
 
-    V = d["verdict"]
+    V       = d["verdict"]
+    cp      = current_price
+    is_bull = d["is_bullish"]
+
+    # Clean 3-way display: BUY / SELL / WAIT only — never contradictory labels
     if V == "BUY":
-        vc, vlbl = BULL, "BUY"
-        vsub = "Strong Bullish Signal"
+        display_v = "BUY";  vc = BULL;       dir_icon = "\u25b2"
+        vsub = "Strong Bullish Confluence \u2014 Actionable Entry"
     elif V == "SELL":
-        vc, vlbl = BEAR, "SELL"
-        vsub = "Strong Bearish Signal"
+        display_v = "SELL"; vc = BEAR;       dir_icon = "\u25bc"
+        vsub = "Strong Bearish Confluence \u2014 Actionable Short"
     elif V == "LEAN BULL":
-        vc, vlbl = BULL, "LEAN BULL"
-        vsub = "Weak Bullish \u2014 Wait for Confirmation"
+        display_v = "WAIT"; vc = "#FFC107";  dir_icon = "\u25c6"
+        vsub = "Leaning Bullish \u2014 Signals Too Weak, Wait for Break"
     elif V == "LEAN BEAR":
-        vc, vlbl = NEUT, "LEAN BEAR"
-        vsub = "Weak Bearish \u2014 Watch for Breakdown"
+        display_v = "WAIT"; vc = "#FFC107";  dir_icon = "\u25c6"
+        vsub = "Leaning Bearish \u2014 No Clear Short Setup Yet"
     else:
-        vc, vlbl = "#FFC107", "WAIT"
-        vsub = "No Clear Edge \u2014 Signals Mixed"
+        display_v = "WAIT"; vc = "#FFC107";  dir_icon = "\u25c6"
+        vsub = "Mixed Signals \u2014 No Actionable Edge"
 
-    conf_c    = BULL if d["confidence"] >= 65 else NEUT if d["confidence"] >= 40 else BEAR
-    score_pct = max(2, min(100, abs(d["pct"])))
-    display_v = "BUY" if V in ("BUY", "LEAN BULL") else "SELL" if V in ("SELL", "LEAN BEAR") else "WAIT"
+    # Signal strength = % of active signals that are bullish (0-100)
+    total_sigs   = d["bull_n"] + d["bear_n"]
+    sig_strength = int(d["bull_n"] / max(1, total_sigs) * 100)
+    conf_c       = BULL if sig_strength >= 60 else NEUT if sig_strength >= 40 else BEAR
+    score_pct    = max(2, min(100, abs(d["pct"])))
 
-    # ── HERO CARD ────────────────────────────────────────────────────────────
-    vc_glow = vc + "22"
+    # ══════════════════════════════════════════════════════════════════════════
+    #  1. HERO CARD
+    # ══════════════════════════════════════════════════════════════════════════
     st.markdown(
-        f"<div style='background:{BG2};"
-        f"border:1px solid {BDR};border-left:5px solid {vc};border-radius:14px;"
-        f"padding:1.8rem 2rem;margin-bottom:1rem;'>"
-        # header row
-        f"<div style='display:flex;align-items:center;justify-content:space-between;"
-        f"margin-bottom:1.3rem;'>"
+        f"<div style='background:linear-gradient(135deg,{BG2} 0%,{BG} 100%);"
+        f"border:1px solid {BDR};border-left:5px solid {vc};"
+        f"border-radius:16px;padding:1.6rem 2rem;margin-bottom:1.2rem;'>"
+        # Top row: Verdict + Confidence
+        f"<div style='display:flex;justify-content:space-between;align-items:flex-start;"
+        f"flex-wrap:wrap;gap:1rem;margin-bottom:1rem;'>"
         f"<div>"
-        f"<div style='font-size:0.58rem;color:#555;text-transform:uppercase;"
-        f"letter-spacing:1.4px;font-weight:700;margin-bottom:0.2rem;'>Decision Intelligence</div>"
-        f"<div style='font-size:0.95rem;color:#ccc;font-weight:600;'>"
-        f"{symbol_input} &nbsp;·&nbsp; {stock_name}</div>"
+        f"<div style='font-size:0.6rem;color:#9e9e9e;text-transform:uppercase;"
+        f"letter-spacing:1.2px;font-weight:700;margin-bottom:0.3rem;'>Decision Intelligence</div>"
+        f"<div style='font-size:3.5rem;font-weight:900;color:{vc};"
+        f"line-height:1;letter-spacing:-1px;'>{dir_icon} {display_v}</div>"
+        f"<div style='font-size:0.82rem;color:#9e9e9e;margin-top:0.4rem;'>{vsub}</div>"
         f"</div>"
-        f"<div style='font-size:0.65rem;color:#555;font-style:italic;'>Algorithmic · Not financial advice</div>"
-        f"</div>"
-        # 3-column content
-        f"<div style='display:grid;grid-template-columns:auto 1fr auto;gap:2rem;align-items:center;'>"
-        # left: verdict
-        f"<div style='text-align:center;'>"
-        f"<div style='background:{vc_glow};border:2px solid {vc};"
-        f"border-radius:12px;padding:0.6rem 1.4rem;display:inline-block;'>"
-        f"<div style='font-size:2.4rem;font-weight:900;color:{vc};"
-        f"letter-spacing:1px;line-height:1;'>{display_v}</div>"
-        f"</div>"
-        f"<div style='font-size:0.7rem;color:#888;margin-top:0.5rem;font-weight:600;'>{vsub}</div>"
-        f"</div>"
-        # center: score
-        f"<div>"
-        f"<div style='display:flex;justify-content:space-between;margin-bottom:0.3rem;'>"
-        f"<span style='font-size:0.62rem;color:#666;text-transform:uppercase;"
-        f"letter-spacing:0.8px;font-weight:700;'>Composite Score</span>"
-        f"<span style='font-size:0.75rem;color:#ccc;font-weight:800;'>"
-        f"{d['total_pts']:+d} pts&nbsp;/&nbsp;±{d['total_max']}</span>"
-        f"</div>"
-        + _glowbar(score_pct, vc, "8px") +
-        f"<div style='display:flex;justify-content:space-between;margin-top:0.6rem;'>"
-        f"<span style='font-size:0.68rem;color:{BULL};font-weight:700;"
-        f"background:{BULL}18;border-radius:6px;padding:0.2rem 0.5rem;'>"
-        f"▲&nbsp;{d['bull_n']} Bullish</span>"
-        f"<span style='font-size:0.68rem;color:{BEAR};font-weight:700;"
-        f"background:{BEAR}18;border-radius:6px;padding:0.2rem 0.5rem;'>"
-        f"▼&nbsp;{d['bear_n']} Bearish</span>"
+        f"<div style='text-align:right;'>"
+        f"<div style='font-size:0.6rem;color:#9e9e9e;text-transform:uppercase;"
+        f"letter-spacing:1.2px;font-weight:700;margin-bottom:0.3rem;'>Signal Strength</div>"
+        f"<div style='font-size:3rem;font-weight:900;color:{conf_c};"
+        f"line-height:1;letter-spacing:-1px;'>{sig_strength}%</div>"
+        f"<div style='font-size:0.72rem;color:#757575;margin-top:0.2rem;'>"
+        f"{d['bull_n']} of {total_sigs} signals bullish</div>"
         f"</div>"
         f"</div>"
-        # right: confidence
-        f"<div style='text-align:center;background:{BG};"
-        f"border:1px solid {BDR};border-radius:14px;padding:1rem 1.4rem;min-width:90px;'>"
-        f"<div style='font-size:2rem;font-weight:900;color:{conf_c};"
-        f"line-height:1;'>{d['confidence']}%</div>"
-        f"<div style='font-size:0.58rem;text-transform:uppercase;letter-spacing:1px;"
-        f"color:#555;margin-top:0.25rem;font-weight:700;'>Confidence</div>"
-        f"<div style='height:1px;background:{BDR};margin:0.5rem 0;'></div>"
-        f"<div style='font-size:0.65rem;color:#777;'>"
-        f"Regime&nbsp;<b style='color:#ccc;'>{d['regime']}</b></div>"
+        # Score bar
+        f"<div style='margin-bottom:0.8rem;'>"
+        f"<div style='display:flex;justify-content:space-between;font-size:0.7rem;"
+        f"color:#888;margin-bottom:0.35rem;font-weight:600;'>"
+        f"<span>Composite Signal Score</span>"
+        f"<span style='color:{vc};font-weight:800;'>{d['pct']:+.0f}%</span></div>"
+        + _glowbar(score_pct, vc, '10px') +
         f"</div>"
-        f"</div></div>",
+        f"</div>",
         unsafe_allow_html=True,
     )
 
-    # ── 3 SUB-CARDS: Market Structure · Pattern Signal · Volume Profile ───
-    st.markdown(_sec("Signal Overview", INFO), unsafe_allow_html=True)
-    _render_signal_summaries(df, current_price)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    #  2. PRICE LADDER  (BUY signal only)
+    # ══════════════════════════════════════════════════════════════════════════
+    if V == "BUY":
+        from _levels import price_ladder_html as _plh
+        st.markdown(
+            _plh(d["entry"], d["stop"], d["t1"], d["t2"], d["t3"], True,
+                 d.get("entry_quality", ""), d.get("eq_col", "")),
+            unsafe_allow_html=True,
+        )
+
+    # ══════════════════════════════════════════════════════════════════════════
+    #  3. LIVE BUY SIGNALS FROM ALL TABS
+    # ══════════════════════════════════════════════════════════════════════════
+    st.markdown(_sec("Live Buy Signals", BULL), unsafe_allow_html=True)
+
+    # ── Collect signals from each tab ─────────────────────────────────────────
+    _tab_signals = []   # list of (tab_label, signal_dict)
+
+    try:
+        from price_action_tab import get_pa_signal as _get_pa
+        _s = _get_pa(df, cp)
+        if _s:
+            _tab_signals.append(("Patterns & Price Action", _s))
+    except Exception:
+        pass
+
+    try:
+        from patterns_tab import get_patterns_signal as _get_pat
+        _s = _get_pat(df, cp)
+        if _s:
+            _tab_signals.append(("Patterns", _s))
+    except Exception:
+        pass
+
+    try:
+        from volume_profile_tab import get_vp_signal as _get_vp
+        _s = _get_vp(df, cp)
+        if _s:
+            _tab_signals.append(("Volume Profile", _s))
+    except Exception:
+        pass
+
+    try:
+        from smc_tab import get_smc_signal as _get_smc
+        _s = _get_smc(df, cp)
+        if _s:
+            _tab_signals.append(("Smart Money Concepts", _s))
+    except Exception:
+        pass
+
+    try:
+        from gemini_tab import get_ai_signal as _get_ai
+        _s = _get_ai(df, cp)
+        if _s:
+            _tab_signals.append(("AI Analysis", _s))
+    except Exception:
+        pass
+
+    # ── Render each signal box ────────────────────────────────────────────────
+    if not _tab_signals:
+        st.markdown(
+            f"<div style='background:{BG2};border:1px solid {BDR};"
+            f"border-radius:14px;padding:1.6rem 2rem;'>"
+            f"<div style='font-size:0.8rem;color:#555;text-align:center;'>"
+            f"&#8212;&nbsp; No active BUY signals &nbsp;&#8212;<br>"
+            f"<span style='font-size:0.7rem;'>Stand aside until conditions improve.</span>"
+            f"</div></div>",
+            unsafe_allow_html=True,
+        )
+    else:
+        from _levels import price_ladder_html as _dec_plh
+
+        # Unique accent per tab so each card is visually distinct
+        _TAB_ACCENTS = {
+            "Patterns & Price Action": "#4A9EFF",   # blue
+            "Patterns":                "#9c27b0",   # purple
+            "Volume Profile":          "#ff9800",   # amber
+            "Smart Money Concepts":    "#00bcd4",   # cyan
+            "AI Analysis":             "#4caf50",   # green
+        }
+
+        for _tlabel, _sig in _tab_signals:
+            _accent = _TAB_ACCENTS.get(_tlabel, BULL)
+            _conf   = _sig.get("conf", 50)
+            _cc     = BULL if _conf >= 65 else (NEUT if _conf >= 45 else BEAR)
+
+            # ── Confidence ring (pure CSS) ───────────────────────────────────
+            _deg    = round(_conf / 100 * 360)
+            _ring   = (
+                f"conic-gradient({_cc} 0deg {_deg}deg, #2a2a2a {_deg}deg 360deg)"
+            )
+
+            # ── Header card: tab name pill + confidence ring ─────────────────
+            st.markdown(
+                f"<div style='"
+                f"background:{BG2};"
+                f"border:1px solid {_accent}44;"
+                f"border-top:3px solid {_accent};"
+                f"border-radius:16px;"
+                f"padding:1.2rem 1.6rem 1rem;"
+                f"margin-bottom:0.6rem;"
+                f"display:flex;align-items:center;justify-content:space-between;"
+                f"gap:1.5rem;'>"
+
+                # left: label pill + BUY badge
+                f"<div style='display:flex;align-items:center;gap:1rem;'>"
+                f"<div style='"
+                f"background:{BULL}18;"
+                f"border:1.5px solid {BULL};"
+                f"border-radius:999px;"
+                f"padding:0.3rem 1rem;"
+                f"font-size:0.72rem;font-weight:800;color:{BULL};"
+                f"letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;'>"
+                f"{_tlabel}"
+                f"</div>"
+                f"<div style='"
+                f"font-size:1.6rem;font-weight:900;color:{BULL};"
+                f"letter-spacing:-0.5px;line-height:1;'>"
+                f"&#9650; BUY"
+                f"</div>"
+                f"</div>"
+
+                # right: confidence ring
+                f"<div style='display:flex;align-items:center;gap:0.9rem;flex-shrink:0;'>"
+                f"<div style='"
+                f"width:54px;height:54px;border-radius:50%;"
+                f"background:{_ring};"
+                f"display:flex;align-items:center;justify-content:center;"
+                f"box-shadow:0 0 12px {_accent}44;'>"
+                f"<div style='"
+                f"width:38px;height:38px;border-radius:50%;"
+                f"background:{BG2};"
+                f"display:flex;align-items:center;justify-content:center;"
+                f"font-size:0.82rem;font-weight:900;color:{_cc};'>"
+                f"{_conf}%"
+                f"</div>"
+                f"</div>"
+                f"<div>"
+                f"<div style='font-size:0.48rem;color:#555;text-transform:uppercase;"
+                f"letter-spacing:0.6px;font-weight:700;'>Confidence</div>"
+                f"<div style='font-size:0.7rem;font-weight:700;color:{_cc};'>"
+                f"{'Strong' if _conf >= 65 else ('Moderate' if _conf >= 45 else 'Weak')}"
+                f"</div>"
+                f"</div>"
+                f"</div>"
+
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+
+            # ── Price Ladder ─────────────────────────────────────────────────
+            try:
+                st.markdown(
+                    _dec_plh(
+                        _sig["entry"], _sig["stop"],
+                        _sig["t1"], _sig["t2"], _sig["t3"],
+                        True,
+                        _sig.get("entry_quality", ""),
+                        _sig.get("eq_col", ""),
+                    ),
+                    unsafe_allow_html=True,
+                )
+            except Exception:
+                pass
+
+            # ── Divider between cards ────────────────────────────────────────
+            st.markdown(
+                f"<div style='border-top:1px solid {BDR};margin:1.2rem 0 1.4rem;'></div>",
+                unsafe_allow_html=True,
+            )

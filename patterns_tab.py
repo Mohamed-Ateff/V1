@@ -792,6 +792,16 @@ def patterns_tab(df):
     )
     st.markdown(hero_html, unsafe_allow_html=True)
 
+    # ── Price Ladder (BUY only) ──────────────────────────────────────────────
+    if signal_lbl == "BUY":
+        try:
+            from _levels import compute_structural_levels as _csl, render_price_ladder as _rpl
+            _p_lv = _csl(df, current_price, True)
+            _rpl(_p_lv["entry"], _p_lv["stop"], _p_lv["t1"], _p_lv["t2"], _p_lv["t3"], True,
+                 _p_lv.get("entry_quality", ""), _p_lv.get("eq_col", ""))
+        except Exception:
+            pass
+
     # ── Chart ────────────────────────────────────────────────────────────────
     st.plotly_chart(
         _build_pattern_chart(df, all_patterns, current_price),
@@ -813,4 +823,83 @@ def patterns_tab(df):
             "</div>",
             unsafe_allow_html=True,
         )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  PUBLIC GETTER — called from Decision Tab
+# ══════════════════════════════════════════════════════════════════════════════
+
+def get_patterns_signal(df, cp):
+    """Return a BUY signal dict for the Decision Tab, or None if no bullish signal."""
+    if df is None or len(df) < 30:
+        return None
+    required = ["Open", "High", "Low", "Close", "Date"]
+    if any(c not in df.columns for c in required):
+        return None
+    try:
+        df = df.copy()
+        df["Date"] = pd.to_datetime(df["Date"])
+
+        cs_patterns  = _detect_candlestick(df)
+        ch_patterns  = _detect_chart(df)
+        all_patterns = cs_patterns + ch_patterns
+        all_patterns.sort(key=lambda x: (pd.to_datetime(x["date"]), x["strength"]), reverse=True)
+
+        recent_dates = set(df["Date"].tail(10).dt.normalize().tolist())
+        active = [p for p in all_patterns
+                  if pd.to_datetime(p["date"]).normalize() in recent_dates]
+
+        bull_cnt = sum(1 for p in active if p["type"] == "Bullish")
+        bear_cnt = sum(1 for p in active if p["type"] == "Bearish")
+        net_bias = bull_cnt - bear_cnt
+
+        if net_bias <= 0 or bull_cnt == 0:
+            return None
+
+        bull_patterns = [p for p in active if p["type"] == "Bullish"]
+        strongest     = max(bull_patterns, key=lambda p: p["strength"])
+        top_names     = ", ".join(p["pattern"] for p in sorted(
+            bull_patterns, key=lambda x: x["strength"], reverse=True
+        )[:3])
+
+        reasons = [
+            f"{bull_cnt} bullish vs {bear_cnt} bearish patterns in last 10 sessions",
+            f"Strongest: {strongest['pattern']} ({strongest['strength']}% strength)",
+        ]
+        if len(bull_patterns) >= 2:
+            reasons.append(f"Active bullish patterns: {top_names}")
+
+        # Compute trade levels using _levels
+        try:
+            from _levels import compute_structural_levels as _csl
+            _lv = _csl(df, float(cp), True)
+            _entry = _lv["entry"]; _stop = _lv["stop"]
+            _t1 = _lv["t1"]; _t2 = _lv["t2"]; _t3 = _lv["t3"]
+        except Exception:
+            _atr   = max(float((df["High"] - df["Low"]).rolling(14, min_periods=1).mean().iloc[-1]),
+                         float(cp) * 0.005)
+            _entry = float(cp)
+            _stop  = round(_entry - _atr * 2.0, 2)
+            _risk  = max(_entry - _stop, 0.001)
+            _t1    = round(_entry + _risk * 1.5, 2)
+            _t2    = round(_entry + _risk * 2.5, 2)
+            _t3    = round(_entry + _risk * 4.236, 2)
+
+        conf = min(round(bull_cnt / max(bull_cnt + bear_cnt, 1) * 100), 94)
+        conf = max(conf, strongest["strength"])
+
+        return dict(
+            color=BULL,
+            verdict_text="▲ BUY",
+            sublabel=f"Pattern Signal — {bull_cnt} bullish patterns active",
+            conf=conf,
+            reasons=reasons[:3],
+            entry=_entry,
+            stop=_stop,
+            t1=_t1,
+            t2=_t2,
+            t3=_t3,
+        )
+    except Exception:
+        return None
 
