@@ -649,13 +649,23 @@ def _build_ml_features(_df):
     return feat
 
 
-@st.cache_data(ttl=300, show_spinner=False)
+@st.cache_data(ttl=3600, show_spinner=False)
 def _ml_predict(_df, horizon=10):
     """
     5-model ensemble + Platt calibration + TimeSeriesSplit cross-validation.
     Models: XGBoost · LightGBM · RandomForest · ExtraTrees · GradientBoosting.
     Purged walk-forward with embargo gap — zero lookahead bias.
+    Models are persisted to disk with joblib to avoid full retraining after restarts.
     """
+    import os as _os
+    import hashlib as _hashlib
+
+    try:
+        import joblib as _joblib
+        _joblib_ok = True
+    except ImportError:
+        _joblib_ok = False
+
     try:
         from sklearn.ensemble import (
             RandomForestClassifier, ExtraTreesClassifier,
@@ -673,6 +683,24 @@ def _ml_predict(_df, horizon=10):
     feat = _build_ml_features(df)
     if len(feat) < 60:
         return None
+
+    # ── Joblib cache key: hash of last 20 close prices + horizon ─────────────
+    _cache_key = None
+    _cache_path = None
+    if _joblib_ok:
+        try:
+            _n_closes = df["Close"].iloc[-20:].round(4).values
+            _key_str  = f"ml_{horizon}_" + "_".join(str(v) for v in _n_closes)
+            _cache_key = _hashlib.md5(_key_str.encode()).hexdigest()
+            _cache_dir = _os.path.join(_os.path.dirname(__file__), ".ml_cache")
+            _os.makedirs(_cache_dir, exist_ok=True)
+            _cache_path = _os.path.join(_cache_dir, f"{_cache_key}.joblib")
+            if _os.path.isfile(_cache_path):
+                _cached = _joblib.load(_cache_path)
+                if isinstance(_cached, dict) and "up_prob" in _cached:
+                    return _cached
+        except Exception:
+            _cache_path = None
 
     # Compute latest-bar features BEFORE slicing for training
     # (feat[-1] after horizon removal is horizon days old, not today)
@@ -820,7 +848,7 @@ def _ml_predict(_df, horizon=10):
             for nm, v in sorted(avg_imp.items(), key=lambda x: x[1], reverse=True)[:10]
         ]
 
-    return {
+    _result = {
         'model_name':   f'{len(base_clfs)}-Model Ensemble',
         'horizon':      horizon,
         'up_prob':      round(up_prob, 1),
@@ -832,6 +860,15 @@ def _ml_predict(_df, horizon=10):
         'n_features':   len(feat.columns),
         'model_accs':   model_accs,
     }
+
+    # ── Persist result to disk so restarts skip retraining ────────────────────
+    if _joblib_ok and _cache_path:
+        try:
+            _joblib.dump(_result, _cache_path)
+        except Exception:
+            pass
+
+    return _result
 
 
 @st.cache_data(ttl=300, show_spinner=False)
@@ -929,6 +966,7 @@ def _historical_analogy(_df, k=25, horizon=10):
     Find the k most similar past market setups using KNN on all 45 features.
     Report what actually happened in those cases — fully transparent, zero black-box.
     This is the most honest form of 'prediction': consensus of historical analogues.
+    Features are ATR-normalised before KNN so a 10 SAR stock matches a 200 SAR stock.
     """
     try:
         from sklearn.preprocessing import RobustScaler
@@ -941,8 +979,27 @@ def _historical_analogy(_df, k=25, horizon=10):
     if len(feat) < k + horizon + 20:
         return None
 
+    # ── ATR normalization before scaling ──────────────────────────────────────
+    # Compute 14-bar ATR for every row and divide momentum / vol features by it.
+    # This makes the distance metric stable across price levels.
+    try:
+        _h = df["High"].astype(float).reindex(feat.index)
+        _l = df["Low"].astype(float).reindex(feat.index)
+        _c = df["Close"].astype(float).reindex(feat.index)
+        _tr = _h.combine(_l, max) - _l  # simplified TR approx
+        _atr_ser = _tr.rolling(14, min_periods=1).mean()
+        _atr_arr = _atr_ser.values.reshape(-1, 1)
+        _atr_arr = np.where(_atr_arr > 0, _atr_arr, 1.0)
+        feat_norm = feat.copy()
+        # Divide all ROC / return-type columns (prefix roc_, range_pos_) by ATR
+        for _col in feat_norm.columns:
+            if any(_col.startswith(p) for p in ("roc_", "range_pos_")):
+                feat_norm[_col] = feat_norm[_col].values / _atr_arr.ravel()
+    except Exception:
+        feat_norm = feat  # fall back to raw features if ATR calc fails
+
     scaler = RobustScaler()
-    X      = scaler.fit_transform(feat.values)
+    X      = scaler.fit_transform(feat_norm.values)
     close  = df['Close'].reindex(feat.index).values
 
     # Current state (last bar)

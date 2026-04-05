@@ -211,7 +211,7 @@ def _render_signal_summaries(df, current_price):
             f"<div style='background:{BG2};border:1px solid {BDR};"
             f"border-top:3px solid {c};border-radius:14px;"
             f"padding:1.1rem 1.2rem;'>"
-            f"<div style='font-size:0.58rem;color:#666;text-transform:uppercase;"
+            f"<div style='font-size:0.62rem;color:#666;text-transform:uppercase;"
             f"letter-spacing:1px;font-weight:700;margin-bottom:0.55rem;'>{card['label']}</div>"
             f"<div style='display:inline-block;background:{sbg};"
             f"border:1.5px solid {c};border-radius:8px;"
@@ -871,6 +871,7 @@ def render_decision_tab(df, symbol_input, stock_name, current_price):
     cp      = current_price
     is_bull = d["is_bullish"]
 
+
     # Clean 3-way display: BUY / SELL / WAIT only — never contradictory labels
     if V == "BUY":
         display_v = "BUY";  vc = BULL;       dir_icon = "\u25b2"
@@ -940,7 +941,8 @@ def render_decision_tab(df, symbol_input, stock_name, current_price):
         from _levels import price_ladder_html as _plh
         st.markdown(
             _plh(d["entry"], d["stop"], d["t1"], d["t2"], d["t3"], True,
-                 d.get("entry_quality", ""), d.get("eq_col", "")),
+                 d.get("entry_quality", ""), d.get("eq_col", ""),
+                 d.get("entry_zone_lo"), d.get("entry_zone_hi")),
             unsafe_allow_html=True,
         )
 
@@ -948,6 +950,53 @@ def render_decision_tab(df, symbol_input, stock_name, current_price):
     #  3. LIVE BUY SIGNALS FROM ALL TABS
     # ══════════════════════════════════════════════════════════════════════════
     st.markdown(_sec("Live Buy Signals", BULL), unsafe_allow_html=True)
+
+
+    # ── Multi-timeframe D1 filter ─────────────────────────────────────────────
+    _d1_filter_ok   = True   # default: pass
+    _d1_filter_warn = ""
+    try:
+        import yfinance as _yf
+        _sym_d1 = symbol_input.strip()
+        _d1_key = f"_d1_df_{_sym_d1}"
+        if _d1_key not in st.session_state:
+            _tf_df = _yf.download(_sym_d1, period="1y", interval="1d",
+                                  progress=False, auto_adjust=True)
+            st.session_state[_d1_key] = _tf_df
+        else:
+            _tf_df = st.session_state[_d1_key]
+
+        if _tf_df is not None and len(_tf_df) >= 55:
+            _d1_close = _tf_df["Close"].astype(float)
+            _d1_e50   = float(_d1_close.rolling(50).mean().iloc[-1])
+            _d1_prev5 = float(_d1_close.rolling(50).mean().iloc[-6])
+            _d1_cp    = float(_d1_close.iloc[-1])
+            _d1_rising = _d1_e50 > _d1_prev5
+            if _d1_cp < _d1_e50 and not _d1_rising:
+                _d1_filter_ok   = False
+                _d1_filter_warn = (
+                    f"&#128200; <b>Daily D1 bearish</b>: price is below the 50-day EMA "
+                    f"({_d1_e50:.2f}) and the EMA is declining. "
+                    f"Intraday BUY signals are counter-trend — trade with reduced size."
+                )
+            elif _d1_cp < _d1_e50:
+                _d1_filter_warn = (
+                    f"&#8595; <b>Daily D1 caution</b>: price is below the 50-day EMA "
+                    f"({_d1_e50:.2f}). Trend is recovering but not yet confirmed."
+                )
+    except Exception:
+        pass
+
+    if _d1_filter_warn:
+        _d1_col = BEAR if not _d1_filter_ok else NEUT
+        st.markdown(
+            f"<div style='background:{_d1_col}18;border:1px solid {_d1_col}55;"
+            f"border-left:4px solid {_d1_col};border-radius:10px;"
+            f"padding:0.75rem 1.1rem;margin-bottom:1rem;"
+            f"font-size:0.8rem;color:#ccc;line-height:1.5;'>"
+            f"{_d1_filter_warn}</div>",
+            unsafe_allow_html=True,
+        )
 
     # ── Collect signals from each tab ─────────────────────────────────────────
     _tab_signals = []   # list of (tab_label, signal_dict)
@@ -1072,7 +1121,7 @@ def render_decision_tab(df, symbol_input, stock_name, current_price):
                 f"</div>"
                 f"</div>"
                 f"<div>"
-                f"<div style='font-size:0.48rem;color:#555;text-transform:uppercase;"
+                f"<div style='font-size:0.62rem;color:#555;text-transform:uppercase;"
                 f"letter-spacing:0.6px;font-weight:700;'>Confidence</div>"
                 f"<div style='font-size:0.7rem;font-weight:700;color:{_cc};'>"
                 f"{'Strong' if _conf >= 65 else ('Moderate' if _conf >= 45 else 'Weak')}"
@@ -1093,6 +1142,8 @@ def render_decision_tab(df, symbol_input, stock_name, current_price):
                         True,
                         _sig.get("entry_quality", ""),
                         _sig.get("eq_col", ""),
+                        _sig.get("entry_zone_lo"),
+                        _sig.get("entry_zone_hi"),
                     ),
                     unsafe_allow_html=True,
                 )
@@ -1104,3 +1155,111 @@ def render_decision_tab(df, symbol_input, stock_name, current_price):
                 f"<div style='border-top:1px solid {BDR};margin:1.2rem 0 1.4rem;'></div>",
                 unsafe_allow_html=True,
             )
+
+    # ══════════════════════════════════════════════════════════════════════════
+    #  4. SIGNAL BACKTESTING  (last 252 bars)
+    # ══════════════════════════════════════════════════════════════════════════
+    with st.expander("Run historical signal simulation", expanded=False):
+        if st.button("Run Backtest", key="btn_backtest_run"):
+            with st.spinner("Simulating..."):
+                try:
+                    import numpy as _np2
+                    _bt_df   = df.iloc[-252:].copy().reset_index(drop=True)
+                    _bt_n    = len(_bt_df)
+                    _bt_wins = 0; _bt_losses = 0; _bt_neutral = 0
+                    _bt_rs   = []
+
+                    for _bi in range(15, _bt_n - 5):
+                        _sub     = _bt_df.iloc[:_bi].copy()
+                        _sub_cp  = float(_sub["Close"].iloc[-1])
+                        try:
+                            _sub_d   = _score_engine(_sub, _sub_cp)
+                        except Exception:
+                            continue
+                        if _sub_d.get("verdict") != "BUY":
+                            continue
+                        _s_stop = _sub_d["stop"]
+                        _s_t1   = _sub_d["t1"]
+                        _R      = max(0.001, _sub_cp - _s_stop)
+                        # Forward-test over next 5 bars
+                        _outcome = 0
+                        for _fwd in range(1, 6):
+                            if _bi + _fwd >= _bt_n:
+                                break
+                            _fwd_h  = float(_bt_df["High"].iloc[_bi + _fwd])
+                            _fwd_l  = float(_bt_df["Low"].iloc[_bi + _fwd])
+                            if _fwd_l <= _s_stop:
+                                _outcome = -1; break
+                            if _fwd_h >= _s_t1:
+                                _outcome = 1;  break
+                        if _outcome == 1:
+                            _bt_wins   += 1
+                            _bt_rs.append(abs(_s_t1 - _sub_cp) / _R)
+                        elif _outcome == -1:
+                            _bt_losses += 1; _bt_rs.append(-1.0)
+                        else:
+                            _bt_neutral += 1
+
+                    _total   = _bt_wins + _bt_losses
+                    _wr      = round(_bt_wins / max(1, _total) * 100, 1)
+                    _avg_r   = round(float(_np2.mean(_bt_rs)) if _bt_rs else 0.0, 2)
+                    _max_dd  = 0.0
+                    _cum = 0.0
+                    _peak = 0.0
+                    for _r in _bt_rs:
+                        _cum  += _r
+                        _peak  = max(_peak, _cum)
+                        _dd    = _peak - _cum
+                        _max_dd = max(_max_dd, _dd)
+
+                    _wr_col  = BULL if _wr >= 55 else (NEUT if _wr >= 45 else BEAR)
+                    _avgr_col = BULL if _avg_r >= 0.5 else (NEUT if _avg_r >= 0 else BEAR)
+                    st.markdown(
+                        f"<div style='display:grid;grid-template-columns:repeat(4,1fr);"
+                        f"gap:1rem;margin:0.8rem 0;'>"
+                        f"<div style='background:{BG2};border:1px solid {BDR};"
+                        f"border-top:3px solid {_wr_col};border-radius:12px;"
+                        f"padding:1rem;text-align:center;'>"
+                        f"<div style='font-size:0.6rem;color:#666;text-transform:uppercase;"
+                        f"letter-spacing:0.8px;font-weight:700;margin-bottom:0.4rem;'>Win Rate</div>"
+                        f"<div style='font-size:2rem;font-weight:900;color:{_wr_col};'>"
+                        f"{_wr}%</div>"
+                        f"<div style='font-size:0.65rem;color:#555;'>{_bt_wins}W / {_bt_losses}L</div>"
+                        f"</div>"
+                        f"<div style='background:{BG2};border:1px solid {BDR};"
+                        f"border-top:3px solid {_avgr_col};border-radius:12px;"
+                        f"padding:1rem;text-align:center;'>"
+                        f"<div style='font-size:0.6rem;color:#666;text-transform:uppercase;"
+                        f"letter-spacing:0.8px;font-weight:700;margin-bottom:0.4rem;'>Avg R</div>"
+                        f"<div style='font-size:2rem;font-weight:900;color:{_avgr_col};'>"
+                        f"{_avg_r:+.2f}R</div>"
+                        f"<div style='font-size:0.65rem;color:#555;'>per trade</div>"
+                        f"</div>"
+                        f"<div style='background:{BG2};border:1px solid {BDR};"
+                        f"border-top:3px solid {BEAR};border-radius:12px;"
+                        f"padding:1rem;text-align:center;'>"
+                        f"<div style='font-size:0.6rem;color:#666;text-transform:uppercase;"
+                        f"letter-spacing:0.8px;font-weight:700;margin-bottom:0.4rem;'>Max Drawdown</div>"
+                        f"<div style='font-size:2rem;font-weight:900;color:{BEAR};'>"
+                        f"{_max_dd:.1f}R</div>"
+                        f"<div style='font-size:0.65rem;color:#555;'>consecutive losses</div>"
+                        f"</div>"
+                        f"<div style='background:{BG2};border:1px solid {BDR};"
+                        f"border-top:3px solid {INFO};border-radius:12px;"
+                        f"padding:1rem;text-align:center;'>"
+                        f"<div style='font-size:0.6rem;color:#666;text-transform:uppercase;"
+                        f"letter-spacing:0.8px;font-weight:700;margin-bottom:0.4rem;'>Signals Found</div>"
+                        f"<div style='font-size:2rem;font-weight:900;color:{INFO};'>"
+                        f"{_total}</div>"
+                        f"<div style='font-size:0.65rem;color:#555;'>{_bt_neutral} inconclusive</div>"
+                        f"</div>"
+                        f"</div>",
+                        unsafe_allow_html=True,
+                    )
+                    st.caption(
+                        "Simulation uses the same signal engine on the last 252 bars. "
+                        "Each BUY signal is evaluated over 5 forward bars: Win = T1 hit first, "
+                        "Loss = Stop hit first. Past performance does not guarantee future results."
+                    )
+                except Exception as _bt_e:
+                    st.warning(f"Backtest failed: {_bt_e}")

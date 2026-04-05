@@ -142,19 +142,40 @@ def _compute_structural_levels_impl(df, cp, is_bullish):
     w52h = float(high.iloc[-lb:].max())
     w52l = float(low.iloc[-lb:].min())
 
+    # ── Demand candle bodies (for stop anchor) ────────────────────────────
+    # Find the CLOSE of confirmed bullish demand candles near pivot lows.
+    # Using candle body close instead of wick low avoids stop hunts on
+    # Saudi stocks that gap or spike through wick lows regularly.
+    open_  = df["Open"].astype(float) if "Open" in df.columns else close
+    bodies_lo = []   # (body_low, bar_index)
+    for i in range(max(0, n - 120), n):
+        o = float(open_.iloc[i]); c_ = float(close.iloc[i])
+        l = float(low.iloc[i])
+        # Bullish demand candle: closes near its high, wick >= 30% of range
+        rng = float(high.iloc[i]) - l
+        lw  = min(o, c_) - l
+        if rng > 0 and lw / rng >= 0.30 and c_ >= o:
+            bodies_lo.append((min(o, c_), i))     # body low = open (bullish)
+
     # ── Pivot detection ───────────────────────────────────────────────────
     ph_list, pl_list = _find_pivots(hi_arr, lo_arr, n, lookback=120, wings=3)
 
-    # ── STOP: structural pivot + ATR buffer ───────────────────────────────
+    # ── STOP: body-anchored structural stop ───────────────────────────────
+    # Priority: body low of nearest demand candle → pivot low → ATR fallback
     if is_bullish:
-        # Most recent confirmed pivot LOW below current price
-        pls_below = [(p, age) for p, age in pl_list if p < cp * 0.999]
-        if pls_below:
-            # Closest pivot low to current price (highest value below cp)
-            struct_pivot = max(p for p, _ in pls_below)
-            raw_stop = struct_pivot - max(atr * 0.5, struct_pivot * 0.004)
+        # 1. Find demand candle bodies below current price
+        bodies_below = [(b, i) for b, i in bodies_lo if b < cp * 0.998]
+        if bodies_below:
+            nearest_body = max(b for b, _ in bodies_below)
+            raw_stop = nearest_body - max(atr * 0.35, nearest_body * 0.003)
         else:
-            raw_stop = cp - atr * 1.5
+            # 2. Fall back to pivot low
+            pls_below = [(p, age) for p, age in pl_list if p < cp * 0.999]
+            if pls_below:
+                struct_pivot = max(p for p, _ in pls_below)
+                raw_stop = struct_pivot - max(atr * 0.5, struct_pivot * 0.004)
+            else:
+                raw_stop = cp - atr * 1.5
         diff = cp - raw_stop
         # Guardrails: keep between 0.8 ATR and 2.5 ATR
         if diff < atr * 0.8:
@@ -180,9 +201,32 @@ def _compute_structural_levels_impl(df, cp, is_bullish):
 
     R = abs(cp - stop)
 
+    # ── OPTIMAL ENTRY ZONE ────────────────────────────────────────────────
+    # Rather than "buy at market", suggest a tighter entry zone.
+    # Entry low: nearest structural support / demand candle body.
+    # Entry high: current price (enter only at or below this level).
+    if is_bullish:
+        _sup_candidates = []
+        if bodies_below:
+            _sup_candidates.append(max(b for b, _ in bodies_below))
+        if pl_list:
+            _pls = [p for p, _ in pl_list if p < cp * 0.998]
+            if _pls:
+                _sup_candidates.append(max(_pls))
+        if e20 < cp:
+            _sup_candidates.append(float(e20))
+        if _sup_candidates:
+            entry_zone_lo = round(max(_sup_candidates), 2)
+            entry_zone_hi = round(min(cp, entry_zone_lo + atr * 1.0), 2)
+        else:
+            entry_zone_lo = round(cp - atr * 0.5, 2)
+            entry_zone_hi = round(cp, 2)
+    else:
+        entry_zone_lo = round(cp, 2)
+        entry_zone_hi = round(cp + atr * 0.5, 2)
+
     # ── ENTRY QUALITY: distance from structural support ───────────────────
     if is_bullish:
-        # nearest support = pivot low used for stop (before buffer)
         nearest_sup = stop + max(atr * 0.5, stop * 0.004)
         dist = cp - nearest_sup
     else:
@@ -336,6 +380,7 @@ def _compute_structural_levels_impl(df, cp, is_bullish):
         "entry": cp, "stop": stop, "t1": t1, "t2": t2, "t3": t3,
         "risk_pct": round(risk_pct, 1), "rr1": rr1, "rr2": rr2, "R": round(R, 2),
         "entry_quality": entry_quality, "eq_col": eq_col,
+        "entry_zone_lo": entry_zone_lo, "entry_zone_hi": entry_zone_hi,
     }
 
 
@@ -465,7 +510,8 @@ def _compute_structural_levels_impl(df, cp, is_bullish):
 
 
 def price_ladder_html(cp, stop, t1, t2, t3, is_bullish,
-                      entry_quality="", eq_col=""):
+                      entry_quality="", eq_col="",
+                      entry_zone_lo=None, entry_zone_hi=None):
     """
     Generate the unified Price Ladder HTML.
     Pure HTML string — no st.* calls (safe to call from any tab).
@@ -491,11 +537,20 @@ def price_ladder_html(cp, stop, t1, t2, t3, is_bullish,
     rr2_col = BULL if rr2 >= 3.0 else (NEUT if rr2 >= 2.0 else BEAR)
     rr3_col = BULL if rr3 >= 5.0 else (NEUT if rr3 >= 3.0 else BEAR)
 
+    # Entry zone label for the Entry cell
+    ez_lo = entry_zone_lo if entry_zone_lo is not None else cp
+    ez_hi = entry_zone_hi if entry_zone_hi is not None else cp
+
     def _cell(label, price, dist_pct, color, sub=""):
         sign     = "+" if dist_pct > 0 else ""
         if label == "Entry":
             dist_str = "Entry Point"
-            sub_html = ""
+            if abs(ez_hi - ez_lo) > 0.001:
+                sub_html = (f"<div style='font-size:0.68rem;color:{color}bb;"
+                            f"margin-top:0.35rem;font-weight:700;letter-spacing:0.3px;'"
+                            f">Zone: {ez_lo:.2f}&ndash;{ez_hi:.2f}</div>")
+            else:
+                sub_html = ""
         else:
             dist_str = f"{sign}{dist_pct:.1f}%"
             sub_html = (f"<div style='font-size:0.72rem;color:{color}99;"
@@ -563,84 +618,12 @@ def price_ladder_html(cp, stop, t1, t2, t3, is_bullish,
 
 
 def render_price_ladder(cp, stop, t1, t2, t3, is_bullish,
-                        entry_quality="", eq_col=""):
+                        entry_quality="", eq_col="",
+                        entry_zone_lo=None, entry_zone_hi=None):
     """Single call to render the Price Ladder in any Streamlit tab."""
     st.markdown(
-        price_ladder_html(cp, stop, t1, t2, t3, is_bullish, entry_quality, eq_col),
+        price_ladder_html(cp, stop, t1, t2, t3, is_bullish, entry_quality, eq_col,
+                          entry_zone_lo, entry_zone_hi),
         unsafe_allow_html=True,
     )
 
-    entry    = cp
-    stop_col = BEAR if is_bullish else BULL
-    t_col    = BULL if is_bullish else BEAR
-
-    def _pct(price):
-        return (price / entry - 1) * 100 if entry > 0 else 0.0
-
-    stop_pct = _pct(stop)
-    t1_pct   = _pct(t1)
-    t2_pct   = _pct(t2)
-    t3_pct   = _pct(t3)
-    R        = abs(entry - stop)
-    rr1      = round(abs(t1 - entry) / max(0.001, R), 1)
-    rr2      = round(abs(t2 - entry) / max(0.001, R), 1)
-    rr3      = round(abs(t3 - entry) / max(0.001, R), 1)
-    risk_pct = R / entry * 100 if entry > 0 else 2.0
-    rr1_col  = BULL if rr1 >= 2.0 else (NEUT if rr1 >= 1.0 else BEAR)
-    rr2_col  = BULL if rr2 >= 3.0 else (NEUT if rr2 >= 1.5 else BEAR)
-    rr3_col  = BULL if rr3 >= 4.5 else (NEUT if rr3 >= 2.5 else BEAR)
-
-    def _cell(label, price, dist_pct, color):
-        sign     = "+" if dist_pct > 0 else ""
-        dist_str = f"{sign}{dist_pct:.1f}%" if label != "Entry" else "Entry Point"
-        return (
-            f"<div style='background:{color}18;border:1.5px solid {color}55;"
-            f"border-top:4px solid {color};border-radius:14px;"
-            f"padding:1.5rem 0.8rem;text-align:center;'>"
-            f"<div style='font-size:0.75rem;color:{color};text-transform:uppercase;"
-            f"letter-spacing:1px;font-weight:800;margin-bottom:0.7rem;'>{label}</div>"
-            f"<div style='font-size:1.9rem;font-weight:900;color:#ffffff;"
-            f"letter-spacing:-0.5px;line-height:1;'>{price:.2f}</div>"
-            f"<div style='font-size:1.05rem;font-weight:800;color:{color};"
-            f"margin-top:0.55rem;'>{dist_str}</div>"
-            f"</div>"
-        )
-
-    def _meta(label, value, color):
-        return (
-            f"<div style='background:{BG};border:1px solid {BDR};border-radius:12px;"
-            f"padding:0.9rem 1rem;text-align:center;'>"
-            f"<div style='font-size:0.65rem;color:#666;text-transform:uppercase;"
-            f"letter-spacing:0.8px;font-weight:700;margin-bottom:0.4rem;'>{label}</div>"
-            f"<div style='font-size:1.5rem;font-weight:900;color:{color};line-height:1;'>"
-            f"{value}</div></div>"
-        )
-
-    return (
-        f"<div style='background:{BG2};border:1px solid #FFD70033;"
-        f"border-left:5px solid #FFD700;border-radius:16px;"
-        f"padding:1.4rem 1.6rem;margin-bottom:1.2rem;'>"
-        f"<div style='font-size:1rem;color:#FFD700;text-transform:uppercase;"
-        f"letter-spacing:1.5px;font-weight:800;margin-bottom:1.4rem;'>Price Ladder</div>"
-        f"<div style='display:grid;grid-template-columns:repeat(5,1fr);gap:0.65rem;margin-bottom:1rem;'>"
-        + _cell("Stop Loss", stop, stop_pct, stop_col)
-        + _cell("Entry",     entry, 0.0,     INFO)
-        + _cell("Target 1",  t1,   t1_pct,  t_col)
-        + _cell("Target 2",  t2,   t2_pct,  t_col)
-        + _cell("Target 3",  t3,   t3_pct,  t_col)
-        + f"</div>"
-        f"<div style='display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;"
-        f"border-top:1px solid {BDR};padding-top:1.1rem;'>"
-        + _meta("Max Risk",   f"{risk_pct:.1f}%",   BEAR)
-        + _meta("R:R to T1",  f"1 : {rr1:.1f}",     rr1_col)
-        + _meta("R:R to T2",  f"1 : {rr2:.1f}",     rr2_col)
-        + _meta("R:R to T3",  f"1 : {rr3:.1f}",     rr3_col)
-        + f"</div>"
-        f"</div>"
-    )
-
-
-def render_price_ladder(cp, stop, t1, t2, t3, is_bullish):
-    """Single call to render the Price Ladder in any Streamlit tab."""
-    st.markdown(price_ladder_html(cp, stop, t1, t2, t3, is_bullish),
-                unsafe_allow_html=True)

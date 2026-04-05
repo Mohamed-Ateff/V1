@@ -2717,6 +2717,13 @@ def main():
         # ═══════════════════════════════════════════════════════════════════
         # TWO-PANEL LAYOUT
         # ═══════════════════════════════════════════════════════════════════
+        # ── Screener auto-navigate: pre-fill symbol_input before widgets render ──
+        if st.session_state.get("screener_goto"):
+            _goto = st.session_state.pop("screener_goto")
+            _clean = _goto.replace(".SR", "") if str(_goto).endswith(".SR") else str(_goto)
+            st.session_state["symbol_input"] = _clean
+            st.session_state["screener_auto_analyze"] = True
+
         with st.container(key="cp_row"):
             left_col, right_col = st.columns([1, 1.6], gap="large")
 
@@ -2853,10 +2860,9 @@ def main():
             with right_col:
                 with st.container(key="right_panel"):
 
-                    cp_tab0, cp_tab1, cp_tab2 = st.tabs([
+                    cp_tab0, cp_tab1 = st.tabs([
                         "Stock Symbol",
-                        "Enter Symbols",
-                        "Scan All Market",
+                        "Scan Market",
                     ])
 
                     # ── shared indicator block (reused in stock tab) ────────
@@ -3019,82 +3025,159 @@ def main():
                                 except Exception as e:
                                     st.error(f"Error: {str(e)}")
 
+                        # ── Auto-analyze when navigated from screener ─────
+                        if st.session_state.pop("screener_auto_analyze", False):
+                            run_analysis_callback()
+
                         st.markdown("<div class='cp-run-wrap'>", unsafe_allow_html=True)
                         st.button("Analyze Stock", type="secondary", width="stretch",
                                   on_click=run_analysis_callback)
                         st.markdown("</div>", unsafe_allow_html=True)
 
-                    # ── TAB 1: Enter Symbols ────────────────────────────────
+                    # ── TAB 1: Scan Market (full market OR custom symbols) ──
                     with cp_tab1:
-                        st.markdown("<div class='cp-input-label'>Stock Symbols (comma separated)</div>", unsafe_allow_html=True)
-                        ma_symbols_input = st.text_input(
-                            "Symbols",
-                            value="1120, 2222, 4190, 2010, 1180, 7010, 2380, 4081",
-                            key="ma_symbols_input",
+                        _scan_mode = st.radio(
+                            "Scan mode",
+                            ["Full Market", "Enter Symbols"],
+                            horizontal=True,
+                            key="scan_mode",
                             label_visibility="collapsed",
-                            placeholder="e.g., 1120, 2222, 4190")
-                        ma_tickers = [s.strip() + ".SR" if s.strip().isdigit() else s.strip()
-                                      for s in ma_symbols_input.split(",") if s.strip()]
-                        st.markdown(
-                            f"<div style='color:#3a4550;font-size:0.68rem;margin:0.3rem 0 0.8rem;'>"
-                            f"{len(ma_tickers)} symbols selected</div>",
-                            unsafe_allow_html=True)
+                        )
 
-                        ma_start_es, ma_end_es = _render_scan_params("_es")
+                        # ── Shared filter renderer ──────────────────────────
+                        def _render_scan_filters(suffix=""):
+                            """Render filter controls and return current values."""
+                            _SECTORS = ["All Sectors", "Banks", "Petrochemicals", "Cement",
+                                        "Utilities", "Telecom & Tech", "Insurance", "Food & Agri",
+                                        "REITs", "Retail", "Healthcare", "Transport", "Real Estate", "Other"]
 
-                        if 'ma_results' not in st.session_state:
-                            st.session_state.ma_results = None
+                            st.markdown("<div class='cp-input-label' style='margin-top:0.7rem;'>Filters</div>", unsafe_allow_html=True)
 
-                        def run_market_analysis_callback_es():
-                            if not ma_tickers:
-                                st.error("No stocks selected.")
-                                return
-                            _sd = st.session_state.get('ma_start_es', (datetime.now() - timedelta(days=365)).date())
-                            _ed = st.session_state.get('ma_end_es',   datetime.now().date())
-                            with st.spinner(f"Scanning {len(ma_tickers)} stocks…"):
-                                res = run_market_analysis(
-                                    tuple(ma_tickers), min_score=1, start=_sd, end=_ed)
-                                st.session_state.ma_results       = res
-                                st.session_state.ma_scanned_count = len(ma_tickers)
-                                st.session_state.ma_scan_params   = {'start':str(_sd),'end':str(_ed)}
-                                st.session_state.show_market_results = True
+                            # Signal type
+                            st.markdown("<div style='font-size:0.65rem;color:#666;margin-bottom:0.25rem;'>Signal Type</div>", unsafe_allow_html=True)
+                            _sig_type = st.radio(
+                                "Signal Type", ["All", "Buy Only", "Sell Only"],
+                                horizontal=True, key=f"flt_sig_{suffix}",
+                                label_visibility="collapsed")
 
-                        st.markdown("<div class='cp-run-wrap'>", unsafe_allow_html=True)
-                        st.button("Run Scan", type="secondary", width="stretch",
-                                  on_click=run_market_analysis_callback_es, key="ma_run_btn_es")
-                        st.markdown("</div>", unsafe_allow_html=True)
+                            # Sector
+                            st.markdown("<div style='font-size:0.65rem;color:#666;margin-bottom:0.25rem;margin-top:0.5rem;'>Sector</div>", unsafe_allow_html=True)
+                            _sector = st.selectbox(
+                                "Sector", _SECTORS, index=0,
+                                key=f"flt_sector_{suffix}", label_visibility="collapsed")
 
-                    # ── TAB 2: Scan All Market ──────────────────────────────
-                    with cp_tab2:
-                        all_tadawul    = get_all_tadawul_tickers()
-                        ma_tickers_all = list(all_tadawul.keys())
-                        st.markdown(
-                            f"<div style='color:#26A69A;font-size:0.78rem;font-weight:600;"
-                            f"margin-bottom:0.8rem;'>"
-                            f"{len(ma_tickers_all)} Tadawul stocks ready to scan</div>",
-                            unsafe_allow_html=True)
-                        st.markdown(
-                            "<div style='color:#3a4550;font-size:0.68rem;margin-bottom:1rem;'>"
-                            "Full market scan — takes 1-2 minutes.</div>",
-                            unsafe_allow_html=True)
+                            # Min Score
+                            st.markdown("<div style='font-size:0.65rem;color:#666;margin-bottom:0.1rem;margin-top:0.5rem;'>Min Score</div>", unsafe_allow_html=True)
+                            _min_score = st.slider(
+                                "Min Score", min_value=1, max_value=8, value=1,
+                                key=f"flt_score_{suffix}", label_visibility="collapsed")
 
-                        ma_start_all, ma_end_all = _render_scan_params("_all")
+                            # Min R:R
+                            st.markdown("<div style='font-size:0.65rem;color:#666;margin-bottom:0.1rem;margin-top:0.5rem;'>Min R:R Ratio</div>", unsafe_allow_html=True)
+                            _min_rr = st.slider(
+                                "Min R:R", min_value=0.0, max_value=5.0, value=0.0, step=0.5,
+                                key=f"flt_rr_{suffix}", label_visibility="collapsed",
+                                format="%.1f×")
 
-                        def run_market_analysis_callback_all():
-                            _sd = st.session_state.get('ma_start_all', (datetime.now() - timedelta(days=365)).date())
-                            _ed = st.session_state.get('ma_end_all',   datetime.now().date())
-                            with st.spinner(f"Scanning {len(ma_tickers_all)} stocks…"):
-                                res = run_market_analysis(
-                                    tuple(ma_tickers_all), min_score=1, start=_sd, end=_ed)
-                                st.session_state.ma_results       = res
-                                st.session_state.ma_scanned_count = len(ma_tickers_all)
-                                st.session_state.ma_scan_params   = {'start':str(_sd),'end':str(_ed)}
-                                st.session_state.show_market_results = True
+                            # Min Conviction
+                            st.markdown("<div style='font-size:0.65rem;color:#666;margin-bottom:0.1rem;margin-top:0.5rem;'>Min Conviction %</div>", unsafe_allow_html=True)
+                            _min_conv = st.slider(
+                                "Min Conviction", min_value=0, max_value=90, value=0, step=5,
+                                key=f"flt_conv_{suffix}", label_visibility="collapsed",
+                                format="%d%%")
 
-                        st.markdown("<div class='cp-run-wrap'>", unsafe_allow_html=True)
-                        st.button("Run Full Market Scan", type="secondary", width="stretch",
-                                  on_click=run_market_analysis_callback_all, key="ma_run_btn_all")
-                        st.markdown("</div>", unsafe_allow_html=True)
+                            return _sig_type, _sector, _min_score, _min_rr, _min_conv
+
+                        if _scan_mode == "Enter Symbols":
+                            st.markdown("<div class='cp-input-label'>Stock Symbols (comma separated)</div>", unsafe_allow_html=True)
+                            ma_symbols_input = st.text_input(
+                                "Symbols",
+                                value="1120, 2222, 4190, 2010, 1180, 7010, 2380, 4081",
+                                key="ma_symbols_input",
+                                label_visibility="collapsed",
+                                placeholder="e.g., 1120, 2222, 4190")
+                            ma_tickers = [s.strip() + ".SR" if s.strip().isdigit() else s.strip()
+                                          for s in ma_symbols_input.split(",") if s.strip()]
+                            st.markdown(
+                                f"<div style='color:#3a4550;font-size:0.68rem;margin:0.3rem 0 0.8rem;'>"
+                                f"{len(ma_tickers)} symbols selected</div>",
+                                unsafe_allow_html=True)
+
+                            ma_start_es, ma_end_es = _render_scan_params("_es")
+                            _es_sig, _es_sec, _es_sc, _es_rr, _es_cv = _render_scan_filters("es")
+
+                            if 'ma_results' not in st.session_state:
+                                st.session_state.ma_results = None
+
+                            def run_market_analysis_callback_es():
+                                if not ma_tickers:
+                                    st.error("No stocks selected.")
+                                    return
+                                _sd = st.session_state.get('ma_start_es', (datetime.now() - timedelta(days=365)).date())
+                                _ed = st.session_state.get('ma_end_es',   datetime.now().date())
+                                with st.spinner(f"Scanning {len(ma_tickers)} stocks…"):
+                                    res = run_market_analysis(
+                                        tuple(ma_tickers), min_score=1, start=_sd, end=_ed)
+                                    st.session_state.ma_results       = res
+                                    st.session_state.ma_scanned_count = len(ma_tickers)
+                                    st.session_state.ma_scan_params   = {'start': str(_sd), 'end': str(_ed)}
+                                    st.session_state.ma_filter_sig    = st.session_state.get('flt_sig_es', 'All')
+                                    st.session_state.ma_filter_sector = st.session_state.get('flt_sector_es', 'All Sectors')
+                                    st.session_state.ma_filter_score  = st.session_state.get('flt_score_es', 1)
+                                    st.session_state.ma_filter_rr     = st.session_state.get('flt_rr_es', 0.0)
+                                    st.session_state.ma_filter_conv   = st.session_state.get('flt_conv_es', 0)
+                                    st.session_state.show_market_results = True
+
+                            st.markdown("<div class='cp-run-wrap'>", unsafe_allow_html=True)
+                            st.button("Run Scan", type="secondary", width="stretch",
+                                      on_click=run_market_analysis_callback_es, key="ma_run_btn_es")
+                            st.markdown("</div>", unsafe_allow_html=True)
+
+                        else:  # Full Market
+                            all_tadawul    = get_all_tadawul_tickers()
+                            ma_tickers_all = list(all_tadawul.keys())
+                            st.markdown(
+                                f"<div style='color:#26A69A;font-size:0.78rem;font-weight:600;"
+                                f"margin-bottom:0.8rem;'>"
+                                f"{len(ma_tickers_all)} Tadawul stocks ready to scan</div>",
+                                unsafe_allow_html=True)
+
+                            st.markdown("<div class='cp-input-label'>Period</div>", unsafe_allow_html=True)
+                            _scr_period_lbl = st.selectbox(
+                                "Period", ["3 Months", "6 Months", "1 Year", "2 Years"], index=1,
+                                key="scr_period_sel", label_visibility="collapsed")
+                            st.markdown(
+                                "<div style='color:#3a4550;font-size:0.68rem;margin:0.3rem 0 0.8rem;'>"
+                                "Full market scan — takes 1-2 minutes.</div>",
+                                unsafe_allow_html=True)
+
+                            _all_sig, _all_sec, _all_sc, _all_rr, _all_cv = _render_scan_filters("all")
+
+                            def run_market_analysis_callback_all():
+                                _pv = {
+                                    "3 Months": "3mo",
+                                    "6 Months": "6mo",
+                                    "1 Year":   "1y",
+                                    "2 Years":  "2y",
+                                }.get(st.session_state.get("scr_period_sel", "6 Months"), "6mo")
+                                with st.spinner(f"Scanning {len(ma_tickers_all)} stocks…"):
+                                    res = run_market_analysis(
+                                        tuple(ma_tickers_all), period=_pv, min_score=1)
+                                    st.session_state.ma_results          = res
+                                    st.session_state.ma_scanned_count    = len(ma_tickers_all)
+                                    st.session_state.ma_scan_params      = {
+                                        "period": st.session_state.get("scr_period_sel", "6 Months")}
+                                    st.session_state.ma_filter_sig    = st.session_state.get('flt_sig_all', 'All')
+                                    st.session_state.ma_filter_sector = st.session_state.get('flt_sector_all', 'All Sectors')
+                                    st.session_state.ma_filter_score  = st.session_state.get('flt_score_all', 1)
+                                    st.session_state.ma_filter_rr     = st.session_state.get('flt_rr_all', 0.0)
+                                    st.session_state.ma_filter_conv   = st.session_state.get('flt_conv_all', 0)
+                                    st.session_state.show_market_results = True
+
+                            st.markdown("<div class='cp-run-wrap'>", unsafe_allow_html=True)
+                            st.button("Run Full Market Scan", type="secondary", width="stretch",
+                                      on_click=run_market_analysis_callback_all, key="ma_run_btn_all")
+                            st.markdown("</div>", unsafe_allow_html=True)
 
         # ═══════════════════════════════════════════════════════════════════════
         # Favorites panel (renders when ★ button is toggled)
@@ -3392,92 +3475,58 @@ def main():
         avg_rr        = (sum(s.get('rr_ratio', 0) for s in buy_stocks) / len(buy_stocks)) if buy_stocks else 0
         best_conv     = max((s.get('conviction', 0) for s in buy_stocks), default=0)
 
-        # ── KPI row ──────────────────────────────────────────────────────────
+        # ── Hero card matching single-stock analysis style ───────────────────
+        _period_info = params.get('period', params.get('start', ''))
+        _period_disp = f"Period: {_period_info}" if _period_info else ""
+
+        def _msr_tile(label, value, accent, sub="", val_color=None):
+            vc = val_color or "#ffffff"
+            return (
+                f"<div style='background:#181818;border:1px solid #303030;border-top:2px solid {accent};"
+                f"border-radius:8px;padding:1rem 1.1rem;'>"
+                f"<div style='font-size:0.68rem;color:#9e9e9e;text-transform:uppercase;"
+                f"letter-spacing:0.8px;font-weight:600;margin-bottom:0.4rem;'>{label}</div>"
+                f"<div style='font-size:1.15rem;font-weight:700;color:{vc};line-height:1.1;'>{value}</div>"
+                f"<div style='font-size:0.72rem;color:#9e9e9e;margin-top:0.35rem;font-weight:600;'>{sub}</div>"
+                f"</div>"
+            )
+
+        _perfect_list = sorted(
+            [s for s in buy_stocks
+             if s.get('ind_score', 0) >= 2 and s.get('pa_score', 0) >= 2
+             and s.get('score', 0) >= 4 and s.get('rr_ratio', 0) >= 2.0],
+            key=lambda x: x.get('priority_score', 0), reverse=True)
+
+        _hit_rate = round(len(buy_stocks) / scanned * 100) if scanned > 0 else 0
+
         st.markdown(
-            f'<div class="msr-kpis">'
-            f'<div class="msr-kpi"><div class="msr-kpi-val" style="color:#10a37f">{len(buy_stocks)}</div><div class="msr-kpi-lbl">Buy Signals</div></div>'
-            f'<div class="msr-kpi"><div class="msr-kpi-val" style="color:#ef4444">{len(sell_stocks)}</div><div class="msr-kpi-lbl">Sell / Avoid</div></div>'
-            f'<div class="msr-kpi"><div class="msr-kpi-val" style="color:#fbbf24">{len(hold_stocks)}</div><div class="msr-kpi-lbl">Watch List</div></div>'
-            f'<div class="msr-kpi"><div class="msr-kpi-val" style="color:#4A9EFF">{scanned}</div><div class="msr-kpi-lbl">Stocks Scanned</div></div>'
-            f'<div class="msr-kpi"><div class="msr-kpi-val" style="color:#fbbf24">{avg_rr:.1f}×</div><div class="msr-kpi-lbl">Avg Risk:Reward</div></div>'
-            f'<div class="msr-kpi"><div class="msr-kpi-val" style="color:#10a37f">{best_conv}%</div><div class="msr-kpi-lbl">Best Conviction</div></div>'
-            f'</div>',
+            f"<div style='background:#212121;border:1px solid #303030;border-radius:12px;"
+            f"padding:1.6rem 1.8rem;margin-bottom:1.4rem;'>"
+            f"<div style='display:flex;justify-content:space-between;align-items:center;"
+            f"flex-wrap:wrap;gap:0.5rem;margin-bottom:1rem;'>"
+            f"<div>"
+            f"<div style='font-size:1.3rem;font-weight:700;color:#fff;line-height:1.2;'>Market Scan Results</div>"
+            f"<div style='font-size:0.78rem;color:#9e9e9e;margin-top:0.2rem;font-weight:500;'>"
+            f"{scanned} stocks scanned &nbsp;·&nbsp; {_period_disp}</div>"
+            f"</div>"
+            f"<span style='font-size:0.7rem;font-weight:700;padding:0.28rem 0.9rem;"
+            f"border-radius:20px;background:rgba(16,163,127,0.12);color:#10a37f;"
+            f"border:1px solid rgba(16,163,127,0.3);'>{len(_perfect_list)} Perfect Setups</span>"
+            f"</div>"
+            f"<div style='border-top:1px solid #303030;margin-bottom:0.9rem;'></div>"
+            f"<div style='display:grid;grid-template-columns:repeat(5,1fr);gap:0.7rem;'>"
+            + _msr_tile("Buy Signals",    str(len(buy_stocks)),     "#10a37f", f"{_hit_rate}% hit rate",             "#10a37f")
+            + _msr_tile("Perfect Setups", str(len(_perfect_list)),  "#FFD700", "Ind≥2 · PA≥2 · R:R≥2×",             "#FFD700")
+            + _msr_tile("Avoid",          str(len(sell_stocks)),    "#ef4444", "bearish signals",                    "#ef4444")
+            + _msr_tile("Avg R:R",        f"{avg_rr:.1f}×",         "#4A9EFF", "on buy signals",                    "#4A9EFF")
+            + _msr_tile("Best Conviction",f"{best_conv}%",           "#a78bfa", "highest conviction",                "#a78bfa")
+            + "</div></div>",
             unsafe_allow_html=True,
         )
 
-        # ── TOP PICKS ────────────────────────────────────────────────────────
-        top_picks = sorted(buy_stocks, key=lambda x: x.get('priority_score', 0), reverse=True)[:3]
-        if top_picks:
-            rank_styles = [
-                ('gold',   '#1',  '#FFD700'),
-                ('silver', '#2',  '#C0C0C0'),
-                ('bronze', '#3',  '#CD7F32'),
-            ]
-            tp_cols = st.columns(len(top_picks))
-            for col, stock, (rank_cls, rank_lbl, rank_color) in zip(tp_cols, top_picks, rank_styles):
-                with col:
-                    sym_d      = stock['ticker'].replace('.SR', '')
-                    price_d    = stock['price']
-                    conv_d     = stock.get('conviction', 50)
-                    setup_d    = stock.get('setup_type', '')
-                    entry_d    = stock.get('entry', price_d)
-                    stop_d     = stock.get('stop_loss', price_d)
-                    t1_d       = stock.get('target1', price_d)
-                    rr_d       = stock.get('rr_ratio', 0)
-                    name_d     = stock.get('name', sym_d)[:20]
-                    stop_pct_d = abs(entry_d - stop_d) / entry_d * 100 if entry_d > 0 else 0
-                    t1_pct_d   = abs(t1_d - entry_d) / entry_d * 100 if entry_d > 0 else 0
-                    signals_d  = stock.get('signals', [])
-                    best_sig   = signals_d[0] if signals_d else setup_d
-                    st.markdown(
-                        f'<div class="msr-pick {rank_cls}">'
-                        f'<div class="msr-pick-hd">'
-                        f'<div>'
-                        f'<div class="msr-pick-sym {rank_cls}">▲ {sym_d}</div>'
-                        f'<div class="msr-pick-name">{name_d}</div>'
-                        f'</div>'
-                        f'<span class="msr-pick-badge {rank_cls}">{rank_lbl} · SAR {price_d:.2f}</span>'
-                        f'</div>'
-                        f'<div class="msr-pick-conv">'
-                        f'<div class="msr-pick-track">'
-                        f'<div class="msr-pick-fill" style="width:{conv_d}%;background:{rank_color}"></div>'
-                        f'</div></div>'
-                        f'<div class="msr-pick-reason">{conv_d}% · {best_sig}</div>'
-                        f'<div class="msr-pick-lvls">'
-                        f'<div class="msr-pl"><div class="msr-plv en">{entry_d:.2f}</div><div class="msr-pll">Enter</div></div>'
-                        f'<div class="msr-pl"><div class="msr-plv st">-{stop_pct_d:.1f}%</div><div class="msr-pll">Stop</div></div>'
-                        f'<div class="msr-pl"><div class="msr-plv t1">+{t1_pct_d:.1f}%</div><div class="msr-pll">T1</div></div>'
-                        f'<div class="msr-pl"><div class="msr-plv rr">{rr_d:.1f}×</div><div class="msr-pll">R:R</div></div>'
-                        f'</div>'
-                        f'</div>',
-                        unsafe_allow_html=True,
-                    )
-            st.markdown('<div class="msr-hline"></div>', unsafe_allow_html=True)
-
-        # ── Sort control ─────────────────────────────────────────────────────
-        srt1, srt2 = st.columns([4, 1])
-        with srt1:
-            ma_sort = st.selectbox(
-                "Sort by",
-                ["Priority Score", "Conviction %", "Score", "R:R Ratio", "Potential %", "RSI", "Volume Ratio", "1M Performance"],
-                index=0, key="ma_sort", label_visibility="collapsed",
-            )
-        with srt2:
-            ma_sort_asc = st.toggle("↑ Asc", value=False, key="ma_sort_asc")
-
-        _skeys = {
-            "Priority Score":  lambda x: x.get('priority_score', 0),
-            "Conviction %":    lambda x: x.get('conviction', 0),
-            "Score":           lambda x: abs(x.get('score', 0)),
-            "R:R Ratio":       lambda x: x.get('rr_ratio', 0),
-            "Potential %":     lambda x: x.get('potential', 0),
-            "RSI":             lambda x: x.get('rsi', 50),
-            "Volume Ratio":    lambda x: x.get('vol_ratio', 1),
-            "1M Performance":  lambda x: x.get('perf_1m', 0),
-        }
-        _kfn = _skeys.get(ma_sort, _skeys["Priority Score"])
+        # ── Sort (always by priority score, no user control needed) ─────────
         def _sorted(lst):
-            return sorted(lst, key=_kfn, reverse=not ma_sort_asc)
+            return sorted(lst, key=lambda x: x.get('priority_score', 0), reverse=True)
 
         # ── Card renderer ─────────────────────────────────────────────────────
         def _render_card(stock, side):
@@ -3485,63 +3534,32 @@ def main():
             name     = stock.get('name', sym)
             price    = stock['price']
             score    = stock['score']
-            rsi      = stock.get('rsi', 50)
-            adx      = stock.get('adx', 0)
-            vr       = stock.get('vol_ratio', 1)
-            bb_p     = stock.get('bb_pct', 50)
-            sk       = stock.get('stoch_k', 50)
-            obv_r    = stock.get('obv_rising', True)
-            ab200    = stock.get('above_ema200', True)
-            p5d      = stock.get('perf_5d', 0)
-            p1m      = stock.get('perf_1m', 0)
-            p3m      = stock.get('perf_3m', 0)
-            w52p     = stock.get('w52_pos', 50)
             entry    = stock.get('entry', price)
             stop     = stock.get('stop_loss', price)
             t1       = stock.get('target1', price)
             rr       = stock.get('rr_ratio', 0)
             conv     = stock.get('conviction', 50)
             setup    = stock.get('setup_type', '')
-            risk_cls = stock.get('risk_class', 'Medium')
             signals  = stock.get('signals', [])
+            is_perf  = (stock.get('ind_score', 0) >= 2 and stock.get('pa_score', 0) >= 2
+                        and score >= 4 and rr >= 2.0)
 
             stop_pct = abs(entry - stop) / entry * 100 if entry > 0 else 0
             t1_pct   = abs(t1   - entry) / entry * 100 if entry > 0 else 0
             sdsp     = f"+{score}" if score > 0 else str(score)
 
-            # Accent color per side
             ac = {"buy": "#10a37f", "sell": "#ef4444", "hold": "#fbbf24"}.get(side, "#666")
-
-            # Conviction color
             cc = "#10a37f" if conv >= 70 else ("#4A9EFF" if conv >= 45 else "#fbbf24")
 
-            # Indicator colors
-            rsic  = "#10a37f" if rsi < 35 else ("#ef4444" if rsi > 65 else "#c8c8c8")
-            adxc  = "#10a37f" if adx > 30 else ("#fbbf24" if adx > 20 else "#888")
-            vrc   = "#4A9EFF" if vr > 1.5 else "#888"
-            ema_c = "#10a37f" if ab200 else "#ef4444"
-            ema_t = "↑EMA" if ab200 else "↓EMA"
-            obv_c = "#10a37f" if obv_r else "#ef4444"
-            obv_t = "OBV↑" if obv_r else "OBV↓"
-            risk_c = "#10a37f" if risk_cls == "Low" else ("#ef4444" if risk_cls == "High" else "#fbbf24")
+            star = '<span style="font-size:0.62rem;color:#FFD700;font-weight:700;margin-left:0.3rem;" title="Perfect Setup">⭐</span>' if is_perf else ''
 
-            def _chip(v, lbl):
-                cls  = "up" if v > 0 else ("dn" if v < 0 else "neut")
-                sign = "+" if v > 0 else ""
-                return f"<span class='sc-chip {cls}'>{lbl} {sign}{v:.1f}%</span>"
-
-            perf_h = _chip(p5d, "5D") + _chip(p1m, "1M") + _chip(p3m, "3M") + f"<span class='sc-chip neut'>52W {w52p:.0f}%</span>"
-            tags_h = "".join(f"<span class='sc-tag'>{s}</span>" for s in signals[:5])
-            sep    = "<span class='sc-dot-sep'>·</span>" if signals else ""
+            why_text = " · ".join(signals[:4]) if signals else (setup if setup else "—")
 
             st.markdown(
-                # ── Card wrapper (left border colored by side)
                 f'<div class="sc" style="border-left:3px solid {ac};">'
-
-                # ── Header ────────────────────────────────────────────────
                 f'<div class="sc-hd">'
                 f'<div class="sc-left">'
-                f'<div class="sc-sym {side}">{sym}</div>'
+                f'<div class="sc-sym {side}">{sym}{star}</div>'
                 f'<div class="sc-nameline">'
                 f'<span class="sc-name">{name}</span>'
                 f'<span class="sc-setup-tag">{setup}</span>'
@@ -3554,323 +3572,245 @@ def main():
                 f'<span style="font-size:0.7rem;font-weight:700;color:{cc}">{conv}%</span>'
                 f'</div>'
                 f'</div>'
-                f'</div>'  # /sc-hd
-
-                # ── Divider
+                f'</div>'
                 f'<div class="sc-hr"></div>'
-
-                # ── Data row: levels + indicators ─────────────────────────
                 f'<div class="sc-data">'
-
-                # Trade levels
                 f'<div class="sc-levels">'
-                f'<div class="sc-lv">'
-                f'<div class="sc-lv-v" style="color:#4A9EFF">{entry:.2f}</div>'
-                f'<div class="sc-lv-l">Entry</div>'
+                f'<div class="sc-lv"><div class="sc-lv-v" style="color:#4A9EFF">{entry:.2f}</div><div class="sc-lv-l">Entry</div></div>'
+                f'<div class="sc-lv"><div class="sc-lv-v" style="color:#ef4444">-{stop_pct:.1f}%</div><div class="sc-lv-l">Stop</div></div>'
+                f'<div class="sc-lv"><div class="sc-lv-v" style="color:#10a37f">+{t1_pct:.1f}%</div><div class="sc-lv-l">Target</div></div>'
+                f'<div class="sc-lv" style="border-right:1px solid rgba(255,255,255,0.07)"><div class="sc-lv-v" style="color:#fbbf24">{rr:.1f}×</div><div class="sc-lv-l">R:R</div></div>'
                 f'</div>'
-                f'<div class="sc-lv">'
-                f'<div class="sc-lv-v" style="color:#ef4444">-{stop_pct:.1f}%</div>'
-                f'<div class="sc-lv-l">Stop</div>'
                 f'</div>'
-                f'<div class="sc-lv">'
-                f'<div class="sc-lv-v" style="color:#10a37f">+{t1_pct:.1f}%</div>'
-                f'<div class="sc-lv-l">Target</div>'
+                f'<div style="padding:0.55rem 0.9rem 0.7rem;border-top:1px solid rgba(255,255,255,0.05);'
+                f'font-size:0.71rem;color:#9e9e9e;line-height:1.5;">'
+                f'<span style="color:#fbbf24;font-weight:700;font-size:0.65rem;text-transform:uppercase;'
+                f'letter-spacing:0.7px;margin-right:0.4rem;">Why:</span>{why_text}'
                 f'</div>'
-                f'<div class="sc-lv" style="border-right:1px solid rgba(255,255,255,0.07)">'
-                f'<div class="sc-lv-v" style="color:#fbbf24">{rr:.1f}×</div>'
-                f'<div class="sc-lv-l">R:R</div>'
-                f'</div>'
-                f'</div>'  # /sc-levels
-
-                # Indicators
-                f'<div class="sc-inds">'
-                f'<div class="sc-ind"><div class="sc-iv" style="color:{rsic}">{rsi:.0f}</div><div class="sc-il">RSI</div></div>'
-                f'<div class="sc-ind"><div class="sc-iv" style="color:{adxc}">{adx:.0f}</div><div class="sc-il">ADX</div></div>'
-                f'<div class="sc-ind"><div class="sc-iv" style="color:{vrc}">{vr:.1f}×</div><div class="sc-il">Vol</div></div>'
-                f'<div class="sc-ind"><div class="sc-iv" style="color:{ema_c}">{ema_t}</div><div class="sc-il">EMA</div></div>'
-                f'<div class="sc-ind"><div class="sc-iv" style="color:{obv_c}">{obv_t}</div><div class="sc-il">OBV</div></div>'
-                f'</div>'  # /sc-inds
-
-                f'</div>'  # /sc-data
-
-                # ── Conviction bar ─────────────────────────────────────────
-                f'<div class="sc-conv">'
-                f'<span class="sc-conv-lbl">Conviction</span>'
-                f'<div class="sc-conv-track">'
-                f'<div class="sc-conv-fill" style="width:{conv}%;background:{cc}"></div>'
-                f'</div>'
-                f'<span class="sc-conv-val" style="color:{cc}">{conv}%</span>'
-                f'</div>'
-
-                # ── Footer: perf chips + signal tags ──────────────────────
-                f'<div class="sc-foot">{perf_h}{sep}{tags_h}</div>'
-
-                f'</div>',  # /sc
-                unsafe_allow_html=True,
-            )
-
-        # ── Classify stocks into 3 upward sections ───────────────────────────
-        ind_buy  = sorted([s for s in all_stocks if s.get('ind_score',  0) > 0],
-                          key=lambda x: x.get('ind_score',  0), reverse=True)
-        pa_buy   = sorted([s for s in all_stocks if s.get('pa_score',   0) > 0],
-                          key=lambda x: x.get('pa_score',   0), reverse=True)
-        both_buy = sorted(
-            [s for s in all_stocks
-             if s.get('ind_score', 0) >= 2           # indicators clearly positive
-             and s.get('pa_score',  0) >= 2          # price action clearly positive
-             and s.get('score',     0) >= 4          # combined score ≥4
-             and s.get('rr_ratio',  0) >= 2.0],      # minimum 2:1 reward:risk
-            key=lambda x: x.get('priority_score', 0), reverse=True)
-
-        # Helper: mini sub-score strip above each card
-        def _sub_badge(s):
-            sc_i = s.get('ind_score', 0)
-            sc_p = s.get('pa_score',  0)
-            ci = '#10a37f' if sc_i > 0 else '#ef4444'
-            cp_ = '#10a37f' if sc_p > 0 else '#ef4444'
-            st.markdown(
-                f'<div style="display:flex;gap:0.6rem;padding:0.32rem 1rem 0;font-size:0.61rem;font-weight:700;">'
-                f'<span style="color:{ci}">📊 Indicators {sc_i:+d}</span>'
-                f'<span style="color:#333">·</span>'
-                f'<span style="color:{cp_}">📈 Price Action {sc_p:+d}</span>'
                 f'</div>',
                 unsafe_allow_html=True,
             )
 
-        # ── Tabs ──────────────────────────────────────────────────────────────
-        tab_ind, tab_pa, tab_both, tab_sell, tab_hold, tab_ov = st.tabs([
-            f"① Indicators ▲  {len(ind_buy)}",
-            f"② Price Action ▲  {len(pa_buy)}",
-            f"③ Perfect Setup ⭐  {len(both_buy)}",
-            f"▼ Avoid  {len(sell_stocks)}",
-            f"◆ Watch  {len(hold_stocks)}",
-            "  Charts  ",
+        # ── Classify stocks ───────────────────────────────────────────────────
+        # All bullish stocks (indicators OR price action agree) — sorted by priority
+        all_buy = sorted(
+            [s for s in all_stocks if s.get('score', 0) > 0
+             or s.get('ind_score', 0) > 0 or s.get('pa_score', 0) > 0],
+            key=lambda x: x.get('priority_score', 0), reverse=True)
+
+        # Best Picks: strict multi-gate composite score, capped at 10
+        def _best_picks_score(s):
+            rr   = s.get('rr_ratio', 0)
+            conv = s.get('conviction', 0)
+            ind  = s.get('ind_score', 0)
+            pa   = s.get('pa_score', 0)
+            sc   = s.get('score', 0)
+            vr   = s.get('vol_ratio', 1)
+            rsi  = s.get('rsi', 50)
+            rsi_bonus = 0.5 if rsi < 45 else (-0.5 if rsi > 72 else 0)
+            return (rr * 2) + (conv / 20) + ind + pa + sc + min(vr, 3) + rsi_bonus
+
+        best_picks = sorted(
+            [s for s in all_stocks
+             if s.get('ind_score', 0) >= 2
+             and s.get('pa_score', 0) >= 2
+             and s.get('score', 0) >= 4
+             and s.get('rr_ratio', 0) >= 1.8
+             and s.get('conviction', 0) >= 45],
+            key=_best_picks_score, reverse=True)[:10]
+
+        # ── Search box ───────────────────────────────────────────────────────
+        _srch = st.text_input(
+            "Search stocks",
+            placeholder="Filter by ticker or name…",
+            key="ma_search",
+            label_visibility="collapsed",
+        )
+
+        # Pull active filter settings saved at scan time
+        _f_sig    = st.session_state.get('ma_filter_sig',    'All')
+        _f_sector = st.session_state.get('ma_filter_sector', 'All Sectors')
+        _f_score  = st.session_state.get('ma_filter_score',  1)
+        _f_rr     = st.session_state.get('ma_filter_rr',     0.0)
+        _f_conv   = st.session_state.get('ma_filter_conv',   0)
+
+        def _filter(lst):
+            out = _sorted(lst)
+            # Text search
+            if _srch:
+                q = _srch.strip().lower()
+                out = [s for s in out if q in s['ticker'].lower() or q in s.get('name', '').lower()]
+            # Sector
+            if _f_sector and _f_sector != 'All Sectors':
+                out = [s for s in out if s.get('sector', 'Other') == _f_sector]
+            # Min score
+            if _f_score > 1:
+                out = [s for s in out if s.get('score', 0) >= _f_score]
+            # Min R:R
+            if _f_rr > 0:
+                out = [s for s in out if s.get('rr_ratio', 0) >= _f_rr]
+            # Min conviction
+            if _f_conv > 0:
+                out = [s for s in out if s.get('conviction', 0) >= _f_conv]
+            return out
+
+        # Signal-type filter splits the raw lists before tab counts
+        def _sig_filter(lst, side):
+            if _f_sig == 'Buy Only' and side != 'buy':
+                return []
+            if _f_sig == 'Sell Only' and side != 'sell':
+                return []
+            return _filter(lst)
+
+        _f_buy_stocks  = _sig_filter(buy_stocks,  'buy')
+        _f_sell_stocks = _sig_filter(sell_stocks, 'sell')
+        _f_best_picks  = _filter(best_picks) if _f_sig != 'Sell Only' else []
+        _f_all_buy     = _sig_filter(all_buy, 'buy')
+
+        # Active filter badge
+        _active_filters = []
+        if _f_sig    != 'All':          _active_filters.append(_f_sig)
+        if _f_sector != 'All Sectors':  _active_filters.append(_f_sector)
+        if _f_score  > 1:               _active_filters.append(f"Score≥{_f_score}")
+        if _f_rr     > 0:               _active_filters.append(f"R:R≥{_f_rr:.1f}×")
+        if _f_conv   > 0:               _active_filters.append(f"Conv≥{_f_conv}%")
+        if _active_filters:
+            st.markdown(
+                "<div style='display:flex;flex-wrap:wrap;gap:0.35rem;margin-bottom:0.6rem;'>"
+                + "".join(
+                    f"<span style='font-size:0.62rem;font-weight:700;padding:0.18rem 0.55rem;"
+                    f"border-radius:999px;background:rgba(251,191,36,0.1);color:#fbbf24;"
+                    f"border:1px solid rgba(251,191,36,0.3);'>{f}</span>"
+                    for f in _active_filters)
+                + "</div>",
+                unsafe_allow_html=True,
+            )
+
+        # ── 3-tab results layout ──────────────────────────────────────────────
+        tab_best, tab_buy, tab_sell = st.tabs([
+            f"Best Picks  {len(best_picks)}",
+            f"Buy Signals  {len(all_buy)}",
+            f"Avoid  {len(sell_stocks)}",
         ])
 
-        with tab_ind:
-            st.markdown(
-                '<div class="msr-sec-row"><div class="msr-sec-dot buy"></div>'
-                '<span class="msr-sec-title buy">Technical Indicators say UP</span>'
-                '<span class="msr-sec-count" style="margin-left:0.5rem;">RSI · MACD · Bollinger · Stochastic · ADX · Volume · OBV</span></div>',
-                unsafe_allow_html=True)
-            if ind_buy:
+        with tab_best:
+            if not best_picks:
                 st.markdown(
-                    f'<div style="font-size:0.62rem;color:#505050;margin:-0.3rem 0 0.6rem;">'
-                    f'{len(ind_buy)} stocks where oscillators &amp; volume indicators signal bullish momentum</div>',
+                    "<div class='msr-empty'>"
+                    "No stocks pass all quality gates right now — check Buy Signals for broader candidates."
+                    "</div>",
                     unsafe_allow_html=True)
-                for s in _sorted(ind_buy):
-                    _sub_badge(s)
-                    _render_card(s, 'buy')
             else:
-                st.markdown("<div class='msr-empty'>No stocks found where indicators signal upward — try a wider date range.</div>", unsafe_allow_html=True)
+                st.markdown(
+                    f'<div style="background:rgba(255,215,0,0.04);border:1px solid rgba(255,215,0,0.15);'
+                    f'border-radius:10px;padding:0.75rem 1rem;margin-bottom:0.9rem;font-size:0.72rem;color:#9e9e9e;line-height:1.5;">'
+                    f'<span style="color:#FFD700;font-weight:700;">Best Picks</span> — '
+                    f'ranked by a composite of R:R, conviction, indicator strength, price action, and volume. '
+                    f'All {len(best_picks)} stocks pass: Indicators ≥2 · Price Action ≥2 · Score ≥4 · R:R ≥1.8× · Conviction ≥45%.'
+                    f'</div>',
+                    unsafe_allow_html=True)
+                for _i, s in enumerate(best_picks):
+                    _rank_colors = ["#FFD700", "#C0C0C0", "#CD7F32"]
+                    _rc = _rank_colors[_i] if _i < 3 else "#10a37f"
+                    _sym_bp  = s['ticker'].replace('.SR', '')
+                    _name_bp = s.get('name', _sym_bp)
+                    _p_bp    = s['price']
+                    _e_bp    = s.get('entry', _p_bp)
+                    _sl_bp   = s.get('stop_loss', _p_bp)
+                    _t1_bp   = s.get('target1', _p_bp)
+                    _t2_bp   = s.get('target2', _t1_bp)
+                    _rr_bp   = s.get('rr_ratio', 0)
+                    _conv_bp = s.get('conviction', 0)
+                    _up_bp   = abs(_t1_bp - _e_bp) / _e_bp * 100 if _e_bp > 0 else 0
+                    _dn_bp   = abs(_e_bp  - _sl_bp) / _e_bp * 100 if _e_bp > 0 else 0
+                    _sc_bp   = s.get('score', 0)
+                    _setup   = s.get('setup_type', '')
+                    _sigs    = s.get('signals', [])
+                    _t2_pct  = abs(_t2_bp - _e_bp) / _e_bp * 100 if _e_bp > 0 else 0
+                    _cc_bp   = "#10a37f" if _conv_bp >= 70 else ("#4A9EFF" if _conv_bp >= 45 else "#fbbf24")
+                    _rank_num = ["#1", "#2", "#3"][_i] if _i < 3 else f"#{_i+1}"
+                    _why_bp  = " · ".join(_sigs[:4]) if _sigs else (_setup if _setup else "—")
+                    st.markdown(
+                        f'<div class="sc" style="border-left:4px solid {_rc};background:rgba(255,255,255,0.025);">'
+                        f'<div class="sc-hd">'
+                        f'<div class="sc-left">'
+                        f'<div style="display:flex;align-items:center;gap:0.5rem;">'
+                        f'<span style="font-size:0.62rem;font-weight:700;padding:0.12rem 0.46rem;'
+                        f'border-radius:4px;background:rgba(255,215,0,0.08);color:{_rc};'
+                        f'border:1px solid {_rc}44;">{_rank_num}</span>'
+                        f'<span class="sc-sym buy" style="color:{_rc};">{_sym_bp}</span>'
+                        f'</div>'
+                        f'<div class="sc-nameline"><span class="sc-name">{_name_bp}</span>'
+                        f'<span class="sc-setup-tag">{_setup}</span></div>'
+                        f'</div>'
+                        f'<div class="sc-right">'
+                        f'<div class="sc-price">SAR {_p_bp:.2f}</div>'
+                        f'<div class="sc-meta">'
+                        f'<span class="sc-score buy">+{_sc_bp}</span>'
+                        f'<span style="font-size:0.7rem;font-weight:700;color:{_cc_bp}">{_conv_bp}%</span>'
+                        f'</div>'
+                        f'</div>'
+                        f'</div>'
+                        f'<div class="sc-hr"></div>'
+                        f'<div style="display:grid;grid-template-columns:repeat(5,1fr);border-bottom:1px solid rgba(255,255,255,0.05);">'
+                        f'<div class="sc-lv"><div class="sc-lv-v" style="color:#4A9EFF">{_e_bp:.2f}</div><div class="sc-lv-l">Entry</div></div>'
+                        f'<div class="sc-lv"><div class="sc-lv-v" style="color:#ef4444">-{_dn_bp:.1f}%</div><div class="sc-lv-l">Stop</div></div>'
+                        f'<div class="sc-lv"><div class="sc-lv-v" style="color:#10a37f">+{_up_bp:.1f}%</div><div class="sc-lv-l">Target 1</div></div>'
+                        f'<div class="sc-lv"><div class="sc-lv-v" style="color:#26A69A">+{_t2_pct:.1f}%</div><div class="sc-lv-l">Target 2</div></div>'
+                        f'<div class="sc-lv" style="border-right:none"><div class="sc-lv-v" style="color:#fbbf24">{_rr_bp:.1f}×</div><div class="sc-lv-l">R:R</div></div>'
+                        f'</div>'
+                        f'<div style="padding:0.55rem 0.9rem 0.7rem;font-size:0.71rem;color:#9e9e9e;line-height:1.5;">'
+                        f'<span style="color:#fbbf24;font-weight:700;font-size:0.65rem;text-transform:uppercase;'
+                        f'letter-spacing:0.7px;margin-right:0.4rem;">Why:</span>{_why_bp}'
+                        f'</div>'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
 
-        with tab_pa:
-            st.markdown(
-                '<div class="msr-sec-row"><div class="msr-sec-dot buy"></div>'
-                '<span class="msr-sec-title buy">Price Action says UP</span>'
-                '<span class="msr-sec-count" style="margin-left:0.5rem;">EMA Alignment · Golden Cross · 52W Position · Momentum · RS vs TASI · Weekly Trend</span></div>',
-                unsafe_allow_html=True)
-            if pa_buy:
-                st.markdown(
-                    f'<div style="font-size:0.62rem;color:#505050;margin:-0.3rem 0 0.6rem;">'
-                    f'{len(pa_buy)} stocks where price structure &amp; trend alignment signal bullish</div>',
-                    unsafe_allow_html=True)
-                for s in _sorted(pa_buy):
-                    _sub_badge(s)
-                    _render_card(s, 'buy')
+        with tab_buy:
+            filtered_buy = _f_all_buy
+            if not filtered_buy:
+                st.markdown("<div class='msr-empty'>No buy signals found — try a wider period or different symbols.</div>", unsafe_allow_html=True)
             else:
-                st.markdown("<div class='msr-empty'>No stocks found where price action signals upward.</div>", unsafe_allow_html=True)
+                perfect = [s for s in filtered_buy
+                           if s.get('ind_score', 0) >= 2 and s.get('pa_score', 0) >= 2
+                           and s.get('score', 0) >= 4 and s.get('rr_ratio', 0) >= 2.0]
+                regular = [s for s in filtered_buy if s not in perfect]
 
-        with tab_both:
-            st.markdown(
-                '<div class="msr-sec-row"><div class="msr-sec-dot buy"></div>'
-                '<span class="msr-sec-title buy">⭐ Perfect Setup — High Conviction Only</span>'
-                '<span class="msr-sec-count" style="margin-left:0.5rem;">Ind ≥2 · PA ≥2 · Score ≥4 · R:R ≥2×</span></div>',
-                unsafe_allow_html=True)
-            if both_buy:
-                st.markdown(
-                    f'<div style="font-size:0.62rem;color:#505050;margin:-0.3rem 0 0.6rem;">'
-                    f'{len(both_buy)} stocks passing all 6 quality gates — highest-probability winning setups only</div>',
-                    unsafe_allow_html=True)
-                for s in _sorted(both_buy):
-                    _sub_badge(s)
-                    _render_card(s, 'buy')
-            else:
-                st.markdown("<div class='msr-empty'>No perfect setups found right now — all qualifying stocks are in tabs ① and ②. The market may not be offering ideal conditions today.</div>", unsafe_allow_html=True)
+                if perfect:
+                    st.markdown(
+                        f'<div class="msr-sec-row"><div class="msr-sec-dot buy"></div>'
+                        f'<span class="msr-sec-title buy">Perfect Setups</span>'
+                        f'<span class="msr-sec-count">{len(perfect)} stocks</span>'
+                        f'</div>',
+                        unsafe_allow_html=True)
+                    for s in perfect:
+                        _render_card(s, 'buy')
+
+                if regular:
+                    if perfect:
+                        st.markdown('<div class="msr-hline"></div>', unsafe_allow_html=True)
+                    st.markdown(
+                        f'<div class="msr-sec-row"><div class="msr-sec-dot buy"></div>'
+                        f'<span class="msr-sec-title buy">Buy Signals</span>'
+                        f'<span class="msr-sec-count">{len(regular)} stocks</span>'
+                        f'</div>',
+                        unsafe_allow_html=True)
+                    for s in regular:
+                        _render_card(s, 'buy')
 
         with tab_sell:
-            if sell_stocks:
+            filtered_sell = _f_sell_stocks
+            if filtered_sell:
                 st.markdown(
                     f'<div class="msr-sec-row"><div class="msr-sec-dot sell"></div>'
-                    f'<span class="msr-sec-title sell">Sell / Avoid Signals</span>'
-                    f'<span class="msr-sec-count">{len(sell_stocks)} stocks</span></div>',
+                    f'<span class="msr-sec-title sell">Avoid / Sell Signals</span>'
+                    f'<span class="msr-sec-count">{len(filtered_sell)} stocks</span></div>',
                     unsafe_allow_html=True)
-                for s in _sorted(sell_stocks):
+                for s in filtered_sell:
                     _render_card(s, 'sell')
             else:
                 st.markdown("<div class='msr-empty'>No sell signals found.</div>", unsafe_allow_html=True)
-
-        with tab_hold:
-            if hold_stocks:
-                st.markdown(
-                    f'<div class="msr-sec-row"><div class="msr-sec-dot hold"></div>'
-                    f'<span class="msr-sec-title hold">Watch List</span>'
-                    f'<span class="msr-sec-count">{len(hold_stocks)} stocks</span></div>',
-                    unsafe_allow_html=True)
-                for s in _sorted(hold_stocks):
-                    _render_card(s, 'hold')
-            else:
-                st.markdown("<div class='msr-empty'>No neutral stocks.</div>", unsafe_allow_html=True)
-
-        with tab_ov:
-            import plotly.graph_objects as go
-            from collections import Counter
-
-            _PLOT_BG = "#161616"
-            _GRID    = "rgba(255,255,255,0.05)"
-            _FONT    = dict(family="Inter,system-ui,sans-serif", color="#888", size=11)
-
-            if not all_stocks:
-                st.markdown("<div class='msr-empty'>Run a scan to see charts.</div>", unsafe_allow_html=True)
-            else:
-                ov_c1, ov_c2 = st.columns(2)
-
-                with ov_c1:
-                    fig_d = go.Figure(go.Pie(
-                        labels=["Buy", "Sell", "Watch"],
-                        values=[len(buy_stocks), len(sell_stocks), len(hold_stocks)],
-                        hole=0.62,
-                        marker=dict(colors=["#10a37f", "#ef4444", "#fbbf24"],
-                                    line=dict(color=_PLOT_BG, width=3)),
-                        textinfo="label+percent",
-                        textfont=dict(size=11, family="Inter"),
-                        hovertemplate="%{label}: %{value} stocks<extra></extra>",
-                    ))
-                    fig_d.add_annotation(
-                        text=f"<b>{len(all_stocks)}</b><br><span style='font-size:10px;color:#666'>scanned</span>",
-                        x=0.5, y=0.5, showarrow=False,
-                        font=dict(size=18, color="#ececec", family="Inter"),
-                    )
-                    fig_d.update_layout(
-                        height=280, plot_bgcolor=_PLOT_BG, paper_bgcolor=_PLOT_BG,
-                        font=_FONT, margin=dict(t=30, b=10, l=15, r=15), showlegend=False,
-                        title=dict(text="Signal Distribution", font=dict(size=12, color="#666", family="Inter"), x=0),
-                    )
-                    st.plotly_chart(fig_d, width="stretch", config={"displayModeBar": False})
-
-                with ov_c2:
-                    s_buy  = Counter(s.get('sector', 'Other') for s in buy_stocks)
-                    s_sell = Counter(s.get('sector', 'Other') for s in sell_stocks)
-                    secs   = sorted(set(list(s_buy) + list(s_sell)))
-                    fig_s  = go.Figure()
-                    fig_s.add_trace(go.Bar(name="Buy",  x=secs, y=[s_buy.get(s, 0)  for s in secs], marker_color="#10a37f", marker_opacity=0.8))
-                    fig_s.add_trace(go.Bar(name="Sell", x=secs, y=[s_sell.get(s, 0) for s in secs], marker_color="#ef4444", marker_opacity=0.8))
-                    fig_s.update_layout(
-                        barmode="group", height=280,
-                        plot_bgcolor=_PLOT_BG, paper_bgcolor=_PLOT_BG, font=_FONT,
-                        xaxis=dict(tickangle=-40, gridcolor=_GRID, showgrid=False, tickfont=dict(size=9)),
-                        yaxis=dict(gridcolor=_GRID),
-                        margin=dict(t=30, b=80, l=35, r=10),
-                        legend=dict(orientation="h", y=-0.6, font=dict(size=10)),
-                        title=dict(text="Signals by Sector", font=dict(size=12, color="#666", family="Inter"), x=0),
-                    )
-                    st.plotly_chart(fig_s, width="stretch", config={"displayModeBar": False})
-
-                ov_c3, ov_c4 = st.columns(2)
-
-                with ov_c3:
-                    if buy_stocks:
-                        fig_rr = go.Figure()
-                        fig_rr.add_trace(go.Scatter(
-                            x=[s.get('rr_ratio', 0)   for s in buy_stocks],
-                            y=[s.get('conviction', 0)  for s in buy_stocks],
-                            mode="markers+text",
-                            text=[s['ticker'].replace('.SR', '') for s in buy_stocks],
-                            textposition="top center",
-                            textfont=dict(size=9, color="#555", family="Inter"),
-                            marker=dict(
-                                size=[max(8, min(22, s.get('vol_ratio', 1) * 7)) for s in buy_stocks],
-                                color=[s.get('rsi', 50) for s in buy_stocks],
-                                colorscale=[[0, "#ef4444"], [0.5, "#fbbf24"], [1, "#10a37f"]],
-                                showscale=True,
-                                colorbar=dict(thickness=8, len=0.7,
-                                              tickfont=dict(size=9),
-                                              title=dict(text="RSI", font=dict(size=10))),
-                                line=dict(width=1, color="rgba(255,255,255,0.1)"),
-                            ),
-                            hovertemplate="<b>%{text}</b><br>R:R %{x:.1f}×  Conviction %{y}%<extra></extra>",
-                        ))
-                        fig_rr.add_vline(x=1.5, line_dash="dot", line_color="rgba(255,255,255,0.15)",
-                                         annotation_text="R:R 1.5×",
-                                         annotation_font=dict(size=9, color="#555"))
-                        fig_rr.update_layout(
-                            height=290, plot_bgcolor=_PLOT_BG, paper_bgcolor=_PLOT_BG, font=_FONT,
-                            xaxis=dict(title="Risk:Reward", gridcolor=_GRID, zeroline=False),
-                            yaxis=dict(title="Conviction %", gridcolor=_GRID, zeroline=False),
-                            margin=dict(t=30, b=40, l=45, r=65),
-                            title=dict(text="Conviction vs R:R  (size=volume · color=RSI)",
-                                       font=dict(size=11, color="#666", family="Inter"), x=0),
-                        )
-                        st.plotly_chart(fig_rr, width="stretch", config={"displayModeBar": False})
-                    else:
-                        st.markdown("<div class='msr-empty'>No buy signals for chart.</div>", unsafe_allow_html=True)
-
-                with ov_c4:
-                    all_rsi = [s.get('rsi', 50) for s in all_stocks]
-                    fig_rsi = go.Figure()
-                    fig_rsi.add_trace(go.Histogram(
-                        x=all_rsi, nbinsx=18,
-                        marker=dict(color="#4A9EFF", opacity=0.75,
-                                    line=dict(color="rgba(0,0,0,0.3)", width=0.5)),
-                        hovertemplate="RSI %{x:.0f} — %{y} stocks<extra></extra>",
-                    ))
-                    fig_rsi.add_vrect(x0=0,  x1=30, fillcolor="rgba(16,163,127,0.06)", line_width=0)
-                    fig_rsi.add_vrect(x0=70, x1=100, fillcolor="rgba(239,68,68,0.06)", line_width=0)
-                    fig_rsi.add_vline(x=30, line_dash="dot", line_color="rgba(16,163,127,0.5)",
-                                      annotation_text="Oversold",
-                                      annotation_font=dict(size=9, color="#10a37f"),
-                                      annotation_position="top right")
-                    fig_rsi.add_vline(x=70, line_dash="dot", line_color="rgba(239,68,68,0.5)",
-                                      annotation_text="Overbought",
-                                      annotation_font=dict(size=9, color="#ef4444"),
-                                      annotation_position="top left")
-                    fig_rsi.update_layout(
-                        height=290, plot_bgcolor=_PLOT_BG, paper_bgcolor=_PLOT_BG, font=_FONT,
-                        xaxis=dict(title="RSI", gridcolor=_GRID, range=[0, 100]),
-                        yaxis=dict(title="Stocks", gridcolor=_GRID),
-                        margin=dict(t=30, b=40, l=45, r=20),
-                        title=dict(text="RSI Distribution", font=dict(size=11, color="#666", family="Inter"), x=0),
-                    )
-                    st.plotly_chart(fig_rsi, width="stretch", config={"displayModeBar": False})
-
-                # Top candidates table
-                st.markdown(
-                    '<div class="msr-sec-row" style="margin-top:1.2rem;">'
-                    '<div class="msr-sec-dot buy"></div>'
-                    '<span class="msr-sec-title buy">Top Buy Candidates</span>'
-                    '<span class="msr-sec-count">Priority score ranked — full trade details</span>'
-                    '</div>',
-                    unsafe_allow_html=True)
-                top10 = sorted(buy_stocks, key=lambda x: x.get('priority_score', 0), reverse=True)[:10]
-                if top10:
-                    df_top = pd.DataFrame([{
-                        'Ticker':    s['ticker'],
-                        'Name':      s.get('name', '')[:22],
-                        'Setup':     s.get('setup_type', ''),
-                        'Price SAR': f"{s['price']:.2f}",
-                        'Score':     s['score'],
-                        'Conv %':    s.get('conviction', 0),
-                        'R:R':       f"{s.get('rr_ratio', 0):.1f}×",
-                        'Entry':     f"{s.get('entry', 0):.2f}",
-                        'Stop':      f"{s.get('stop_loss', 0):.2f}",
-                        'Target 1':  f"{s.get('target1', 0):.2f}",
-                        'Target 2':  f"{s.get('target2', 0):.2f}",
-                        'Upside':    f"+{s.get('potential', 0):.1f}%",
-                        'Risk':      s.get('risk_class', ''),
-                        '1M Perf':   f"{'+' if s.get('perf_1m', 0) > 0 else ''}{s.get('perf_1m', 0):.1f}%",
-                        'Regime':    s.get('regime', ''),
-                    } for s in top10])
-                    st.dataframe(df_top, width="stretch", hide_index=True)
 
     elif st.session_state.show_results:
 
@@ -3910,6 +3850,7 @@ def main():
 
         # Live price — use already-downloaded Close (no extra network call)
         current_price = float(latest['Close'])
+
 
         period_change = ((current_price - first['Close']) / first['Close']) * 100
 

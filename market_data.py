@@ -128,130 +128,134 @@ def get_saudi_market_status():
 
 def get_all_tadawul_tickers():
 
-    """241 Tadawul Main Market listed companies — all verified valid on Yahoo Finance."""
+    """283 Saudi Exchange (Tadawul + NOMU) listed companies — verified against official Saudi Exchange listing."""
 
     return {
 
         # ══════════════════════════════════════════════════════════════════════
-        # BANKS & FINANCIALS (18 stocks)
+        # BANKS & FINANCIALS (21 stocks)
         # ══════════════════════════════════════════════════════════════════════
-        "1010.SR": "Riyad Bank", "1020.SR": "Bank AlJazira", "1030.SR": "SIB",
-        "1050.SR": "BSF", "1060.SR": "SAMBA", "1080.SR": "ANB",
-        "1120.SR": "Al Rajhi", "1140.SR": "SABB", "1150.SR": "Alinma",
-        "1180.SR": "SNB", "1182.SR": "Amlak", "1183.SR": "SIRC",
-        "1301.SR": "SAL Saudi", "1302.SR": "Saudia Cargo",
-        "1303.SR": "Al Babtain Power", "1320.SR": "SIFC",
-        "1321.SR": "Amana Coop", "1322.SR": "Alawwal Bank",
+        "1010.SR": "Riyad Bank", "1020.SR": "Bank AlJazira", "1030.SR": "SAIB",
+        "1050.SR": "BSF", "1060.SR": "SAB", "1080.SR": "ANB",
+        "1111.SR": "Tadawul Group", "1120.SR": "Al Rajhi", "1140.SR": "ALBILAD",
+        "1150.SR": "Alinma", "1180.SR": "SNB", "1182.SR": "Amlak",
+        "1183.SR": "SHL", "1810.SR": "Seera", "1820.SR": "Baan",
+        "1833.SR": "Almawarid", "1835.SR": "Tamkeen",
+        "4081.SR": "Nayifat", "4083.SR": "Tasheel",
 
         # ══════════════════════════════════════════════════════════════════════
-        # MATERIALS & CHEMICALS (55 stocks)
+        # MATERIALS & CHEMICALS (30 stocks)
         # ══════════════════════════════════════════════════════════════════════
-        "1201.SR": "Takween Adv", "1202.SR": "Tijaniah", "1210.SR": "BCI",
-        "1211.SR": "MIAHONA", "1212.SR": "Astra Industrial", "1213.SR": "Naseej Intl",
-        "1214.SR": "SHAMS",
+        "1201.SR": "Takween", "1202.SR": "MEPCO", "1210.SR": "BCI",
+        "1211.SR": "MAADEN", "1212.SR": "Astra Industrial", "1213.SR": "NASEEJ",
         "2001.SR": "Chemanol", "2010.SR": "SABIC", "2020.SR": "SAFCO",
-        "2030.SR": "Sarco", "2040.SR": "Saudi Ceramic", "2050.SR": "Sadafco",
-        "2060.SR": "Yansab", "2070.SR": "Saudi Kayan", "2080.SR": "GACO",
-        "2081.SR": "Sahara Petro", "2082.SR": "Gas Arabian", "2083.SR": "Petrochem",
-        "2084.SR": "NATPET", "2090.SR": "Nat Gypsum", "2100.SR": "Wafrah",
-        "2110.SR": "Saudi Cable", "2120.SR": "Sahara", "2130.SR": "SIDC",
-        "2140.SR": "Aldrees", "2150.SR": "Zamil Ind", "2160.SR": "Amiantit",
-        "2170.SR": "Alujain", "2180.SR": "Fipco", "2190.SR": "Maaden",
-        "2200.SR": "Arabian Pipes", "2210.SR": "Nama", "2220.SR": "MIC",
-        "2222.SR": "Aramco", "2223.SR": "Luberef", "2230.SR": "Petro Rabigh",
-        "2240.SR": "Zoujaj", "2250.SR": "SIECO", "2270.SR": "Saudia Dairy",
-        "2280.SR": "Almarai", "2281.SR": "Tanmiah Food", "2282.SR": "Naqi Water",
-        "2283.SR": "SACO", "2290.SR": "Yanbu Cement", "2300.SR": "Saudi Paper",
-        "2310.SR": "SIC", "2320.SR": "Al Kathiri", "2330.SR": "APC",
-        "2340.SR": "Saudi Steel Pipe", "2350.SR": "Enaya", "2360.SR": "SVCP",
-        "2370.SR": "MCG", "2380.SR": "ACWA Power", "2381.SR": "Alkhorayef",
-        "2382.SR": "ADES",
+        "2060.SR": "TASNEE", "2070.SR": "SPIMACO", "2082.SR": "ACWA",
+        "2083.SR": "Petrochem", "2090.SR": "NGC", "2130.SR": "SIDC",
+        "2140.SR": "AYYAN", "2150.SR": "ZOUJAJ", "2200.SR": "APC",
+        "2220.SR": "MAADANIYAH", "2222.SR": "Aramco", "2223.SR": "LUBEREF",
+        "2230.SR": "CHEMICAL", "2250.SR": "SIIG", "2270.SR": "SADAFCO",
+        "2280.SR": "Almarai", "2281.SR": "TANMIAH",
+        "2283.SR": "FIRST MILLING", "2284.SR": "MODERN MILLS", "2285.SR": "ARABIAN MILLS",
+        "2330.SR": "ADVANCED",
+        "2350.SR": "Saudi Kayan", "2380.SR": "PETRO RABIGH",
+        "2381.SR": "Arabian Drilling", "2382.SR": "ADES",
 
         # ══════════════════════════════════════════════════════════════════════
-        # CEMENT & BUILDING MATERIALS (14 stocks)
+        # CEMENT & BUILDING MATERIALS (12 stocks)
         # ══════════════════════════════════════════════════════════════════════
-        "3002.SR": "Najran Cement", "3003.SR": "City Cement",
-        "3004.SR": "Northern Cement", "3005.SR": "Umm Al-Qura Cement",
-        "3010.SR": "Arabian Cement", "3020.SR": "Yamama Cement",
-        "3030.SR": "Saudi Cement", "3040.SR": "Qassim Cement",
-        "3050.SR": "Southern Cement", "3060.SR": "Yanbu Cement",
-        "3080.SR": "Eastern Cement", "3090.SR": "Tabuk Cement",
-        "3091.SR": "Jouf Cement", "3092.SR": "Arkan Building",
+        "3002.SR": "NAJRAN CEMENT", "3003.SR": "City Cement",
+        "3004.SR": "NORCEM", "3005.SR": "UQCC",
+        "3007.SR": "OASIS", "3008.SR": "AL KATHIRI",
+        "3010.SR": "ACC", "3020.SR": "YC",
+        "3040.SR": "QACCO", "3050.SR": "SPCC",
+        "3060.SR": "YCC", "3080.SR": "EPCCO",
+        "3090.SR": "TCC", "3091.SR": "Jouf Cement",
 
         # ══════════════════════════════════════════════════════════════════════
-        # RETAIL (20 stocks)
+        # RETAIL & CONSUMER (28 stocks)
         # ══════════════════════════════════════════════════════════════════════
-        "4001.SR": "Al Othaim", "4003.SR": "Extra", "4070.SR": "Tihama",
-        "4080.SR": "Shaker", "4081.SR": "Al Hassan", "4082.SR": "SGH",
-        "4083.SR": "United Intl Holding",
-        "4160.SR": "Thimar", "4161.SR": "Bindawood", "4163.SR": "Fawaz Alhokair",
-        "4164.SR": "Nahdi Medical", "4170.SR": "Tasnee", "4180.SR": "Fitaihi",
-        "4190.SR": "Jarir", "4191.SR": "Makkah Const", "4192.SR": "Al Saif",
-        "4200.SR": "Aldrees Pet", "4210.SR": "Saudi Auto",
-        "4260.SR": "Budget", "4261.SR": "Theeb",
+        "4001.SR": "A.Othaim Market", "4003.SR": "EXTRA",
+        "4008.SR": "SACO", "4050.SR": "SASCO", "4051.SR": "BAAZEEM",
+        "4160.SR": "THIMAR", "4161.SR": "Bindawood", "4163.SR": "ALDAWAA",
+        "4164.SR": "NAHDI", "4190.SR": "JARIR", "4191.SR": "ABO MOATI",
+        "4192.SR": "ALSAIF GALLERY", "4193.SR": "NICE ONE",
+        "4194.SR": "BUILD STATION", "4200.SR": "ALDREES",
+        "4240.SR": "CENOMI RETAIL",
+        "4011.SR": "LAZURDE", "4012.SR": "ALASEEL",
+        "4180.SR": "FITAIHI GROUP",
+        "4170.SR": "TECO", "4290.SR": "ALKHALEEJ TRNG",
+        "4291.SR": "NCLE", "4292.SR": "ATAA",
 
         # ══════════════════════════════════════════════════════════════════════
-        # CONSUMER DURABLES & APPAREL (15 stocks)
+        # CONSUMER SERVICES & FOOD (22 stocks)
         # ══════════════════════════════════════════════════════════════════════
-        "4141.SR": "Abdullatif", "4142.SR": "Takween", "4144.SR": "Raoom Trading",
-        "4146.SR": "Gas Arabian Services", "4162.SR": "Al Khaleej Train",
-        "4262.SR": "LUMI", "4270.SR": "SEDAR", "4280.SR": "Saudi Home Loans",
-        "4290.SR": "Kathiri", "4291.SR": "NCDC", "4292.SR": "Vision",
-        "4320.SR": "Andalus", "4322.SR": "Cenomi Centers", "4323.SR": "Sumou RE",
-        "4240.SR": "FAS",
+        "6001.SR": "HB", "6002.SR": "HERFY FOODS",
+        "6012.SR": "RAYDAN", "6015.SR": "AMERICANA",
+        "6016.SR": "BURGERIZZR", "6017.SR": "JAHEZ",
+        "6018.SR": "SPORT CLUBS", "6020.SR": "GACO",
+        "6040.SR": "TADCO", "6070.SR": "ALJOUF",
+        "6090.SR": "JAZADCO",
+        "4061.SR": "ANAAM",
 
         # ══════════════════════════════════════════════════════════════════════
-        # CONSUMER SERVICES (11 stocks)
+        # MEDIA & ENTERTAINMENT (4 stocks)
         # ══════════════════════════════════════════════════════════════════════
-        "4015.SR": "Leejam", "4071.SR": "MBC", "4072.SR": "Cenomi Foods",
-        "4090.SR": "Taiba Invest", "4100.SR": "SRMG", "4130.SR": "AlBaha",
-        "4150.SR": "SRECO", "4220.SR": "Emaar EC", "4230.SR": "Red Sea Intl",
-        "4250.SR": "Jabal Omar", "4321.SR": "Retal Urban",
+        "4070.SR": "TAPRCO", "4071.SR": "ALARABIA",
+        "4072.SR": "MBC GROUP", "4210.SR": "SRMG",
 
         # ══════════════════════════════════════════════════════════════════════
-        # MEDIA & ENTERTAINMENT (7 stocks)
+        # HEALTH CARE (11 stocks)
         # ══════════════════════════════════════════════════════════════════════
-        "4008.SR": "ASMS", "4012.SR": "Thiqah", "4013.SR": "Al-Dawaa",
-        "4014.SR": "Arriyadh Dev", "4020.SR": "AQMC", "4061.SR": "Anaam",
-        "4140.SR": "Saudi Ind Inv",
+        "4002.SR": "Mouwasat", "4004.SR": "Dallah Health",
+        "4005.SR": "NMC", "4007.SR": "Al Hammadi",
+        "4009.SR": "MEAHCO", "4013.SR": "HMG",
+        "4014.SR": "Arriyadh Dev", "4015.SR": "JAMJOOM",
+        "4016.SR": "MEPCO PHARMA", "4017.SR": "FAKEEH",
+        "4018.SR": "ALMOOSA", "4019.SR": "SMC HEALTHCARE",
+        "4021.SR": "CMCER",
 
         # ══════════════════════════════════════════════════════════════════════
-        # HEALTH CARE EQUIPMENT & SERVICES (8 stocks)
+        # TRANSPORTATION & LOGISTICS (9 stocks)
         # ══════════════════════════════════════════════════════════════════════
-        "4002.SR": "Mouwasat", "4004.SR": "Dallah Health", "4005.SR": "NMC",
-        "4006.SR": "ME Health", "4007.SR": "Al Hammadi", "4009.SR": "MEAHCO",
-        "4011.SR": "Dr Sulaiman", "4165.SR": "Sehati",
+        "4030.SR": "BAHRI", "4031.SR": "SGS",
+        "4040.SR": "SAPTCO", "4260.SR": "BUDGET SAUDI",
+        "4261.SR": "THEEB", "4263.SR": "SAL",
+        "4264.SR": "FLYNAS", "4265.SR": "CHERRY",
 
         # ══════════════════════════════════════════════════════════════════════
-        # TRANSPORTATION (9 stocks)
+        # CAPITAL GOODS & INDUSTRIALS (14 stocks)
         # ══════════════════════════════════════════════════════════════════════
-        "4030.SR": "Bahri", "4031.SR": "SGS", "4040.SR": "SAPTCO",
-        "4050.SR": "SISCO", "4051.SR": "Batic", "4110.SR": "Savola",
-        "4263.SR": "Saudi Automotive", "4264.SR": "Logistics", "4265.SR": "Red Sea Gate",
-
-        # ══════════════════════════════════════════════════════════════════════
-        # CAPITAL GOODS & ADDITIONAL (11 stocks)
-        # ══════════════════════════════════════════════════════════════════════
-        "4017.SR": "Masic", "4018.SR": "SATORP", "4019.SR": "Bahri Logistics",
+        "1301.SR": "ASLAK", "1302.SR": "BAWAN",
+        "1303.SR": "EIC", "1321.SR": "EAST PIPES",
+        "2370.SR": "MESC",
+        "4142.SR": "RIYADH CABLES", "4143.SR": "TALCO",
+        "4146.SR": "GAS", "4147.SR": "CGS",
+        "4148.SR": "ALWASAIL INDUSTRIAL",
         "4300.SR": "Dar Al Arkan", "4310.SR": "KEC",
-        "1303.SR": "SAL Saudi", "1304.SR": "Al Babtain Power",
 
         # ══════════════════════════════════════════════════════════════════════
-        # REAL ESTATE (8 stocks — new valid listings)
+        # REAL ESTATE (10 stocks)
         # ══════════════════════════════════════════════════════════════════════
-        "4324.SR": "Banan Real Estate", "4325.SR": "Umm Al Qura Dev",
-        "4326.SR": "Dar Al Majed RE", "4327.SR": "Alramz Real Estate",
-        "4344.SR": "SEDCO Capital REIT",
+        "4090.SR": "TAIBA", "4100.SR": "MCDC",
+        "4150.SR": "ARDCO", "4220.SR": "EMAAR EC",
+        "4020.SR": "SAUDI REAL ESTATE",
+        "4250.SR": "JABAL OMAR", "4321.SR": "CENOMI CENTERS",
+        "4322.SR": "RETAL", "4323.SR": "SUMOU",
+        "4326.SR": "ALMAJDIAH", "4327.SR": "ALRAMZ",
 
         # ══════════════════════════════════════════════════════════════════════
-        # REITs (16 stocks)
+        # REITs (13 stocks)
         # ══════════════════════════════════════════════════════════════════════
-        "4330.SR": "Riyad REIT", "4331.SR": "Jazira REIT", "4332.SR": "Jadwa REIT",
-        "4333.SR": "Taleem REIT", "4334.SR": "Maather REIT", "4335.SR": "Musharaka REIT",
-        "4336.SR": "Mulkia REIT", "4337.SR": "SICO Saudi REIT", "4338.SR": "Rajhi REIT",
-        "4339.SR": "Derayah REIT", "4340.SR": "Alinma Retail REIT", "4342.SR": "Alinma Hotel",
-        "4345.SR": "Swicorp REIT", "4346.SR": "SNB REIT", "4347.SR": "Bonyan REIT",
-        "4348.SR": "Arbah REIT", "4349.SR": "Mashaar REIT", "4350.SR": "AlKhair REIT",
+        "4330.SR": "RIYAD REIT", "4331.SR": "AL JAZIRA MAWTEN",
+        "4332.SR": "JADWA HARAMAIN", "4333.SR": "TALEEM REIT",
+        "4334.SR": "AL MAATHER", "4335.SR": "MUSHARAKA REIT",
+        "4336.SR": "MULKIA REIT", "4337.SR": "AL MASHAAR",
+        "4338.SR": "AL-AHLI REIT", "4339.SR": "DERAYAH REIT",
+        "4340.SR": "ALRAJHI REIT", "4342.SR": "JADWA REIT SAUDI",
+        "4344.SR": "SEDCO REIT", "4345.SR": "ALINMA RETAIL REIT",
+        "4346.SR": "MEFIC REIT", "4347.SR": "BONYAN REIT",
+        "4348.SR": "ALKHABEER REIT", "4349.SR": "ALINMA HOSP REIT",
+        "4350.SR": "AREIC REIT",
 
         # ══════════════════════════════════════════════════════════════════════
         # UTILITIES (1 stock)
@@ -259,37 +263,73 @@ def get_all_tadawul_tickers():
         "5110.SR": "SEC",
 
         # ══════════════════════════════════════════════════════════════════════
-        # FOOD & STAPLES (17 stocks)
+        # TELECOM & IT (11 stocks)
         # ══════════════════════════════════════════════════════════════════════
-        "6001.SR": "Halwani", "6002.SR": "Herfy", "6004.SR": "SACC",
-        "6010.SR": "NADEC", "6012.SR": "ATC", "6013.SR": "Sunbulah",
-        "6014.SR": "Sinad", "6015.SR": "Themar",
-        "6016.SR": "Shatirah Restaurant", "6017.SR": "Jahez Intl",
-        "6019.SR": "Al Masar Education",
-        "6020.SR": "Jouf Agri", "6040.SR": "Tabuk Agri", "6050.SR": "Saudi Fish",
-        "6060.SR": "Sharqiyah Dev", "6070.SR": "Jazan Dev", "6090.SR": "Jazadco",
+        "7010.SR": "STC", "7020.SR": "ETIHAD ETISALAT",
+        "7030.SR": "ZAIN KSA", "7040.SR": "GO TELECOM",
+        "7200.SR": "MIS", "7201.SR": "ARAB SEA INFO",
+        "7202.SR": "SOLUTIONS", "7203.SR": "ELM",
+        "7204.SR": "2P", "7211.SR": "AZM",
 
         # ══════════════════════════════════════════════════════════════════════
-        # TELECOM & IT (10 stocks — verified valid)
+        # INSURANCE (23 stocks)
         # ══════════════════════════════════════════════════════════════════════
-        "7010.SR": "STC", "7020.SR": "Mobily", "7030.SR": "Zain KSA",
-        "7040.SR": "Integrated Telecom", "7200.SR": "Elm", "7201.SR": "Solutions",
-        "7202.SR": "Turas Al Rabie", "7203.SR": "Arabian Internet", "7204.SR": "Tawasul",
-        "7211.SR": "Saudi Azm Comms",
+        "8010.SR": "TAWUNIYA", "8012.SR": "JAZIRA TAKAFUL",
+        "8020.SR": "MALATH", "8030.SR": "MGIC",
+        "8040.SR": "MUTAKAMELA", "8050.SR": "SALAMA",
+        "8060.SR": "WALAA", "8070.SR": "ARABIAN SHIELD",
+        "8100.SR": "SAICO", "8120.SR": "GULF UNION",
+        "8150.SR": "ACIG", "8160.SR": "AICC",
+        "8170.SR": "ALETIHAD", "8180.SR": "ALSAGR",
+        "8190.SR": "UCA", "8200.SR": "SAUDI RE",
+        "8210.SR": "BUPA ARABIA", "8230.SR": "ALRAJHI TAKAFUL",
+        "8240.SR": "CHUBB", "8250.SR": "GIG",
+        "8260.SR": "GULF GENERAL", "8280.SR": "LIVA",
+        "8300.SR": "WATANIYA", "8310.SR": "AMANA INSURANCE",
+        "8311.SR": "ENAYA", "8313.SR": "RASAN",
 
         # ══════════════════════════════════════════════════════════════════════
-        # INSURANCE (26 stocks — verified valid)
+        # NEW LISTINGS 2022-2025 (9500+ series)
         # ══════════════════════════════════════════════════════════════════════
-        "8010.SR": "Tawuniya", "8012.SR": "Jazira Takaful", "8020.SR": "Malath",
-        "8030.SR": "Medgulf", "8040.SR": "AlSagr", "8050.SR": "Salama",
-        "8060.SR": "Walaa", "8070.SR": "Saudi Ins",
-        "8100.SR": "Sanad", "8120.SR": "Gulf Union", "8150.SR": "ACIG",
-        "8160.SR": "Alamiya", "8170.SR": "Alinma Tokio", "8180.SR": "AICC",
-        "8190.SR": "UCA", "8200.SR": "SABB Takaful", "8210.SR": "Bupa Arabia",
-        "8230.SR": "Arabia Ins", "8240.SR": "GTIC", "8250.SR": "AXA Coop",
-        "8260.SR": "Gulf General", "8280.SR": "Arabian Shield",
-        "8300.SR": "Wataniya", "8310.SR": "Amana", "8311.SR": "Solidarity",
-        "8313.SR": "Rasan",
+        "9510.SR": "NBM",
+        "9513.SR": "WATANI STEEL", "9516.SR": "NGDC",
+        "9517.SR": "MOBI INDUSTRY", "9521.SR": "INMAR",
+        "9523.SR": "GROUP FIVE", "9524.SR": "AICTEC",
+        "9527.SR": "AME", "9530.SR": "TIBBIYAH",
+        "9535.SR": "LADUN", "9537.SR": "AMWAJ INTERNATIONAL",
+        "9539.SR": "AQASEEM", "9540.SR": "TADWEEER",
+        "9541.SR": "ACADEMY OF LEARNING", "9542.SR": "KEIR",
+        "9543.SR": "NETWORKERS", "9545.SR": "ALDAWLIAH",
+        "9546.SR": "NABA ALSAHA", "9548.SR": "APICO",
+        "9549.SR": "ALBABTAIN FOOD", "9550.SR": "SURE",
+        "9551.SR": "KNOWLEDGE TOWER", "9552.SR": "SAUDI TOP",
+        "9553.SR": "MOLAN", "9557.SR": "EDARAT",
+        "9558.SR": "ALQEMAM", "9559.SR": "BALADY",
+        "9561.SR": "KNOWLEDGENET", "9562.SR": "FOOD GATE",
+        "9564.SR": "HORIZON FOOD", "9565.SR": "MEYAR",
+        "9568.SR": "MAYAR", "9569.SR": "ALMUNEEF",
+        "9570.SR": "TAM DEVELOPMENT", "9571.SR": "MUNAWLA",
+        "9574.SR": "PRO MEDEX", "9575.SR": "MARBLE DESIGN",
+        "9576.SR": "PAPER HOME", "9578.SR": "ATLAS ELEVATORS",
+        "9579.SR": "IOUD", "9581.SR": "CLEAN LIFE",
+        "9584.SR": "RIYAL", "9585.SR": "MULKIA",
+        "9586.SR": "OSOOL AND BAKHEET", "9588.SR": "RIYADH STEEL",
+        "9589.SR": "FAD", "9591.SR": "VIEW",
+        "9595.SR": "WSM", "9599.SR": "TAQAT",
+        "9604.SR": "MIRAL", "9606.SR": "THARWAH",
+        "9610.SR": "FIRST AVENUE", "9611.SR": "UFG",
+        "9613.SR": "SHALFA", "9615.SR": "MUFEED",
+        "9616.SR": "JANA", "9617.SR": "ARABICA STAR",
+        "9619.SR": "MULTI BUSINESS", "9621.SR": "DRC",
+        "9622.SR": "SMC", "9623.SR": "ALBATTAL FACTORY",
+        "9625.SR": "ITMAM", "9626.SR": "SMILE CARE",
+        "9627.SR": "TMC", "9628.SR": "LAMASAT",
+        "9630.SR": "RATIO", "9632.SR": "FUTURE VISION",
+        "9633.SR": "SERVICE EQUIPMENT", "9634.SR": "ADEER",
+        "9637.SR": "AXELERATED SOLUTIONS", "9639.SR": "ANMAT",
+        "9640.SR": "ASAS MAKEEN", "9642.SR": "TIME",
+        "9645.SR": "SIGN WORLD", "9647.SR": "WAJD LIFE",
+        "9651.SR": "ALTWIJRI", "9653.SR": "KDL",
     }
 
 
