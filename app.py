@@ -3540,7 +3540,7 @@ def main():
             rr       = stock.get('rr_ratio', 0)
             conv     = stock.get('conviction', 50)
             setup    = stock.get('setup_type', '')
-            signals  = stock.get('signals', [])
+            signals  = stock.get('why_reasons') or stock.get('signals', [])
             is_perf  = (stock.get('ind_score', 0) >= 2 and stock.get('pa_score', 0) >= 2
                         and score >= 4 and rr >= 2.0)
 

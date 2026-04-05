@@ -1069,21 +1069,44 @@ def run_market_analysis(tickers_list, period="6mo", min_score=2, sector_filter=N
                 signals.append("\u26a0\ufe0f TASI market in downtrend — macro headwind, conviction reduced")
                 score = max(0, score - 3)
 
-            # ── Entry / Exit Calculation ──────────────────────────────────────
+            # ── Entry / Exit Calculation — structural levels ──────────────────
+            # Stop : below the 20-bar structural low with a small ATR buffer.
+            #        Guardrails: stop kept between 0.8–2.5 ATR from entry.
+            # T1   : nearest structural resistance — 20-bar rolling high.
+            # T2   : deeper resistance — 60-bar rolling high.
+            # This reflects real market structure rather than arbitrary multiples.
             if score >= 0:   # BUY side
-                # Tight stop: 1×ATR below entry so R:R stays high
-                stop_loss = cp - (cur_atr * 1.0)
-                target1   = cp + (cur_atr * 3.0)   # conservative 3:1 target
-                target2   = cp + (cur_atr * 5.0)   # aggressive  5:1 target
+                struct_low  = float(low.iloc[-20:].min())
+                raw_stop    = struct_low - cur_atr * 0.3
+                stop_dist   = cp - raw_stop
+                if stop_dist < cur_atr * 0.8:
+                    stop_loss = round(cp - cur_atr * 1.2, 2)
+                elif stop_dist > cur_atr * 2.5:
+                    stop_loss = round(cp - cur_atr * 2.0, 2)
+                else:
+                    stop_loss = round(raw_stop, 2)
+                high_20  = float(high.iloc[-20:].max())
+                high_60  = float(high.iloc[-60:].max()) if len(high) >= 60 else high_20
+                target1  = round(high_20, 2) if high_20 > cp * 1.005 else round(cp + cur_atr * 2.0, 2)
+                target2  = round(high_60, 2) if high_60 > target1 * 1.01 else round(cp + cur_atr * 4.0, 2)
             else:             # SELL side
-                stop_loss = cp + (cur_atr * 1.0)
-                target1   = cp - (cur_atr * 3.0)
-                target2   = cp - (cur_atr * 5.0)
+                struct_high = float(high.iloc[-20:].max())
+                raw_stop    = struct_high + cur_atr * 0.3
+                stop_dist   = raw_stop - cp
+                if stop_dist < cur_atr * 0.8:
+                    stop_loss = round(cp + cur_atr * 1.2, 2)
+                elif stop_dist > cur_atr * 2.5:
+                    stop_loss = round(cp + cur_atr * 2.0, 2)
+                else:
+                    stop_loss = round(raw_stop, 2)
+                low_20   = float(low.iloc[-20:].min())
+                low_60   = float(low.iloc[-60:].min()) if len(low) >= 60 else low_20
+                target1  = round(low_20, 2) if low_20 < cp * 0.995 else round(cp - cur_atr * 2.0, 2)
+                target2  = round(low_60, 2) if low_60 < target1 * 0.99 else round(cp - cur_atr * 4.0, 2)
 
             risk_amt  = abs(cp - stop_loss)
-            # R:R uses target2 (5×ATR) vs tight 1×ATR stop → real 5:1 max
-            rr_ratio  = (abs(target2 - cp) / risk_amt) if risk_amt > 0 else 0
-            potential = (abs(target2 - cp) / cp * 100) if cp > 0 else 0
+            rr_ratio  = abs(target2 - cp) / risk_amt if risk_amt > 0 else 0
+            potential = (abs(target1 - cp) / cp * 100) if cp > 0 else 0
             risk_pct  = (risk_amt / cp * 100) if cp > 0 else 0
 
             # Stock name / sector
@@ -1092,7 +1115,11 @@ def run_market_analysis(tickers_list, period="6mo", min_score=2, sector_filter=N
             sector_name = _get_sector(stock_name)
 
             # ── Investment Intelligence ────────────────────────────────────────
-            conviction = min(100, round(abs(score) / 33 * 100))  # 33 = new max score
+            # Conviction: normalise against regime-adjusted theoretical maximum.
+            # TREND regime allows full weight for trend indicators → higher max.
+            # RANGE/VOLATILE regimes apply reduced weights → lower max.
+            _regime_max = {"TREND": 29, "RANGE": 24, "VOLATILE": 24}
+            conviction = min(100, round(abs(score) / max(1, _regime_max.get(regime, 24)) * 100))
             _has       = lambda kw: any(kw.lower() in sig.lower() for sig in signals)
 
             if _has("golden cross"):
@@ -1186,11 +1213,17 @@ def run_market_analysis(tickers_list, period="6mo", min_score=2, sector_filter=N
 
             # Stop reason
             if score >= 0:
-                atr_d = round(cur_atr, 2)
-                stop_reason_txt = f"Tight 1×ATR ({atr_d} SAR) stop below entry — keeps risk small so the 5:1 R:R works in your favour"
+                sl_d      = round(stop_loss, 2)
+                sp_pct    = round(risk_pct, 1)
+                _sl_low   = round(float(low.iloc[-20:].min()), 2)
+                stop_reason_txt = (f"Structural stop at {sl_d} ({sp_pct}% risk) — placed below the 20-day swing low "
+                                   f"({_sl_low}) with ATR buffer. Setup is only invalidated on a genuine breakdown.")
             else:
-                atr_d = round(cur_atr, 2)
-                stop_reason_txt = f"Tight 1×ATR ({atr_d} SAR) above entry — standard risk control for bearish position"
+                sl_d      = round(stop_loss, 2)
+                sp_pct    = round(risk_pct, 1)
+                _sl_high  = round(float(high.iloc[-20:].max()), 2)
+                stop_reason_txt = (f"Structural stop at {sl_d} ({sp_pct}% risk) — placed above the 20-day swing high "
+                                   f"({_sl_high}) with ATR buffer.")
 
             # Entry strategy
             rsi_i  = int(cur_rsi)
@@ -1214,12 +1247,16 @@ def run_market_analysis(tickers_list, period="6mo", min_score=2, sector_filter=N
             t2_d        = round(target2, 2)
             pot_d       = round(potential, 1)
             pot_t2_d    = round(pot_t2_pct, 1)
+            _rr_r = round(rr_ratio, 1)
             if score >= 0:
-                t1_txt = f"Take 50% profit at {t1_d} (+{pot_d}%) — 3×ATR target, first strong resistance. Move stop to breakeven."
-                t2_txt = f"Let remaining 50% run to {t2_d} (+{pot_t2_d}%) — 5×ATR full trend target ≈ 5:1 R:R. Trail stop with EMA20."
+                t1_txt = (f"Take 50% profit at {t1_d} (+{pot_d}%) — 20-day structural resistance, "
+                          f"first target. Move stop to breakeven once reached.")
+                t2_txt = (f"Let remaining 50% run to {t2_d} (+{pot_t2_d}%) — "
+                          f"60-day structural resistance, full target ≈ {_rr_r}:1 R:R. Trail stop with EMA20.")
             else:
-                t1_txt = f"Cover 50% short at {t1_d} (-{pot_d}%) — 3×ATR below entry, first major support zone"
-                t2_txt = f"Full short target {t2_d} (-{pot_t2_d}%) — 4x ATR downside objective if trend fully develops"
+                t1_txt = f"Cover 50% at {t1_d} (-{pot_d}%) — 20-day structural support, first cover point"
+                t2_txt = (f"Full target {t2_d} (-{pot_t2_d}%) — "
+                          f"60-day structural support, full downside target ≈ {_rr_r}:1 R:R")
 
             # Risk classification
             risk_class = ("Low"  if (risk_pct < 3.0 and rr_ratio >= 2.0) else
@@ -1291,7 +1328,13 @@ def run_market_analysis(tickers_list, period="6mo", min_score=2, sector_filter=N
             }
 
             if score >= min_score:
-                results['buy'].append(result)
+                # Hard gate: if weekly trend is bearish, only strong signals pass.
+                # Moderate setups against the weekly trend are demoted to hold —
+                # buying against the higher-timeframe bias is low-probability.
+                if weekly_bullish is False and score < 8:
+                    results['hold'].append(result)
+                else:
+                    results['buy'].append(result)
             elif score <= -min_score:
                 results['sell'].append(result)
             else:
