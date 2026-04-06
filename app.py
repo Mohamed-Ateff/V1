@@ -355,6 +355,10 @@ def main():
 
         st.session_state.show_market_results = False
 
+    if 'show_market_pulse' not in st.session_state:
+
+        st.session_state.show_market_pulse = False
+
 
 
     # ?? Load favorites from DB once per session ???????????????????????????
@@ -371,7 +375,7 @@ def main():
 
     
 
-    if not st.session_state.show_results and not st.session_state.show_market_results:
+    if not st.session_state.show_results and not st.session_state.show_market_results and not st.session_state.show_market_pulse:
 
         # CONTROLS PAGE
 
@@ -2379,6 +2383,20 @@ def main():
             background: rgba(255,255,255,0.07) !important;
             border-color: #3a4550 !important; color: #c8d6e5 !important;
         }}
+        .st-key-btn_pulse .stButton > button {{
+            background: rgba(74,158,255,0.07) !important;
+            border: 1px solid rgba(74,158,255,0.22) !important;
+            border-radius: 10px !important;
+            color: #4A9EFF !important;
+            font-size: 0.77rem !important; font-weight: 700 !important;
+            width: 100% !important; padding: 0.52rem 0.3rem !important;
+            height: auto !important; white-space: nowrap !important;
+            letter-spacing: 0.2px !important;
+        }}
+        .st-key-btn_pulse .stButton > button:hover {{
+            background: rgba(74,158,255,0.16) !important;
+            border-color: rgba(74,158,255,0.5) !important;
+        }}
 
         /* ── User panel ───────────────────────────────────────────────────── */
         .st-key-user_panel_wrap > div:first-child {{
@@ -2759,13 +2777,18 @@ def main():
                                         st.session_state.mkt_period = _pk
                                         st.rerun()
 
-                    # Action buttons — 2 equal columns, fully inside the card
-                    _b1, _b2 = st.columns(2, gap="small")
+                    # Action buttons — 3 columns: Saved | Pulse | User
+                    _b1, _bp, _b2 = st.columns(3, gap="small")
                     with _b1:
                         with st.container(key="btn_saved"):
                             _fav_lbl = f"♡  Saved · {fav_count}" if has_favs else "♡  Saved"
                             if st.button(_fav_lbl, key="toolbar_fav", width="stretch"):
                                 st.session_state.show_favorites_panel = not st.session_state.get('show_favorites_panel', False)
+                                st.rerun()
+                    with _bp:
+                        with st.container(key="btn_pulse"):
+                            if st.button("📡 Pulse", key="toolbar_pulse", width="stretch"):
+                                st.session_state.show_market_pulse = True
                                 st.rerun()
                     with _b2:
                         with st.container(key="btn_user"):
@@ -3179,6 +3202,8 @@ def main():
                                       on_click=run_market_analysis_callback_all, key="ma_run_btn_all")
                             st.markdown("</div>", unsafe_allow_html=True)
 
+
+
         # ═══════════════════════════════════════════════════════════════════════
         # Favorites panel (renders when ★ button is toggled)
         # ═══════════════════════════════════════════════════════════════════════
@@ -3541,6 +3566,7 @@ def main():
             conv     = stock.get('conviction', 50)
             setup    = stock.get('setup_type', '')
             signals  = stock.get('why_reasons') or stock.get('signals', [])
+            mtf      = stock.get('mtf_score', 0)
             is_perf  = (stock.get('ind_score', 0) >= 2 and stock.get('pa_score', 0) >= 2
                         and score >= 4 and rr >= 2.0)
 
@@ -3553,13 +3579,29 @@ def main():
 
             star = '<span style="font-size:0.62rem;color:#FFD700;font-weight:700;margin-left:0.3rem;" title="Perfect Setup">⭐</span>' if is_perf else ''
 
+            # MTF badge: 3/3 = all green, 2/3 = amber, 1/3 = red
+            if mtf == 3:
+                mtf_html = ('<span style="font-size:0.57rem;font-weight:800;background:#4caf5022;'
+                            'color:#4caf50;border-radius:4px;padding:1px 6px;margin-left:4px;'
+                            'border:1px solid #4caf5044;" title="Daily+Weekly+Monthly aligned">MTF 3/3</span>')
+            elif mtf == 2:
+                mtf_html = ('<span style="font-size:0.57rem;font-weight:800;background:#ff980022;'
+                            'color:#ff9800;border-radius:4px;padding:1px 6px;margin-left:4px;'
+                            'border:1px solid #ff980044;" title="2 of 3 timeframes aligned">MTF 2/3</span>')
+            elif mtf == 1:
+                mtf_html = ('<span style="font-size:0.57rem;font-weight:800;background:#ef444422;'
+                            'color:#ef4444;border-radius:4px;padding:1px 6px;margin-left:4px;'
+                            'border:1px solid #ef444444;" title="Only daily aligned">MTF 1/3</span>')
+            else:
+                mtf_html = ''
+
             why_text = " · ".join(signals[:4]) if signals else (setup if setup else "—")
 
             st.markdown(
                 f'<div class="sc" style="border-left:3px solid {ac};">'
                 f'<div class="sc-hd">'
                 f'<div class="sc-left">'
-                f'<div class="sc-sym {side}">{sym}{star}</div>'
+                f'<div class="sc-sym {side}">{sym}{star}{mtf_html}</div>'
                 f'<div class="sc-nameline">'
                 f'<span class="sc-name">{name}</span>'
                 f'<span class="sc-setup-tag">{setup}</span>'
@@ -3811,6 +3853,35 @@ def main():
                     _render_card(s, 'sell')
             else:
                 st.markdown("<div class='msr-empty'>No sell signals found.</div>", unsafe_allow_html=True)
+
+    elif st.session_state.show_market_pulse:
+
+        # ── MARKET PULSE FULL PAGE ─────────────────────────────────────────
+        apply_ui_theme()
+        st.markdown("""
+        <style>
+        header[data-testid="stHeader"] { display: none !important; }
+        section[data-testid="stMainBlockContainer"] { padding-top: 1rem !important; }
+        </style>""", unsafe_allow_html=True)
+
+        # Back button row
+        back_col, title_col = st.columns([1, 6], gap="small")
+        with back_col:
+            if st.button("← Home", key="pulse_back_btn", type="secondary", width="stretch"):
+                st.session_state.show_market_pulse = False
+                st.rerun()
+        with title_col:
+            st.markdown(
+                "<div style='font-size:1.4rem;font-weight:900;color:#e8e8e8;"
+                "letter-spacing:-0.5px;padding-top:0.15rem;'>"
+                "📡 Market Pulse <span style='font-size:0.7rem;font-weight:600;"
+                "color:#555;'>Saudi Market Command Center</span></div>",
+                unsafe_allow_html=True,
+            )
+
+        st.markdown("<div style='height:0.4rem'></div>", unsafe_allow_html=True)
+        from market_pulse_tab import render_market_pulse_tab
+        render_market_pulse_tab()
 
     elif st.session_state.show_results:
 

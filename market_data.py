@@ -796,6 +796,24 @@ def run_market_analysis(tickers_list, period="6mo", min_score=2, sector_filter=N
             except Exception:
                 weekly_bullish = None
 
+            # ── Monthly trend confirmation (sample every 20 daily bars ≈ 1 month) ──
+            # Monthly trend has the highest win-rate predictive power.
+            # bull: price above monthly EMA12 and EMA24.
+            monthly_bullish = None
+            try:
+                _mo = close.iloc[::20].reset_index(drop=True)  # ~1 bar per month
+                if len(_mo) >= 6:
+                    _ml_len  = min(12, len(_mo) - 1)
+                    _ms_len  = min(24, len(_mo) - 1)
+                    _mema12  = ta.ema(_mo, length=_ml_len)
+                    _mema24  = ta.ema(_mo, length=_ms_len)
+                    _me12v   = float(_mema12.dropna().iloc[-1]) if _mema12 is not None and len(_mema12.dropna()) > 0 else cp
+                    _me24v   = float(_mema24.dropna().iloc[-1]) if _mema24 is not None and len(_mema24.dropna()) > 0 else _me12v
+                    monthly_bullish = (cp > _me12v) and (cp > _me24v)
+            except Exception:
+                monthly_bullish = None
+
+
             # 52-week high/low
             lookback  = min(252, len(close))
             w52_high  = float(high.iloc[-lookback:].max())
@@ -1064,6 +1082,14 @@ def run_market_analysis(tickers_list, period="6mo", min_score=2, sector_filter=N
             ind_score_final = round(_sub[0])
             pa_score_final  = round(_sub[1])
 
+            # ── Multi-Timeframe (MTF) score 0–3 ─────────────────────────────
+            _daily_bull = score > 0
+            _mtf_score  = (
+                int(_daily_bull) +
+                int(bool(weekly_bullish)) +
+                int(bool(monthly_bullish))
+            )
+
             # 13. Market regime gate — penalise BUY signals when TASI is in a downtrend
             if tasi_regime_bearish and score > 0:
                 signals.append("\u26a0\ufe0f TASI market in downtrend — macro headwind, conviction reduced")
@@ -1321,6 +1347,8 @@ def run_market_analysis(tickers_list, period="6mo", min_score=2, sector_filter=N
                 # Market context (new)
                 'rs_vs_tasi':       round(rs_vs_tasi, 2),
                 'weekly_bullish':   weekly_bullish,
+                'monthly_bullish':  monthly_bullish,
+                'mtf_score':        _mtf_score,
                 'tasi_bearish_mkt': tasi_regime_bearish,
                 # Sub-scores for 3-section display
                 'ind_score':        ind_score_final,
