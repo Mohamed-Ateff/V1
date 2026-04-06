@@ -1,4 +1,5 @@
 ﻿import streamlit as st
+import streamlit.components.v1 as components
 import yfinance as yf
 import pandas as pd
 import pandas_ta as ta
@@ -373,7 +374,134 @@ def main():
 
     apply_ui_theme()
 
-    
+    # ── Arabic Language Toggle (Google Translate) ──────────────────────────
+    components.html("""
+    <script>
+    (function() {
+        var doc = window.parent.document;
+        if (doc.getElementById('translate-fab-btn')) return;
+
+        var style = doc.createElement('style');
+        style.textContent = `
+            .goog-te-banner-frame { display: none !important; }
+            #goog-gt-tt, .goog-te-balloon-frame, .goog-tooltip { display: none !important; }
+            body { top: 0 !important; }
+            .skiptranslate { display: none !important; }
+            #google_translate_element { display: none !important; }
+
+            #translate-fab-btn {
+                position: fixed;
+                bottom: 24px;
+                left: 24px;
+                z-index: 999999;
+                height: 40px;
+                border-radius: 10px;
+                background: rgba(255,255,255,0.03);
+                border: 1px solid #252b2e;
+                color: #6b7a86;
+                font-size: 0.77rem;
+                font-weight: 600;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding: 0 16px;
+                transition: all 0.2s ease;
+                font-family: 'Segoe UI', -apple-system, sans-serif;
+                line-height: 1;
+                letter-spacing: 0.2px;
+                white-space: nowrap;
+            }
+            #translate-fab-btn:hover {
+                background: rgba(38,166,154,0.1);
+                border-color: rgba(38,166,154,0.3);
+                color: #26A69A;
+            }
+            #translate-fab-btn.active {
+                background: rgba(38,166,154,0.07);
+                border-color: rgba(38,166,154,0.2);
+                color: #26A69A;
+            }
+            #translate-fab-btn .fab-icon {
+                font-size: 16px;
+                font-weight: 700;
+                line-height: 1;
+            }
+            #translate-fab-btn .fab-dot {
+                width: 5px;
+                height: 5px;
+                border-radius: 50%;
+                background: #333;
+                transition: background 0.2s;
+            }
+            #translate-fab-btn.active .fab-dot {
+                background: #26A69A;
+                box-shadow: 0 0 6px rgba(38,166,154,0.5);
+            }
+        `;
+        doc.head.appendChild(style);
+
+        var gtDiv = doc.createElement('div');
+        gtDiv.id = 'google_translate_element';
+        doc.body.appendChild(gtDiv);
+
+        var btn = doc.createElement('button');
+        btn.id = 'translate-fab-btn';
+        btn.title = 'عربي / English';
+        btn.setAttribute('aria-label', 'Translate to Arabic');
+        btn.innerHTML = '<span style="font-size:0.72rem;">العربية</span><span class="fab-dot"></span>';
+        doc.body.appendChild(btn);
+
+        var isArabic = false;
+        var gtLoaded = false;
+
+        window.parent.googleTranslateElementInit = function() {
+            new window.parent.google.translate.TranslateElement({
+                pageLanguage: 'en',
+                includedLanguages: 'ar,en',
+                autoDisplay: false
+            }, 'google_translate_element');
+            gtLoaded = true;
+        };
+
+        btn.addEventListener('click', function() {
+            if (!gtLoaded) {
+                var s = doc.createElement('script');
+                s.src = 'https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
+                doc.body.appendChild(s);
+                var check = setInterval(function() {
+                    var sel = doc.querySelector('.goog-te-combo');
+                    if (sel) {
+                        clearInterval(check);
+                        sel.value = 'ar';
+                        sel.dispatchEvent(new Event('change'));
+                        isArabic = true;
+                        btn.classList.add('active');
+                        btn.children[0].textContent = 'English';
+                    }
+                }, 300);
+                return;
+            }
+            var sel = doc.querySelector('.goog-te-combo');
+            if (sel) {
+                if (isArabic) {
+                    sel.value = 'en';
+                    sel.dispatchEvent(new Event('change'));
+                    isArabic = false;
+                    btn.classList.remove('active');
+                    btn.children[0].textContent = 'العربية';
+                } else {
+                    sel.value = 'ar';
+                    sel.dispatchEvent(new Event('change'));
+                    isArabic = true;
+                    btn.classList.add('active');
+                    btn.children[0].textContent = 'English';
+                }
+            }
+        });
+    })();
+    </script>
+    """, height=0)
 
     if not st.session_state.show_results and not st.session_state.show_market_results and not st.session_state.show_market_pulse:
 
