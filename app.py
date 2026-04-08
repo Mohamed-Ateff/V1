@@ -3625,8 +3625,15 @@ def main():
         tf_lbl        = params.get('timeframe', '6mo')
         sec_lbl       = params.get('sector', 'All Sectors')
         ms_lbl        = params.get('min_score', 2)
-        avg_rr        = (sum(s.get('rr_ratio', 0) for s in buy_stocks) / len(buy_stocks)) if buy_stocks else 0
-        best_conv     = max((s.get('conviction', 0) for s in buy_stocks), default=0)
+
+        # Pre-compute all_buy early so hero tiles match tab counts
+        all_buy = sorted(
+            [s for s in all_stocks if s.get('score', 0) > 0
+             or s.get('ind_score', 0) > 0 or s.get('pa_score', 0) > 0],
+            key=lambda x: x.get('priority_score', 0), reverse=True)
+
+        avg_rr        = (sum(s.get('rr_ratio', 0) for s in all_buy) / len(all_buy)) if all_buy else 0
+        best_conv     = max((s.get('conviction', 0) for s in all_buy), default=0)
 
         # ── Hero card matching single-stock analysis style ───────────────────
         _period_info = params.get('period', params.get('start', ''))
@@ -3645,12 +3652,18 @@ def main():
             )
 
         _perfect_list = sorted(
-            [s for s in buy_stocks
+            [s for s in all_buy
              if s.get('ind_score', 0) >= 2 and s.get('pa_score', 0) >= 2
-             and s.get('score', 0) >= 4 and s.get('rr_ratio', 0) >= 2.0],
+             and s.get('score', 0) >= 7 and s.get('rr_ratio', 0) >= 1.8
+             and s.get('conviction', 0) >= 50],
             key=lambda x: x.get('priority_score', 0), reverse=True)
 
-        _hit_rate = round(len(buy_stocks) / scanned * 100) if scanned > 0 else 0
+        _hit_rate = round(len(all_buy) / scanned * 100) if scanned > 0 else 0
+
+        # Useful stats for summary
+        _avg_rr_ps = (sum(s.get('rr_ratio', 0) for s in _perfect_list) / len(_perfect_list)) if _perfect_list else 0
+        _avg_upside_ps = (sum(abs(s.get('target1', s['price']) - s.get('entry', s['price'])) / s.get('entry', s['price']) * 100 for s in _perfect_list if s.get('entry', 0) > 0) / len(_perfect_list)) if _perfect_list else 0
+        _top_conv = max((s.get('conviction', 0) for s in _perfect_list), default=0)
 
         st.markdown(
             f"<div style='background:#212121;border:1px solid #303030;border-radius:12px;"
@@ -3663,16 +3676,15 @@ def main():
             f"{scanned} stocks scanned &nbsp;·&nbsp; {_period_disp}</div>"
             f"</div>"
             f"<span style='font-size:0.7rem;font-weight:700;padding:0.28rem 0.9rem;"
-            f"border-radius:20px;background:rgba(16,163,127,0.12);color:#10a37f;"
-            f"border:1px solid rgba(16,163,127,0.3);'>{len(_perfect_list)} Perfect Setups</span>"
+            f"border-radius:20px;background:rgba(255,215,0,0.12);color:#FFD700;"
+            f"border:1px solid rgba(255,215,0,0.3);'>{len(_perfect_list)} Perfect Setups Found</span>"
             f"</div>"
             f"<div style='border-top:1px solid #303030;margin-bottom:0.9rem;'></div>"
-            f"<div style='display:grid;grid-template-columns:repeat(5,1fr);gap:0.7rem;'>"
-            + _msr_tile("Buy Signals",    str(len(buy_stocks)),     "#10a37f", f"{_hit_rate}% hit rate",             "#10a37f")
-            + _msr_tile("Perfect Setups", str(len(_perfect_list)),  "#FFD700", "Ind≥2 · PA≥2 · R:R≥2×",             "#FFD700")
-            + _msr_tile("Avoid",          str(len(sell_stocks)),    "#ef4444", "bearish signals",                    "#ef4444")
-            + _msr_tile("Avg R:R",        f"{avg_rr:.1f}×",         "#4A9EFF", "on buy signals",                    "#4A9EFF")
-            + _msr_tile("Best Conviction",f"{best_conv}%",           "#a78bfa", "highest conviction",                "#a78bfa")
+            f"<div style='display:grid;grid-template-columns:repeat(4,1fr);gap:0.7rem;'>"
+            + _msr_tile("Total Buy Signals", str(len(all_buy)), "#10a37f", f"from {scanned} scanned", "#10a37f")
+            + _msr_tile("Perfect Setups",    str(len(_perfect_list)), "#FFD700", "highest quality picks", "#FFD700")
+            + _msr_tile("Avg Upside",        f"{_avg_upside_ps:.1f}%", "#26A69A", "on perfect setups", "#26A69A")
+            + _msr_tile("Avg Risk/Reward",   f"{_avg_rr_ps:.1f}×", "#4A9EFF", "reward per 1 risk", "#4A9EFF")
             + "</div></div>",
             unsafe_allow_html=True,
         )
@@ -3696,11 +3708,11 @@ def main():
             signals  = stock.get('why_reasons') or stock.get('signals', [])
             mtf      = stock.get('mtf_score', 0)
             is_perf  = (stock.get('ind_score', 0) >= 2 and stock.get('pa_score', 0) >= 2
-                        and score >= 4 and rr >= 2.0)
+                        and score >= 7 and rr >= 1.8 and conv >= 50)
 
             stop_pct = abs(entry - stop) / entry * 100 if entry > 0 else 0
             t1_pct   = abs(t1   - entry) / entry * 100 if entry > 0 else 0
-            sdsp     = f"+{score}" if score > 0 else str(score)
+            sdsp     = f"Score {score}/20"
 
             ac = {"buy": "#10a37f", "sell": "#ef4444", "hold": "#fbbf24"}.get(side, "#666")
             cc = "#10a37f" if conv >= 70 else ("#4A9EFF" if conv >= 45 else "#fbbf24")
@@ -3723,7 +3735,21 @@ def main():
             else:
                 mtf_html = ''
 
-            why_text = " · ".join(signals[:4]) if signals else (setup if setup else "—")
+            # Human-readable setup descriptions
+            _setup_labels = {
+                'Golden Cross': 'Moving averages crossed up — bullish trend starting',
+                'Death Cross': 'Trend weakening',
+                'Oversold Reversal': 'Price dropped too much — bounce expected',
+                'BB Bounce': 'Price hit lower band — bounce expected',
+                '52W Breakout': 'Breaking above 52-week high — strong momentum',
+                'Deep Value': 'Deeply undervalued — potential recovery',
+                'Trend Continuation': 'Strong uptrend — still going up',
+                'Stoch Reversal': 'Oversold signal — reversal expected',
+                'Volume Spike': 'Unusual buying volume — big interest',
+            }
+            setup_desc = _setup_labels.get(setup, setup)
+
+            why_text = " · ".join(signals[:4]) if signals else (setup_desc if setup_desc else "—")
 
             st.markdown(
                 f'<div class="sc" style="border-left:3px solid {ac};">'
@@ -3739,7 +3765,8 @@ def main():
                 f'<div class="sc-price">SAR {price:.2f}</div>'
                 f'<div class="sc-meta">'
                 f'<span class="sc-score {side}">{sdsp}</span>'
-                f'<span style="font-size:0.7rem;font-weight:700;color:{cc}">{conv}%</span>'
+                f'<span style="font-size:0.7rem;font-weight:700;color:{cc};cursor:help;"'
+                f' title="Based on: indicator alignment, price action strength, risk/reward ratio, volume confirmation, and multi-timeframe agreement">Confidence {conv}%</span>'
                 f'</div>'
                 f'</div>'
                 f'</div>'
@@ -3762,11 +3789,7 @@ def main():
             )
 
         # ── Classify stocks ───────────────────────────────────────────────────
-        # All bullish stocks (indicators OR price action agree) — sorted by priority
-        all_buy = sorted(
-            [s for s in all_stocks if s.get('score', 0) > 0
-             or s.get('ind_score', 0) > 0 or s.get('pa_score', 0) > 0],
-            key=lambda x: x.get('priority_score', 0), reverse=True)
+        # all_buy already computed above for hero tiles
 
         # Best Picks: strict multi-gate composite score, capped at 10
         def _best_picks_score(s):
@@ -3787,15 +3810,9 @@ def main():
              and s.get('score', 0) >= 4
              and s.get('rr_ratio', 0) >= 1.8
              and s.get('conviction', 0) >= 45],
-            key=_best_picks_score, reverse=True)[:10]
+            key=_best_picks_score, reverse=True)
 
-        # ── Search box ───────────────────────────────────────────────────────
-        _srch = st.text_input(
-            "Search stocks",
-            placeholder="Filter by ticker or name…",
-            key="ma_search",
-            label_visibility="collapsed",
-        )
+        _srch = ""
 
         # Pull active filter settings saved at scan time
         _f_sig    = st.session_state.get('ma_filter_sig',    'All')
@@ -3857,82 +3874,190 @@ def main():
             )
 
         # ── 3-tab results layout ──────────────────────────────────────────────
-        tab_best, tab_buy, tab_sell = st.tabs([
-            f"Best Picks  {len(best_picks)}",
+        tab_best, tab_buy = st.tabs([
+            f"Perfect Setups  {len(_perfect_list)}",
             f"Buy Signals  {len(all_buy)}",
-            f"Avoid  {len(sell_stocks)}",
         ])
 
         with tab_best:
-            if not best_picks:
+            if not _perfect_list:
                 st.markdown(
                     "<div class='msr-empty'>"
                     "No stocks pass all quality gates right now — check Buy Signals for broader candidates."
                     "</div>",
                     unsafe_allow_html=True)
             else:
-                st.markdown(
-                    f'<div style="background:rgba(255,215,0,0.04);border:1px solid rgba(255,215,0,0.15);'
-                    f'border-radius:10px;padding:0.75rem 1rem;margin-bottom:0.9rem;font-size:0.72rem;color:#9e9e9e;line-height:1.5;">'
-                    f'<span style="color:#FFD700;font-weight:700;">Best Picks</span> — '
-                    f'ranked by a composite of R:R, conviction, indicator strength, price action, and volume. '
-                    f'All {len(best_picks)} stocks pass: Indicators ≥2 · Price Action ≥2 · Score ≥4 · R:R ≥1.8× · Conviction ≥45%.'
-                    f'</div>',
-                    unsafe_allow_html=True)
-                for _i, s in enumerate(best_picks):
+                import re as _re
+                def _clean_why(reason):
+                    # Strip [BRACKET] labels
+                    r = _re.sub(r'\s*\[.*?\]', '', reason)
+                    # If has " — ", use the plain-english part after it
+                    if ' \u2014 ' in r:
+                        r = r.split(' \u2014 ', 1)[1]
+                    elif ' - ' in r and len(r.split(' - ', 1)[1]) > 15:
+                        r = r.split(' - ', 1)[1]
+                    # Strip parenthetical technical values like (69) or (bullish)
+                    r = _re.sub(r'\s*\([^)]{1,6}\)', '', r)
+                    # Strip known noise prefixes
+                    r = _re.sub(r'^Regime:\s*', '', r)
+                    return r.strip().rstrip('.')
+
+                for _i, s in enumerate(_perfect_list):
                     _rank_colors = ["#FFD700", "#C0C0C0", "#CD7F32"]
-                    _rc = _rank_colors[_i] if _i < 3 else "#10a37f"
+                    _rc      = _rank_colors[_i] if _i < 3 else "#10a37f"
                     _sym_bp  = s['ticker'].replace('.SR', '')
                     _name_bp = s.get('name', _sym_bp)
                     _p_bp    = s['price']
                     _e_bp    = s.get('entry', _p_bp)
                     _sl_bp   = s.get('stop_loss', _p_bp)
-                    _t1_bp   = s.get('target1', _p_bp)
-                    _t2_bp   = s.get('target2', _t1_bp)
-                    _rr_bp   = s.get('rr_ratio', 0)
-                    _conv_bp = s.get('conviction', 0)
-                    _up_bp   = abs(_t1_bp - _e_bp) / _e_bp * 100 if _e_bp > 0 else 0
-                    _dn_bp   = abs(_e_bp  - _sl_bp) / _e_bp * 100 if _e_bp > 0 else 0
                     _sc_bp   = s.get('score', 0)
+                    _conv_bp = s.get('conviction', 0)
                     _setup   = s.get('setup_type', '')
-                    _sigs    = s.get('signals', [])
-                    _t2_pct  = abs(_t2_bp - _e_bp) / _e_bp * 100 if _e_bp > 0 else 0
-                    _cc_bp   = "#10a37f" if _conv_bp >= 70 else ("#4A9EFF" if _conv_bp >= 45 else "#fbbf24")
+                    _raw_why = s.get('why_reasons') or s.get('signals', [])
                     _rank_num = ["#1", "#2", "#3"][_i] if _i < 3 else f"#{_i+1}"
-                    _why_bp  = " · ".join(_sigs[:4]) if _sigs else (_setup if _setup else "—")
+                    _cc_bp   = "#10a37f" if _conv_bp >= 70 else ("#4A9EFF" if _conv_bp >= 45 else "#fbbf24")
+                    _sc_color = "#10a37f" if _sc_bp >= 12 else ("#4A9EFF" if _sc_bp >= 7 else "#fbbf24")
+
+                    # ── Targets: always guarantee minimum 1.5× R:R ───────────
+                    _risk    = max(abs(_e_bp - _sl_bp), _e_bp * 0.02)  # at least 2% risk
+                    _sl_bp   = min(_sl_bp, _e_bp - _risk)              # ensure stop is below entry
+                    _t1_bp   = _e_bp + max(_risk * 1.5, abs(s.get('target1', 0) - _e_bp))
+                    _t2_bp   = _e_bp + max(_risk * 2.5, abs(s.get('target2', 0) - _e_bp))
+                    if _t2_bp <= _t1_bp:
+                        _t2_bp = _t1_bp + _risk
+
+                    _dn_bp   = (_e_bp - _sl_bp) / _e_bp * 100
+                    _up_bp   = (_t1_bp - _e_bp) / _e_bp * 100
+                    _t2_pct  = (_t2_bp - _e_bp) / _e_bp * 100
+                    _rr_bp   = _up_bp / _dn_bp if _dn_bp > 0 else 0
+
+                    # ── Clean why bullets ────────────────────────────────────
+                    _bullets = [_clean_why(r) for r in _raw_why[:5] if r]
+                    if not _bullets and _setup:
+                        _setup_labels_bp = {
+                            'Golden Cross': 'Moving averages crossed up — bullish trend starting',
+                            'Oversold Reversal': 'Price was oversold — bounce expected',
+                            'BB Bounce': 'Hit lower Bollinger Band — bounce expected',
+                            '52W Breakout': 'Breaking above 52-week high — strong momentum',
+                            'Deep Value': 'Deeply undervalued — potential recovery',
+                            'Trend Continuation': 'Strong uptrend still going',
+                            'Stoch Reversal': 'Stochastic oversold — reversal expected',
+                            'Volume Spike': 'Unusual buying volume — big institutional interest',
+                        }
+                        _bullets = [_setup_labels_bp.get(_setup, _setup)]
+
+                    _bullet_html = "".join(
+                        f'<div style="display:flex;align-items:flex-start;gap:0.6rem;padding:0.4rem 0;'
+                        f'border-bottom:1px solid rgba(255,255,255,0.05);">'
+                        f'<span style="color:#10a37f;font-size:0.85rem;line-height:1.4;flex-shrink:0;">✓</span>'
+                        f'<span style="font-size:0.88rem;color:#ddd;line-height:1.5;">{b}</span>'
+                        f'</div>'
+                        for b in _bullets
+                    ) if _bullets else '<span style="color:#666;font-size:0.85rem;">No specific signals recorded</span>'
+
+                    _setup_badge_colors = {
+                        'Golden Cross':       ('#fbbf24', '#2a2410'),
+                        'Oversold Reversal':  ('#60a5fa', '#101828'),
+                        'BB Bounce':          ('#a78bfa', '#1a1228'),
+                        '52W Breakout':       ('#10a37f', '#0a1f1a'),
+                        'Deep Value':         ('#f97316', '#1f1208'),
+                        'Trend Continuation': ('#34d399', '#0a1f14'),
+                        'Stoch Reversal':     ('#e879f9', '#1f0a22'),
+                        'Volume Spike':       ('#fb923c', '#1f1008'),
+                    }
+                    _sb_color, _sb_bg = _setup_badge_colors.get(_setup, (_rc, f'{_rc}18'))
+
                     st.markdown(
-                        f'<div class="sc" style="border-left:4px solid {_rc};background:rgba(255,255,255,0.025);">'
-                        f'<div class="sc-hd">'
-                        f'<div class="sc-left">'
-                        f'<div style="display:flex;align-items:center;gap:0.5rem;">'
-                        f'<span style="font-size:0.62rem;font-weight:700;padding:0.12rem 0.46rem;'
-                        f'border-radius:4px;background:rgba(255,215,0,0.08);color:{_rc};'
-                        f'border:1px solid {_rc}44;">{_rank_num}</span>'
-                        f'<span class="sc-sym buy" style="color:{_rc};">{_sym_bp}</span>'
+                        f'<div style="border:1px solid {_rc}40;border-left:5px solid {_rc};border-radius:14px;'
+                        f'background:#1c1c1c;margin-bottom:1.4rem;overflow:hidden;">'
+
+                        # ── HEADER ──
+                        f'<div style="display:flex;justify-content:space-between;align-items:flex-start;'
+                        f'padding:1.2rem 1.5rem 1rem;">'
+                        f'<div style="display:flex;align-items:flex-start;gap:0.8rem;">'
+                        f'<span style="font-size:0.75rem;font-weight:800;padding:0.28rem 0.7rem;border-radius:6px;'
+                        f'background:{_rc}20;color:{_rc};border:1px solid {_rc}55;white-space:nowrap;margin-top:0.25rem;">{_rank_num}</span>'
+                        f'<div>'
+                        f'<div style="display:flex;align-items:baseline;gap:0.6rem;flex-wrap:wrap;">'
+                        f'<span style="font-size:1.5rem;font-weight:900;color:{_rc};letter-spacing:0.5px;line-height:1.1;">{_sym_bp}</span>'
+                        f'<span style="font-size:1rem;color:#bbb;font-weight:500;line-height:1.1;">{_name_bp}</span>'
                         f'</div>'
-                        f'<div class="sc-nameline"><span class="sc-name">{_name_bp}</span>'
-                        f'<span class="sc-setup-tag">{_setup}</span></div>'
-                        f'</div>'
-                        f'<div class="sc-right">'
-                        f'<div class="sc-price">SAR {_p_bp:.2f}</div>'
-                        f'<div class="sc-meta">'
-                        f'<span class="sc-score buy">+{_sc_bp}</span>'
-                        f'<span style="font-size:0.7rem;font-weight:700;color:{_cc_bp}">{_conv_bp}%</span>'
+                        + (f'<div style="margin-top:0.55rem;">'
+                           f'<span style="font-size:0.72rem;font-weight:700;padding:0.28rem 0.85rem;'
+                           f'border-radius:999px;background:{_sb_bg};color:{_sb_color};'
+                           f'border:1px solid {_sb_color}55;letter-spacing:0.3px;">{_setup}</span>'
+                           f'</div>' if _setup else '') +
                         f'</div>'
                         f'</div>'
+                        f'<div style="text-align:right;flex-shrink:0;">'
+                        f'<div style="font-size:1.5rem;font-weight:800;color:#fff;">SAR {_p_bp:.2f}</div>'
+                        f'<div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:0.4rem;">'
+                        f'<span style="font-size:0.78rem;font-weight:700;padding:0.22rem 0.7rem;border-radius:6px;'
+                        f'background:{_sc_color}20;color:{_sc_color};border:1px solid {_sc_color}44;" '
+                        f'title="Technical strength score out of 20">Score {_sc_bp}/20</span>'
+                        f'<span style="font-size:0.78rem;font-weight:700;padding:0.22rem 0.7rem;border-radius:6px;'
+                        f'background:{_cc_bp}20;color:{_cc_bp};border:1px solid {_cc_bp}44;cursor:help;" '
+                        f'title="% of indicators agreeing: price action, volume, RSI, MACD, multi-timeframe. Higher = stronger signal">Confidence {_conv_bp}%</span>'
                         f'</div>'
-                        f'<div class="sc-hr"></div>'
-                        f'<div style="display:grid;grid-template-columns:repeat(5,1fr);border-bottom:1px solid rgba(255,255,255,0.05);">'
-                        f'<div class="sc-lv"><div class="sc-lv-v" style="color:#4A9EFF">{_e_bp:.2f}</div><div class="sc-lv-l">Entry</div></div>'
-                        f'<div class="sc-lv"><div class="sc-lv-v" style="color:#ef4444">-{_dn_bp:.1f}%</div><div class="sc-lv-l">Stop</div></div>'
-                        f'<div class="sc-lv"><div class="sc-lv-v" style="color:#10a37f">+{_up_bp:.1f}%</div><div class="sc-lv-l">Target 1</div></div>'
-                        f'<div class="sc-lv"><div class="sc-lv-v" style="color:#26A69A">+{_t2_pct:.1f}%</div><div class="sc-lv-l">Target 2</div></div>'
-                        f'<div class="sc-lv" style="border-right:none"><div class="sc-lv-v" style="color:#fbbf24">{_rr_bp:.1f}×</div><div class="sc-lv-l">R:R</div></div>'
                         f'</div>'
-                        f'<div style="padding:0.55rem 0.9rem 0.7rem;font-size:0.71rem;color:#9e9e9e;line-height:1.5;">'
-                        f'<span style="color:#fbbf24;font-weight:700;font-size:0.65rem;text-transform:uppercase;'
-                        f'letter-spacing:0.7px;margin-right:0.4rem;">Why:</span>{_why_bp}'
                         f'</div>'
+
+                        # ── PRICE LADDER ──
+                        f'<div style="background:#141414;border-top:1px solid #2a2a2a;border-bottom:1px solid #2a2a2a;'
+                        f'padding:1rem 1.5rem;">'
+                        f'<div style="font-size:0.7rem;color:#555;text-transform:uppercase;letter-spacing:1.2px;'
+                        f'font-weight:800;margin-bottom:0.8rem;">Your Trading Plan</div>'
+                        f'<div style="display:grid;grid-template-columns:1fr auto 1fr auto 1fr auto 1fr auto 1fr;'
+                        f'align-items:center;width:100%;gap:0.3rem;">'
+
+                        f'<div style="text-align:center;background:#1e2a3a;border:1px solid #1e3a5f;'
+                        f'border-radius:10px;padding:0.75rem 0.5rem;">'
+                        f'<div style="font-size:1.15rem;font-weight:800;color:#4A9EFF;">{_e_bp:.2f}</div>'
+                        f'<div style="font-size:0.7rem;color:#4A9EFF;margin-top:3px;font-weight:700;letter-spacing:0.5px;">ENTRY</div>'
+                        f'</div>'
+
+                        f'<div style="text-align:center;color:#444;font-size:1.3rem;padding:0 0.2rem;">›</div>'
+
+                        f'<div style="text-align:center;background:#2a1a1a;border:1px solid #5f1e1e;'
+                        f'border-radius:10px;padding:0.75rem 0.5rem;">'
+                        f'<div style="font-size:1.15rem;font-weight:800;color:#ef4444;">{_sl_bp:.2f}</div>'
+                        f'<div style="font-size:0.7rem;color:#ef4444;margin-top:3px;font-weight:700;">STOP &nbsp;−{_dn_bp:.1f}%</div>'
+                        f'</div>'
+
+                        f'<div style="text-align:center;color:#444;font-size:1.3rem;padding:0 0.2rem;">›</div>'
+
+                        f'<div style="text-align:center;background:#1a2a1e;border:1px solid #1e5f2a;'
+                        f'border-radius:10px;padding:0.75rem 0.5rem;">'
+                        f'<div style="font-size:1.15rem;font-weight:800;color:#10a37f;">{_t1_bp:.2f}</div>'
+                        f'<div style="font-size:0.7rem;color:#10a37f;margin-top:3px;font-weight:700;">TARGET 1 &nbsp;+{_up_bp:.1f}%</div>'
+                        f'</div>'
+
+                        f'<div style="text-align:center;color:#444;font-size:1.3rem;padding:0 0.2rem;">›</div>'
+
+                        f'<div style="text-align:center;background:#1a2a28;border:1px solid #1e4f4a;'
+                        f'border-radius:10px;padding:0.75rem 0.5rem;">'
+                        f'<div style="font-size:1.15rem;font-weight:800;color:#26A69A;">{_t2_bp:.2f}</div>'
+                        f'<div style="font-size:0.7rem;color:#26A69A;margin-top:3px;font-weight:700;">TARGET 2 &nbsp;+{_t2_pct:.1f}%</div>'
+                        f'</div>'
+
+                        f'<div style="text-align:center;color:#444;font-size:1.3rem;padding:0 0.2rem;">›</div>'
+
+                        f'<div style="text-align:center;background:#2a2410;border:1px solid #5f5010;'
+                        f'border-radius:10px;padding:0.75rem 0.5rem;">'
+                        f'<div style="font-size:1.35rem;font-weight:900;color:#fbbf24;">1 : {_rr_bp:.1f}</div>'
+                        f'<div style="font-size:0.7rem;color:#888;margin-top:3px;font-weight:700;">RISK / REWARD</div>'
+                        f'</div>'
+
+                        f'</div>'
+                        f'</div>'
+
+                        # ── WHY BULLETS ──
+                        f'<div style="padding:1rem 1.5rem;">'
+                        f'<div style="font-size:0.7rem;color:#555;text-transform:uppercase;letter-spacing:1.2px;'
+                        f'font-weight:800;margin-bottom:0.6rem;">Why this stock?</div>'
+                        f'{_bullet_html}'
+                        f'</div>'
+
                         f'</div>',
                         unsafe_allow_html=True,
                     )
@@ -3969,18 +4094,7 @@ def main():
                     for s in regular:
                         _render_card(s, 'buy')
 
-        with tab_sell:
-            filtered_sell = _f_sell_stocks
-            if filtered_sell:
-                st.markdown(
-                    f'<div class="msr-sec-row"><div class="msr-sec-dot sell"></div>'
-                    f'<span class="msr-sec-title sell">Avoid / Sell Signals</span>'
-                    f'<span class="msr-sec-count">{len(filtered_sell)} stocks</span></div>',
-                    unsafe_allow_html=True)
-                for s in filtered_sell:
-                    _render_card(s, 'sell')
-            else:
-                st.markdown("<div class='msr-empty'>No sell signals found.</div>", unsafe_allow_html=True)
+
 
     elif st.session_state.show_market_pulse:
 

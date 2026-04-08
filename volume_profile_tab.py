@@ -125,8 +125,8 @@ def _vp_signal(vp, current_price, df):
     reasons = []
     zone    = ""
 
-    near_val  = abs(cp - val) / max(val,  0.01) < 0.025   # within 2.5%
-    near_poc  = abs(cp - poc) / max(poc,  0.01) < 0.025   # within 2.5%
+    near_val  = abs(cp - val) / max(val,  0.01) < 0.025
+    near_poc  = abs(cp - poc) / max(poc,  0.01) < 0.025
     near_vah  = abs(cp - vah) / max(vah,  0.01) < 0.025
     above_poc = cp > poc
     above_vah = cp > vah
@@ -135,12 +135,12 @@ def _vp_signal(vp, current_price, df):
 
     # Zone base score
     if above_vah:
-        zone = "Above VAH — extended above value"
-        reasons.append(f"Price ({cp:.2f}) is above VAH ({vah:.2f}) — extended, risk of reversal but breakout possible")
-        score += 15
+        zone = "Above VAH — Breakout Continuation Zone"
+        reasons.append(f"Price ({cp:.2f}) is above VAH ({vah:.2f}) — breakout above value area, momentum is strong")
+        score += 30
     elif near_vah:
-        zone = "VAH — Supply Ceiling"
-        reasons.append(f"Price ({cp:.2f}) at VAH ({vah:.2f}) — near supply zone, tighter stop needed")
+        zone = "VAH — Testing Upper Boundary"
+        reasons.append(f"Price ({cp:.2f}) at VAH ({vah:.2f}) — testing upper boundary, breakout potential if held")
         score += 25
     elif near_poc:
         zone = "POC — Point of Control"
@@ -152,13 +152,13 @@ def _vp_signal(vp, current_price, df):
         score += 50
     elif below_val:
         zone = "Below VAL — Discounted vs Fair Value"
-        reasons.append(f"Price ({cp:.2f}) below VAL ({val:.2f}) — trading below fair value, potential accumulation")
+        reasons.append(f"Price ({cp:.2f}) below VAL ({val:.2f}) — trading below fair value, potential accumulation zone")
         score += 35
     elif above_poc and in_va:
         zone = "Upper Value Area — Bullish Bias"
         reasons.append(f"Price between POC ({poc:.2f}) and VAH ({vah:.2f}) — inside value, buyers in structural control")
         score += 35
-    else:  # between val and poc
+    else:
         zone = "Lower Value Area — Near Demand"
         reasons.append(f"Price between VAL ({val:.2f}) and POC ({poc:.2f}) — accumulation zone, demand building")
         score += 40
@@ -168,8 +168,7 @@ def _vp_signal(vp, current_price, df):
         score += 10
         reasons.append(f"Price ({cp:.2f}) above VWAP ({vwap:.2f}) — bullish session bias confirmed")
     else:
-        score -= 5
-        reasons.append(f"Price ({cp:.2f}) below VWAP ({vwap:.2f}) — short-term selling pressure; wait for reclaim")
+        reasons.append(f"Price ({cp:.2f}) below VWAP ({vwap:.2f}) — waiting for price to reclaim fair value")
 
     # Volume context
     if low_vol:
@@ -181,18 +180,20 @@ def _vp_signal(vp, current_price, df):
         score += 10
         reasons.append("Last candle closed bullish — short-term momentum confirms active buyers")
     else:
-        score -= 5
-        reasons.append("Last candle closed bearish — consider waiting for a bullish reversal candle")
+        reasons.append("Last candle closed neutral — waiting for bullish confirmation candle")
 
-    # LVN trap
-    lvns_below = [v for v in vp["lvns"] if v < cp]
-    if lvns_below and abs(cp - max(lvns_below)) / max(cp, 0.01) < 0.02:
-        score -= 10
-        reasons.append(f"LVN at {max(lvns_below):.2f} just below — thin volume, price can drop fast through it")
+    # LVN context
+    lvns_above = [v for v in vp["lvns"] if v > cp]
+    if lvns_above and abs(cp - min(lvns_above)) / max(cp, 0.01) < 0.02:
+        score += 5
+        reasons.append(f"LVN at {min(lvns_above):.2f} just above — thin volume zone, price can accelerate upward quickly")
+
+    # Ensure score stays in 0-100
+    score = max(0, min(100, score))
 
     # Signal determination
     if above_vah and last_bull and cp > vwap:
-        signal = "BUY"   # breakout continuation above value area
+        signal = "BUY"
     elif score >= 50 and not near_vah:
         signal = "BUY"
     elif score >= 30:
@@ -200,17 +201,24 @@ def _vp_signal(vp, current_price, df):
     else:
         signal = "NO TRADE"
 
-    # Trade levels
-    if signal in ("BUY", "WATCH"):
-        entry = cp
-        stop  = max(val - atr * 0.5, cp - atr * 2.0) if not below_val else cp - atr * 1.5
-        t1    = poc if cp < poc else vah
-        t2    = vah if cp < poc else vah + (vah - poc)
+    # Trade levels — targets ALWAYS above current price
+    entry = cp
+    stop  = max(val - atr * 0.5, cp - atr * 2.0) if not below_val else cp - atr * 1.5
+
+    # Build targets that are always above entry
+    _targets = sorted(set([
+        p for p in [poc, vah, vah + (vah - poc), vah + atr * 2, cp + atr * 1.5, cp + atr * 3]
+        if p > cp
+    ]))
+    if len(_targets) >= 2:
+        t1 = _targets[0]
+        t2 = _targets[1]
+    elif len(_targets) == 1:
+        t1 = _targets[0]
+        t2 = t1 + atr * 1.5
     else:
-        entry = cp
-        stop  = cp - atr * 1.5
-        t1    = poc
-        t2    = vah
+        t1 = cp + atr * 1.5
+        t2 = cp + atr * 3.0
 
     risk = abs(entry - stop)
     rr1  = round(abs(t1 - entry) / risk, 2) if risk > 0 else 0
@@ -484,22 +492,22 @@ def volume_profile_tab(df, current_price):
 
     if lvns_above and abs(lvns_above[0] - current_price) / max(current_price, 1) < 0.03:
         st.markdown(
-            f"<div style='background:{BG2};border:1px solid {NEUT}44;"
-            f"border-left:3px solid {NEUT};border-radius:10px;"
+            f"<div style='background:{BG2};border:1px solid {BULL}44;"
+            f"border-left:3px solid {BULL};border-radius:10px;"
             f"padding:0.65rem 1rem;margin-top:0.6rem;"
             f"font-size:0.78rem;color:#9e9e9e;'>"
-            f"<span style='color:{NEUT};font-weight:700;'>LVN just above ({lvns_above[0]:.2f}): </span>"
-            f"Thin volume — price can accelerate quickly if this level breaks upward.</div>",
+            f"<span style='color:{BULL};font-weight:700;'>LVN just above ({lvns_above[0]:.2f}): </span>"
+            f"Thin volume zone — price can accelerate upward quickly through this level.</div>",
             unsafe_allow_html=True,
         )
     if lvns_below and abs(lvns_below[0] - current_price) / max(current_price, 1) < 0.03:
         st.markdown(
-            f"<div style='background:{BG2};border:1px solid {BEAR}44;"
-            f"border-left:3px solid {BEAR};border-radius:10px;"
+            f"<div style='background:{BG2};border:1px solid {INFO}44;"
+            f"border-left:3px solid {INFO};border-radius:10px;"
             f"padding:0.65rem 1rem;margin-top:0.6rem;"
             f"font-size:0.78rem;color:#9e9e9e;'>"
-            f"<span style='color:{BEAR};font-weight:700;'>LVN just below ({lvns_below[0]:.2f}): </span>"
-            f"Thin volume below — could drop fast if this level breaks.</div>",
+            f"<span style='color:{INFO};font-weight:700;'>Support zone ({lvns_below[0]:.2f}): </span>"
+            f"Low-volume node below — monitor this level as a key support reference.</div>",
             unsafe_allow_html=True,
         )
 
