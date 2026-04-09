@@ -2864,6 +2864,15 @@ def main():
         # ═══════════════════════════════════════════════════════════════════
         # TWO-PANEL LAYOUT
         # ═══════════════════════════════════════════════════════════════════
+        # ── Handle ?goto=TICKER from card "Open Analysis" anchor links ────
+        _qp_goto = st.query_params.get("goto", "")
+        if _qp_goto:
+            _qp_sym = str(_qp_goto).replace(".SR", "")
+            st.query_params.clear()
+            st.session_state["symbol_input"] = _qp_sym
+            st.session_state["screener_auto_analyze"] = True
+            st.rerun()
+
         # ── Screener auto-navigate: pre-fill symbol_input before widgets render ──
         if st.session_state.get("screener_goto"):
             _goto = st.session_state.pop("screener_goto")
@@ -3105,8 +3114,10 @@ def main():
                     # ── TAB 0: Stock Symbol ─────────────────────────────────
                     with cp_tab0:
                         st.markdown("<div class='cp-input-label'>Stock Symbol</div>", unsafe_allow_html=True)
+                        if "symbol_input" not in st.session_state:
+                            st.session_state["symbol_input"] = "1120"
                         user_symbol = st.text_input(
-                            "Stock Symbol", value="1120", key="symbol_input",
+                            "Stock Symbol", key="symbol_input",
                             label_visibility="collapsed", placeholder="e.g., 4190 or AAPL")
                         symbol_input = (user_symbol.strip() + ".SR"
                                         if user_symbol.strip().isdigit()
@@ -3575,7 +3586,7 @@ def main():
         .sc-lv { flex:1; text-align:center; padding:0.6rem 0.15rem;
                  border-right:1px solid rgba(255,255,255,0.045); }
         .sc-lv-v { font-size:0.9rem; font-weight:800; line-height:1; }
-        .sc-lv-l { font-size:0.5rem; font-weight:600; color:#3e3e3e;
+        .sc-lv-l { font-size:0.54rem; font-weight:700; color:#686868;
                    text-transform:uppercase; letter-spacing:0.5px; margin-top:4px; }
         .sc-div-vert { width:1px; background:rgba(255,255,255,0.07); flex-shrink:0; }
         .sc-inds { display:flex; }
@@ -3583,14 +3594,14 @@ def main():
                    border-right:1px solid rgba(255,255,255,0.04); }
         .sc-ind:last-child { border-right:none; }
         .sc-iv   { font-size:0.82rem; font-weight:700; line-height:1; }
-        .sc-il   { font-size:0.47rem; font-weight:600; color:#404040;
+        .sc-il   { font-size:0.5rem; font-weight:600; color:#686868;
                    text-transform:uppercase; letter-spacing:0.4px; margin-top:4px; }
 
         /* Conviction bar */
         .sc-conv { display:flex; align-items:center; gap:0.55rem;
                    padding:0.38rem 1rem; background:rgba(0,0,0,0.08); }
-        .sc-conv-lbl { font-size:0.48rem; font-weight:700; text-transform:uppercase;
-                       letter-spacing:0.5px; color:#3a3a3a; flex-shrink:0; }
+        .sc-conv-lbl { font-size:0.52rem; font-weight:700; text-transform:uppercase;
+                       letter-spacing:0.5px; color:#686868; flex-shrink:0; }
         .sc-conv-track { flex:1; height:3px; background:rgba(255,255,255,0.07);
                          border-radius:2px; overflow:hidden; }
         .sc-conv-fill  { height:100%; border-radius:2px; }
@@ -3608,18 +3619,27 @@ def main():
                   background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); color:#626262; }
 
         /* Section header */
-        .msr-sec-row  { display:flex; align-items:center; gap:0.5rem; margin:0.5rem 0 0.55rem; }
-        .msr-sec-dot  { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+        .msr-sec-row  { display:flex; align-items:center; gap:0.6rem; margin:0.8rem 0 0.7rem; padding:0.5rem 0.8rem; background:#1a1a1a; border-radius:8px; border:1px solid #252525; }
+        .msr-sec-dot  { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
         .msr-sec-dot.buy  { background:#10a37f; } .msr-sec-dot.sell { background:#ef4444; }
         .msr-sec-dot.hold { background:#fbbf24; }
-        .msr-sec-title { font-size:0.62rem; font-weight:700; letter-spacing:1px; text-transform:uppercase; }
+        .msr-sec-title { font-size:0.75rem; font-weight:800; letter-spacing:0.8px; text-transform:uppercase; }
         .msr-sec-title.buy  { color:#10a37f; } .msr-sec-title.sell { color:#ef4444; }
         .msr-sec-title.hold { color:#fbbf24; }
-        .msr-sec-count { font-size:0.58rem; padding:0.12rem 0.5rem; border-radius:16px;
-                         background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.07); color:#606060; }
-        .msr-empty { text-align:center; padding:2.5rem 1rem; color:#444; font-size:0.82rem; }
+        .msr-sec-count { font-size:0.68rem; padding:0.14rem 0.6rem; border-radius:16px;
+                         background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:#888; margin-left:auto; }
+        .msr-empty { text-align:center; padding:2.5rem 1rem; color:#555; font-size:0.88rem; }
+        /* Streamlit tab buttons — bigger, readable */
+        div[data-baseweb="tab"] button p {
+            font-size: 0.9rem !important;
+            font-weight: 700 !important;
+            letter-spacing: 0.2px;
+        }
         /* Kill default Streamlit page top padding so New Scan button sits flush */
-        .block-container { padding-top: 0.5rem !important; }
+        header[data-testid="stHeader"] { display: none !important; }
+        [data-testid="stToolbar"]      { display: none !important; }
+        .block-container { padding-top: 0.4rem !important; margin-top: 0 !important; }
+        section[data-testid="stMainBlockContainer"] { padding-top: 0.4rem !important; }
         </style>""", unsafe_allow_html=True)
 
         # ── Back button ──────────────────────────────────────────────────────
@@ -3632,10 +3652,13 @@ def main():
         sec_lbl       = params.get('sector', 'All Sectors')
         ms_lbl        = params.get('min_score', 2)
 
-        # Pre-compute all_buy early so hero tiles match tab counts
+        # Pre-compute all_buy early — require real quality gates so count is meaningful
+        # Score >= 3 (not just any spark), conviction >= 25, R:R >= 0.8
         all_buy = sorted(
-            [s for s in all_stocks if s.get('score', 0) > 0
-             or s.get('ind_score', 0) > 0 or s.get('pa_score', 0) > 0],
+            [s for s in all_stocks
+             if s.get('score', 0) >= 3
+             and s.get('conviction', 0) >= 25
+             and s.get('rr_ratio', 0) >= 0.8],
             key=lambda x: x.get('priority_score', 0), reverse=True)
 
         avg_rr        = (sum(s.get('rr_ratio', 0) for s in all_buy) / len(all_buy)) if all_buy else 0
@@ -3755,18 +3778,18 @@ def main():
                 f'<div style="background:#191919;border:1px solid #222;'
                 f'border-top:3px solid {_card_top_col};border-radius:10px;'
                 f'padding:0.85rem 1rem;min-width:110px;flex:1 1 110px;">'
-                f'<div style="font-size:0.62rem;color:#484848;font-weight:800;text-transform:uppercase;'
+                f'<div style="font-size:0.64rem;color:#888;font-weight:800;text-transform:uppercase;'
                 f'letter-spacing:0.9px;margin-bottom:0.5rem;">{_ilbl}</div>'
                 f'<div style="font-size:1.15rem;font-weight:900;color:#f0f0f0;'
                 f'margin-bottom:0.55rem;white-space:nowrap;">{_ipf}</div>'
                 f'<div style="display:flex;align-items:center;justify-content:space-between;'
                 f'margin-bottom:0.22rem;">'
-                f'<span style="font-size:0.64rem;color:#363636;text-transform:uppercase;'
+                f'<span style="font-size:0.66rem;color:#666;text-transform:uppercase;'
                 f'letter-spacing:0.5px;">Today</span>'
                 f'<span style="font-size:0.84rem;font-weight:800;color:{_ic1_col};">'
                 f'{_is1}{_ic1:.1f}%</span></div>'
                 f'<div style="display:flex;align-items:center;justify-content:space-between;">'
-                f'<span style="font-size:0.64rem;color:#363636;text-transform:uppercase;'
+                f'<span style="font-size:0.66rem;color:#666;text-transform:uppercase;'
                 f'letter-spacing:0.5px;">5 Days</span>'
                 f'<span style="font-size:0.84rem;font-weight:800;color:{_ic5_col};">'
                 f'{_is5}{_ic5:.1f}%</span></div>'
@@ -3952,96 +3975,492 @@ def main():
         def _sorted(lst):
             return sorted(lst, key=lambda x: x.get('priority_score', 0), reverse=True)
 
-        # ── Card renderer ─────────────────────────────────────────────────────
-        def _render_card(stock, side):
-            sym      = stock['ticker'].replace('.SR', '')
-            name     = stock.get('name', sym)
-            price    = stock['price']
-            score    = stock['score']
-            entry    = stock.get('entry', price)
-            stop     = stock.get('stop_loss', price)
-            t1       = stock.get('target1', price)
-            rr       = stock.get('rr_ratio', 0)
-            conv     = stock.get('conviction', 50)
-            setup    = stock.get('setup_type', '')
-            signals  = stock.get('why_reasons') or stock.get('signals', [])
-            mtf      = stock.get('mtf_score', 0)
-            is_perf  = (score >= 7 and rr >= 1.8 and conv >= 50)
+        # ── Card renderer — full Perfect-Setup style, shared by both tabs ────
+        _SETUP_BADGE_COLORS = {
+            'Golden Cross':       ('#fbbf24', '#2a2410'),
+            'Oversold Reversal':  ('#60a5fa', '#101828'),
+            'BB Bounce':          ('#a78bfa', '#1a1228'),
+            '52W Breakout':       ('#10a37f', '#0a1f1a'),
+            'Deep Value':         ('#f97316', '#1f1208'),
+            'Trend Continuation': ('#34d399', '#0a1f14'),
+            'Stoch Reversal':     ('#e879f9', '#1f0a22'),
+            'Volume Spike':       ('#fb923c', '#1f1008'),
+        }
+        _SETUP_LABELS = {
+            'Golden Cross': 'Moving averages crossed up — bullish trend starting',
+            'Death Cross': 'Trend weakening',
+            'Oversold Reversal': 'Price was oversold — bounce expected',
+            'BB Bounce': 'Hit lower Bollinger Band — bounce expected',
+            '52W Breakout': 'Breaking above 52-week high — strong momentum',
+            'Deep Value': 'Deeply undervalued — potential recovery',
+            'Trend Continuation': 'Strong uptrend still going',
+            'Stoch Reversal': 'Stochastic oversold — reversal expected',
+            'Volume Spike': 'Unusual buying volume — big institutional interest',
+        }
 
-            stop_pct = abs(entry - stop) / entry * 100 if entry > 0 else 0
-            t1_pct   = abs(t1   - entry) / entry * 100 if entry > 0 else 0
-            sdsp     = f"Score {score}/20"
+        def _render_card(stock, side, tier_color=None, rank_num=None):
+            sym    = stock['ticker'].replace('.SR', '')
+            name   = stock.get('name', sym)
+            price  = stock['price']
+            score  = stock.get('score', 0)
+            entry  = stock.get('entry', price)
+            stop   = stock.get('stop_loss', price)
+            t1     = stock.get('target1', price)
+            t2     = stock.get('target2', price)
+            rr     = stock.get('rr_ratio', 0)
+            conv   = stock.get('conviction', 50)
+            setup  = stock.get('setup_type', '')
+            raw_why = stock.get('why_reasons') or stock.get('signals', [])
+            mtf    = stock.get('mtf_score', 0)
+            sector = stock.get('sector', 'Other')
 
-            ac = {"buy": "#10a37f", "sell": "#ef4444", "hold": "#fbbf24"}.get(side, "#666")
-            cc = "#10a37f" if conv >= 70 else ("#4A9EFF" if conv >= 45 else "#fbbf24")
+            ac = tier_color or {"buy": "#10a37f", "sell": "#ef4444", "hold": "#fbbf24"}.get(side, "#10a37f")
+            sc_color = "#10a37f" if score >= 12 else ("#4A9EFF" if score >= 7 else "#fbbf24")
+            cc_color = "#10a37f" if conv >= 70 else ("#4A9EFF" if conv >= 45 else "#fbbf24")
 
-            star = '<span style="font-size:0.62rem;color:#FFD700;font-weight:700;margin-left:0.3rem;" title="Perfect Setup">⭐</span>' if is_perf else ''
+            dn_pct = (entry - stop) / entry * 100 if entry > 0 else 0
+            up_pct = (t1   - entry) / entry * 100  if entry > 0 else 0
+            t2_pct = (t2   - entry) / entry * 100  if entry > 0 else 0
+            rr_val = (t1 - entry) / (entry - stop)  if (entry - stop) > 0 else rr
 
-            # MTF badge: 3/3 = all green, 2/3 = amber, 1/3 = red
-            if mtf == 3:
-                mtf_html = ('<span style="font-size:0.57rem;font-weight:800;background:#4caf5022;'
-                            'color:#4caf50;border-radius:4px;padding:1px 6px;margin-left:4px;'
-                            'border:1px solid #4caf5044;" title="Daily+Weekly+Monthly aligned">MTF 3/3</span>')
-            elif mtf == 2:
-                mtf_html = ('<span style="font-size:0.57rem;font-weight:800;background:#ff980022;'
-                            'color:#ff9800;border-radius:4px;padding:1px 6px;margin-left:4px;'
-                            'border:1px solid #ff980044;" title="2 of 3 timeframes aligned">MTF 2/3</span>')
-            elif mtf == 1:
-                mtf_html = ('<span style="font-size:0.57rem;font-weight:800;background:#ef444422;'
-                            'color:#ef4444;border-radius:4px;padding:1px 6px;margin-left:4px;'
-                            'border:1px solid #ef444444;" title="Only daily aligned">MTF 1/3</span>')
-            else:
-                mtf_html = ''
+            # ── Per-stock market context ─────────────────────────────────────
+            # Determine which macro signals and news categories matter for this stock
+            _name_lower = name.lower()
+            _sym_lower  = sym.lower()
 
-            # Human-readable setup descriptions
-            _setup_labels = {
-                'Golden Cross': 'Moving averages crossed up — bullish trend starting',
-                'Death Cross': 'Trend weakening',
-                'Oversold Reversal': 'Price dropped too much — bounce expected',
-                'BB Bounce': 'Price hit lower band — bounce expected',
-                '52W Breakout': 'Breaking above 52-week high — strong momentum',
-                'Deep Value': 'Deeply undervalued — potential recovery',
-                'Trend Continuation': 'Strong uptrend — still going up',
-                'Stoch Reversal': 'Oversold signal — reversal expected',
-                'Volume Spike': 'Unusual buying volume — big interest',
+            # Sector → primary macro drivers
+            # Each entry: (news_cats_to_show, macro_snapshot_keys, sector_label, sector_color)
+            _SEC_PROFILE = {
+                'Banks': {
+                    'label': 'Banks & Finance', 'color': '#4A9EFF',
+                    'news_cats': ('FED & RATES', 'SAUDI DIRECT', 'TRUMP / US', 'GLOBAL MARKET'),
+                    'snap_keys': ('vix',),
+                    'why': 'Banks profit from interest rates and credit demand. Rate cuts squeeze margins; market panic dries up lending.',
+                },
+                'Petrochemicals': {
+                    'label': 'Petrochemicals', 'color': '#f97316',
+                    'news_cats': ('OIL & ENERGY', 'GEOPOLITICAL', 'TRUMP / US'),
+                    'snap_keys': ('brent', 'gas'),
+                    'why': 'Feedstock costs track oil and gas prices directly. Geopolitical disruption hits supply chains.',
+                },
+                'Utilities': {
+                    'label': 'Utilities', 'color': '#a78bfa',
+                    'news_cats': ('OIL & ENERGY', 'SAUDI DIRECT', 'FED & RATES'),
+                    'snap_keys': ('brent',),
+                    'why': 'Regulated revenue but fuel costs track oil/gas. Rate changes affect project financing costs.',
+                },
+                'Telecom & Tech': {
+                    'label': 'Telecom & Tech', 'color': '#60a5fa',
+                    'news_cats': ('FED & RATES', 'GLOBAL MARKET', 'TRUMP / US'),
+                    'snap_keys': ('vix', 'sp500'),
+                    'why': 'Growth stocks are rate-sensitive. Global risk-off hurts tech valuations rapidly.',
+                },
+                'Insurance': {
+                    'label': 'Insurance', 'color': '#34d399',
+                    'news_cats': ('FED & RATES', 'SAUDI DIRECT', 'GEOPOLITICAL'),
+                    'snap_keys': ('vix',),
+                    'why': 'Investment returns tie to interest rates. Geopolitical shocks can spike claims.',
+                },
+                'Cement': {
+                    'label': 'Cement', 'color': '#fbbf24',
+                    'news_cats': ('SAUDI DIRECT', 'OIL & ENERGY'),
+                    'snap_keys': ('brent',),
+                    'why': 'Cement demand driven by Saudi government spending, which depends on oil revenue.',
+                },
+                'Food & Agri': {
+                    'label': 'Food & Agriculture', 'color': '#10a37f',
+                    'news_cats': ('GEOPOLITICAL', 'SAUDI DIRECT', 'TRUMP / US'),
+                    'snap_keys': ('usd',),
+                    'why': 'Import-dependent. Trade wars and USD strength directly raise input costs.',
+                },
+                'REITs': {
+                    'label': 'REITs', 'color': '#e879f9',
+                    'news_cats': ('FED & RATES', 'SAUDI DIRECT'),
+                    'snap_keys': ('usd', 'vix'),
+                    'why': 'Real estate investment trusts are highly rate-sensitive. Higher rates reduce valuations and distribution yields.',
+                },
+                'Retail': {
+                    'label': 'Retail', 'color': '#fb923c',
+                    'news_cats': ('SAUDI DIRECT', 'GLOBAL MARKET', 'TRUMP / US'),
+                    'snap_keys': ('vix',),
+                    'why': 'Consumer spending tracks Saudi income levels, which are tied to oil revenue and government salaries.',
+                },
+                'Healthcare': {
+                    'label': 'Healthcare', 'color': '#38bdf8',
+                    'news_cats': ('SAUDI DIRECT', 'FED & RATES'),
+                    'snap_keys': ('vix',),
+                    'why': 'Defensive sector. Less oil-sensitive but affected by government healthcare contracts and Vision 2030 spending.',
+                },
+                'Transport': {
+                    'label': 'Transport', 'color': '#94a3b8',
+                    'news_cats': ('OIL & ENERGY', 'GEOPOLITICAL', 'SAUDI DIRECT'),
+                    'snap_keys': ('brent',),
+                    'why': 'Fuel costs are the biggest expense. Oil spikes squeeze margins; geopolitical conflicts disrupt routes.',
+                },
+                'Real Estate': {
+                    'label': 'Real Estate', 'color': '#e879f9',
+                    'news_cats': ('FED & RATES', 'SAUDI DIRECT'),
+                    'snap_keys': ('usd', 'vix'),
+                    'why': 'Rate-sensitive sector. Vision 2030 projects drive demand; foreign capital flows track USD and global risk.',
+                },
             }
-            setup_desc = _setup_labels.get(setup, setup)
 
-            why_text = " · ".join(signals[:4]) if signals else (setup_desc if setup_desc else "—")
+            # Auto-detect oil/energy exposure by ticker/name even outside Petrochemicals
+            _is_oil_linked = (
+                sector in ('Petrochemicals',)
+                or any(kw in _name_lower for kw in ('aramco', 'oil', 'petro', 'chemical', 'refin', 'gas', 'energy'))
+                or any(kw in _sym_lower  for kw in ('2222', 'petro', 'sahara', 'yanbu', 'jubail'))
+            )
+            _is_bank = (
+                sector == 'Banks'
+                or any(kw in _name_lower for kw in ('bank', 'riyad', 'rajhi', 'snb', 'alinma', 'alawwal', 'bsf', 'anb'))
+            )
 
+            _sprof = _SEC_PROFILE.get(sector, {
+                'label': sector or 'General', 'color': '#888',
+                'news_cats': ('GEOPOLITICAL', 'OIL & ENERGY', 'SAUDI DIRECT', 'TRUMP / US', 'FED & RATES'),
+                'snap_keys': ('brent', 'vix'),
+                'why': 'Saudi stocks broadly track oil revenue and global market sentiment.',
+            })
+
+            # Override for oil-linked stocks in non-petrochem sectors
+            if _is_oil_linked and sector not in ('Petrochemicals',):
+                _sprof = _SEC_PROFILE['Petrochemicals']
+
+            _ctx_stock = []   # (label, color, text) rows for this card
+
+            # 1. Oil price vs breakeven — if oil-relevant
+            if _is_oil_linked or 'brent' in _sprof['snap_keys']:
+                _bs = (_msnap or {}).get('brent')
+                if _bs:
+                    try:
+                        from macro_data import _SAUDI_OIL_BREAKEVEN
+                        _op = _bs['price']; _oc5 = _bs['chg_5d']
+                        _gap = _op - _SAUDI_OIL_BREAKEVEN
+                        _os  = ('+' if _oc5 >= 0 else '') + f'{_oc5:.1f}%'
+                        if _op < _SAUDI_OIL_BREAKEVEN - 10:
+                            _ctx_stock.append(("OIL CRITICAL", "#ef4444",
+                                f"Brent at ${_op:.1f} — ${abs(_gap):.0f} BELOW the ${_SAUDI_OIL_BREAKEVEN:.0f} breakeven. "
+                                f"This week: {_os}. {'Aramco dividends and Saudi revenues are under real pressure — direct risk to this stock.' if _is_oil_linked else 'Government spending may be cut, reducing sector contracts.'}"))
+                        elif _op < _SAUDI_OIL_BREAKEVEN:
+                            _ctx_stock.append(("OIL BELOW BREAKEVEN", "#f97316",
+                                f"Brent at ${_op:.1f}, this week {_os}. "
+                                f"${abs(_gap):.0f} below Saudi budget line — fiscal pressure is building. "
+                                f"{'Companies in this sector sell oil-linked products. Lower oil = lower selling prices and margins.' if _is_oil_linked else 'Watch for delayed government contracts.'}"))
+                        elif _oc5 > 2:
+                            _ctx_stock.append(("OIL RISING", "#10a37f",
+                                f"Brent at ${_op:.1f}, up {_os} this week — above Saudi budget breakeven by ${_gap:.0f}. "
+                                f"{'Positive for Aramco dividends and Saudi revenue. Tailwind for this stock.' if _is_oil_linked else 'Rising oil strengthens Saudi government cash flow — positive backdrop.'}"))
+                        elif _oc5 < -3:
+                            _ctx_stock.append(("OIL FALLING", "#f97316",
+                                f"Brent at ${_op:.1f}, down {_os} this week. "
+                                f"{'Feedstock costs may fall but so does product pricing. Watch margins.' if sector == 'Petrochemicals' else 'Declining oil signals Saudi revenue risk.'}"))
+                    except Exception:
+                        pass
+
+            # 2. VIX — if bank, REIT, or globally sensitive
+            if 'vix' in _sprof['snap_keys'] or _is_bank:
+                _vs = (_msnap or {}).get('vix')
+                if _vs:
+                    _vp = _vs['price']
+                    if _vp > 35:
+                        _ctx_stock.append(("MARKET PANIC", "#ef4444",
+                            f"VIX at {_vp:.0f} — panic-level fear globally. "
+                            f"{'Foreign money is leaving ALL emerging markets. Loan demand collapses in crises.' if _is_bank else 'International investors are selling Saudi holdings to cover losses elsewhere.'}"))
+                    elif _vp > 25:
+                        _ctx_stock.append(("HIGH FEAR", "#f97316",
+                            f"VIX at {_vp:.0f} — elevated fear. "
+                            f"{'Banks face rising credit risk when fear is high.' if _is_bank else 'Risk-off sentiment puts pressure on this type of stock. Reduce position size.'}"))
+                    elif _vp < 16:
+                        _ctx_stock.append(("CALM MARKETS", "#10a37f",
+                            f"VIX at {_vp:.0f} — very low fear. "
+                            f"{'Banks can lend freely; risk appetite is strong.' if _is_bank else 'Low volatility supports growth positions. Good conditions for this trade.'}"))
+
+            # 3. Interest rates — if bank or rate-sensitive
+            if 'FED & RATES' in _sprof['news_cats']:
+                if _mscore <= -3:
+                    _ctx_stock.append(("RATES RISK", "#f97316",
+                        f"Global rate environment is a headwind right now (macro score {_mscore}/10). "
+                        f"{'Higher-for-longer rates compress net interest margins on new loans.' if _is_bank else 'Rate sensitivity — higher rates increase financing costs for this sector.'}"))
+                elif _mscore >= 5:
+                    _ctx_stock.append(("RATES SUPPORTIVE", "#10a37f",
+                        f"Rate conditions appear supportive (macro score {_mscore}/10). "
+                        f"{'Rate easing boosts loan margins and credit growth.' if _is_bank else 'Lower rates reduce financing costs and support valuations.'}"))
+
+            # 4. Relevant news headlines filtered for this stock's sectors
+            _news_for_stock = [n for n in _filtered_news if n.get('_cat') in _sprof['news_cats']]
+            for _ni, _nn in enumerate(_news_for_stock[:2]):
+                _ncat = _nn['_cat']
+                _nwhy = {
+                    'OIL & ENERGY':   f"Oil moves directly affect {'revenues and feedstock costs' if _is_oil_linked else 'Saudi government spending and market sentiment'}.",
+                    'GEOPOLITICAL':   "Middle East tensions can disrupt oil supply routes and trigger rapid market selloffs on Tadawul.",
+                    'TRUMP / US':     "US trade and sanctions policy redirects global money flows — Saudi assets included.",
+                    'FED & RATES':    f"{'Rate changes affect bank lending margins directly.' if _is_bank else 'Rate decisions move global capital between markets — Saudi included.'}",
+                    'SAUDI DIRECT':   "This directly involves Saudi policy or companies in your sector.",
+                    'GLOBAL MARKET':  "Global risk-off events pull foreign investors out of emerging markets like Saudi Arabia.",
+                }.get(_ncat, "This event may affect your trade.")
+                _ctx_stock.append((_ncat, _nn['_col'],
+                    f"{_nn['title']}  —  {_nwhy}"))
+
+            # 5. Fall back if nothing found
+            if not _ctx_stock:
+                _ctx_stock.append(("NO ALERTS", "#484848",
+                    f"No major events affecting {_sprof['label']} stocks right now. "
+                    f"Conditions appear neutral — {_sprof['why']}"))
+
+            # Build per-stock context HTML
+            _stock_ctx_html = "".join(
+                f'<div style="border-left:3px solid {_cc};background:{_cc}09;'
+                f'border-radius:0 7px 7px 0;padding:0.5rem 0.75rem;margin-bottom:0.3rem;">'
+                f'<div style="font-size:0.65rem;font-weight:900;text-transform:uppercase;'
+                f'letter-spacing:0.7px;color:{_cc};margin-bottom:0.18rem;">{_cl}</div>'
+                f'<div style="font-size:0.79rem;color:#c0c0c0;line-height:1.55;">{_ct}</div>'
+                f'</div>'
+                for _cl, _cc, _ct in _ctx_stock
+            )
+
+            dn_pct = (entry - stop) / entry * 100 if entry > 0 else 0
+            up_pct = (t1   - entry) / entry * 100  if entry > 0 else 0
+            t2_pct = (t2   - entry) / entry * 100  if entry > 0 else 0
+            rr_val = (t1 - entry) / (entry - stop)  if (entry - stop) > 0 else rr
+
+            # MTF badge
+            # MTF = Multi-Timeframe alignment (how many timeframes agree: Daily, Weekly, Monthly)
+            if mtf == 3:
+                mtf_badge = ('<span style="font-size:0.67rem;font-weight:700;background:#4caf5018;'
+                             'color:#4caf50;border-radius:4px;padding:3px 8px;'
+                             'border:1px solid #4caf5040;white-space:nowrap;'
+                             'title="All 3 timeframes (daily, weekly, monthly) agree — strongest signal">'
+                             '&#10003; All Timeframes Agree</span>')
+            elif mtf == 2:
+                mtf_badge = ('<span style="font-size:0.67rem;font-weight:700;background:#ff980018;'
+                             'color:#ff9800;border-radius:4px;padding:3px 8px;'
+                             'border:1px solid #ff980040;white-space:nowrap;'
+                             'title="2 of 3 timeframes agree">'
+                             '2 of 3 Timeframes Agree</span>')
+            elif mtf == 1:
+                mtf_badge = ('<span style="font-size:0.67rem;font-weight:700;background:#88888818;'
+                             'color:#888;border-radius:4px;padding:3px 8px;'
+                             'border:1px solid #88888835;white-space:nowrap;'
+                             'title="Only 1 timeframe agrees — weaker signal">'
+                             '1 of 3 Timeframes</span>')
+            else:
+                mtf_badge = ''
+
+            # ── Setup badge ──────────────────────────────────────────────
+            _sb_color, _sb_bg = _SETUP_BADGE_COLORS.get(setup, ('#10a37f', '#10a37f18'))
+
+            # ── Sector label ─────────────────────────────────────────────
+            _sprof_label = _sprof.get('label', sector) if sector and sector not in ('', 'Other') else ''
+
+            # ── Why bullets ──────────────────────────────────────────────
+            bullets = [_clean_why(r) for r in raw_why[:5] if r]
+            if not bullets and setup:
+                bullets = [_SETUP_LABELS.get(setup, setup)]
+            bullet_html = "".join(
+                f'<div style="display:flex;align-items:flex-start;gap:0.6rem;padding:0.38rem 0;'
+                f'border-bottom:1px solid rgba(255,255,255,0.04);">'
+                f'<span style="color:#10a37f;font-size:0.82rem;line-height:1.4;flex-shrink:0;">&#10003;</span>'
+                f'<span style="font-size:0.84rem;color:#d0d0d0;line-height:1.5;">{b}</span>'
+                f'</div>'
+                for b in bullets
+            ) if bullets else '<span style="color:#484848;font-size:0.82rem;">No specific signals recorded</span>'
+
+            # ── Score / confidence colors ─────────────────────────────────
+            _sc2 = '#10a37f' if score >= 12 else ('#4A9EFF' if score >= 7 else '#fbbf24')
+            _cc2 = '#10a37f' if conv >= 70 else ('#4A9EFF' if conv >= 45 else '#fbbf24')
+
+            # ── MTF badge data ─────────────────────────────────────────
+            if mtf == 3:
+                _mtf_color, _mtf_label = '#4caf50', 'All timeframes agree'
+            elif mtf == 2:
+                _mtf_color, _mtf_label = '#ff9800', '2 of 3 timeframes'
+            elif mtf == 1:
+                _mtf_color, _mtf_label = '#666666', '1 of 3 timeframes'
+            else:
+                _mtf_color, _mtf_label = '', ''
+            _mtf_txt = _mtf_label  # kept for any legacy references
+
+            # ── Rank number (big, for Perfect Setups only) ────────────────
+            _rank_html = (
+                f'<div style="font-size:0.6rem;font-weight:800;color:#444;'
+                f'letter-spacing:2px;text-transform:uppercase;margin-bottom:0.1rem;">RANK</div>'
+                f'<div style="font-size:2rem;font-weight:900;color:#10a37f;'
+                f'line-height:1;">{rank_num}</div>'
+            ) if rank_num else ''
+
+            # ── Render card ──────────────────────────────────────────────
             st.markdown(
-                f'<div class="sc" style="border-left:3px solid {ac};">'
-                f'<div class="sc-hd">'
-                f'<div class="sc-left">'
-                f'<div class="sc-sym {side}">{sym}{star}{mtf_html}</div>'
-                f'<div class="sc-nameline">'
-                f'<span class="sc-name">{name}</span>'
-                f'<span class="sc-setup-tag">{setup}</span>'
+                f'<div style="border:1px solid #242424;border-top:3px solid {ac};'
+                f'border-radius:14px;background:#181818;margin-bottom:1.6rem;overflow:hidden;">'
+
+                # ╔══ HEADER ═════════════════════════════════════════════╗
+                f'<div style="display:flex;align-items:stretch;background:#1e1e1e;">'
+
+                # LEFT — rank column (only for Perfect Setups)
+                + (
+                    f'<div style="display:flex;flex-direction:column;align-items:center;'
+                    f'justify-content:center;padding:1.4rem 1.1rem;'
+                    f'border-right:1px solid #262626;min-width:4.5rem;text-align:center;'
+                    f'background:#ffffff03;">'
+                    f'<div style="font-size:0.48rem;font-weight:800;color:#383838;'
+                    f'letter-spacing:2.5px;text-transform:uppercase;margin-bottom:0.2rem;">RANK</div>'
+                    f'<div style="font-size:2rem;font-weight:900;color:#10a37f;line-height:1;">{rank_num}</div>'
+                    f'</div>'
+                    if rank_num else
+                    f'<div style="width:0;"></div>'
+                ) +
+
+                # MAIN — all content
+                f'<div style="flex:1;padding:1.3rem 1.5rem 1.2rem;'
+                f'display:flex;flex-direction:column;gap:0;min-width:0;">'
+
+                # ── Main row: LEFT (ticker+name / pills) ── RIGHT (3 boxes) ─
+                f'<div style="display:flex;align-items:stretch;gap:1rem;">'
+
+                # LEFT — ticker·name on top, pills below
+                f'<div style="flex:1;display:flex;flex-direction:column;'
+                f'justify-content:space-between;gap:0.55rem;min-width:0;">'
+
+                # ticker · name
+                f'<div style="display:flex;align-items:center;gap:0.45rem;min-width:0;">'
+                f'<span style="font-size:1.3rem;font-weight:900;color:#ffffff;'
+                f'letter-spacing:-0.2px;line-height:1;white-space:nowrap;">{sym}</span>'
+                f'<span style="color:#2a2a2a;font-size:0.9rem;flex-shrink:0;">&#8231;</span>'
+                f'<span style="font-size:1.3rem;font-weight:400;color:#7a7a7a;'
+                f'line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'
+                f'min-width:0;">{name}</span>'
+                f'</div>'
+
+                # pills
+                f'<div style="display:flex;align-items:center;gap:0.35rem;flex-wrap:wrap;">'
+                + (
+                    f'<span style="font-size:0.7rem;font-weight:700;'
+                    f'padding:0.2rem 0.65rem;border-radius:5px;'
+                    f'background:{_sb_bg};color:{_sb_color};'
+                    f'border:1px solid {_sb_color}40;white-space:nowrap;">{setup}</span>'
+                    if setup else ''
+                ) + (
+                    f'<span style="display:inline-flex;align-items:center;gap:0.3rem;'
+                    f'font-size:0.7rem;font-weight:600;padding:0.2rem 0.65rem;border-radius:5px;'
+                    f'background:{_mtf_color}14;color:{_mtf_color};'
+                    f'border:1px solid {_mtf_color}38;white-space:nowrap;">'
+                    f'<span style="font-size:0.45rem;line-height:1;">&#9679;</span>'
+                    f'{_mtf_label}</span>'
+                    if _mtf_label else ''
+                ) + (
+                    f'<span style="font-size:0.7rem;font-weight:500;'
+                    f'padding:0.2rem 0.65rem;border-radius:5px;'
+                    f'background:#1e1e1e;color:#545454;'
+                    f'border:1px solid #2a2a2a;white-space:nowrap;">{_sprof_label}</span>'
+                    if _sprof_label else ''
+                ) +
+                f'</div>'  # end pills
+
+                f'</div>'  # end left col
+
+                # RIGHT — 3 boxes, stretch to full row height
+                f'<div style="display:flex;align-items:stretch;gap:0.4rem;flex-shrink:0;">'
+
+                # Price box
+                f'<div style="background:#ffffff08;border:1px solid #2a2a2a;'
+                f'border-radius:8px;padding:0.6rem 1rem;text-align:right;min-width:5.5rem;'
+                f'display:flex;flex-direction:column;justify-content:space-between;">'
+                f'<div style="font-size:0.62rem;font-weight:700;color:#525252;'
+                f'white-space:nowrap;margin-bottom:0.3rem;">Price · SAR</div>'
+                f'<div style="font-size:1.4rem;font-weight:900;color:#e0e0e0;'
+                f'line-height:1;letter-spacing:-0.5px;white-space:nowrap;">{price:.2f}</div>'
+                f'</div>'
+
+                # Score box
+                f'<div style="background:{_sc2}0e;border:1px solid {_sc2}30;'
+                f'border-radius:8px;padding:0.6rem 1rem;text-align:right;min-width:5.5rem;'
+                f'display:flex;flex-direction:column;justify-content:space-between;">'
+                f'<div style="font-size:0.62rem;font-weight:700;color:{_sc2}99;'
+                f'white-space:nowrap;margin-bottom:0.3rem;">Signal Score</div>'
+                f'<div style="font-size:1.4rem;font-weight:900;color:{_sc2};'
+                f'line-height:1;white-space:nowrap;">'
+                f'{score}<span style="font-size:0.75rem;color:{_sc2}66;font-weight:600;">/20</span>'
                 f'</div>'
                 f'</div>'
-                f'<div class="sc-right">'
-                f'<div class="sc-price">SAR {price:.2f}</div>'
-                f'<div class="sc-meta">'
-                f'<span class="sc-score {side}">{sdsp}</span>'
-                f'<span style="font-size:0.7rem;font-weight:700;color:{cc};cursor:help;"'
-                f' title="Based on: indicator alignment, price action strength, risk/reward ratio, volume confirmation, and multi-timeframe agreement">Confidence {conv}%</span>'
+
+                # Confidence box
+                f'<div style="background:{_cc2}0e;border:1px solid {_cc2}30;'
+                f'border-radius:8px;padding:0.6rem 1rem;text-align:right;min-width:5.5rem;'
+                f'display:flex;flex-direction:column;justify-content:space-between;">'
+                f'<div style="font-size:0.62rem;font-weight:700;color:{_cc2}99;'
+                f'white-space:nowrap;margin-bottom:0.3rem;">Confidence</div>'
+                f'<div style="font-size:1.4rem;font-weight:900;color:{_cc2};'
+                f'line-height:1;white-space:nowrap;">'
+                f'{conv}<span style="font-size:0.75rem;color:{_cc2}66;font-weight:600;">%</span>'
                 f'</div>'
                 f'</div>'
+
+                f'</div>'  # end right boxes
+                f'</div>'  # end main row
+
+                f'</div>'  # end main content
+
+                f'</div>'  # end header flex
+                # ╚══ END HEADER ═════════════════════════════════════════╝
+
+                # ── PRICE LADDER ──
+                f'<div style="background:#141414;border-top:1px solid #2a2a2a;border-bottom:1px solid #2a2a2a;'
+                f'padding:1rem 1.5rem;">'
+                f'<div style="font-size:0.72rem;color:#909090;text-transform:uppercase;letter-spacing:1.2px;'
+                f'font-weight:800;margin-bottom:0.8rem;">Your Trading Plan</div>'
+                f'<div style="display:grid;grid-template-columns:1fr auto 1fr auto 1fr auto 1fr auto 1fr;'
+                f'align-items:center;width:100%;gap:0.3rem;">'
+
+                f'<div style="text-align:center;background:#1e2a3a;border:1px solid #1e3a5f;'
+                f'border-radius:10px;padding:0.75rem 0.5rem;">'
+                f'<div style="font-size:1.15rem;font-weight:800;color:#4A9EFF;">{entry:.2f}</div>'
+                f'<div style="font-size:0.7rem;color:#4A9EFF;margin-top:3px;font-weight:700;">ENTRY</div>'
                 f'</div>'
-                f'<div class="sc-hr"></div>'
-                f'<div class="sc-data">'
-                f'<div class="sc-levels">'
-                f'<div class="sc-lv"><div class="sc-lv-v" style="color:#4A9EFF">{entry:.2f}</div><div class="sc-lv-l">Entry</div></div>'
-                f'<div class="sc-lv"><div class="sc-lv-v" style="color:#ef4444">-{stop_pct:.1f}%</div><div class="sc-lv-l">Stop</div></div>'
-                f'<div class="sc-lv"><div class="sc-lv-v" style="color:#10a37f">+{t1_pct:.1f}%</div><div class="sc-lv-l">Target</div></div>'
-                f'<div class="sc-lv" style="border-right:1px solid rgba(255,255,255,0.07)"><div class="sc-lv-v" style="color:#fbbf24">{rr:.1f}×</div><div class="sc-lv-l">R:R</div></div>'
+                f'<div style="text-align:center;color:#444;font-size:1.3rem;padding:0 0.2rem;">›</div>'
+                f'<div style="text-align:center;background:#2a1a1a;border:1px solid #5f1e1e;'
+                f'border-radius:10px;padding:0.75rem 0.5rem;">'
+                f'<div style="font-size:1.15rem;font-weight:800;color:#ef4444;">{stop:.2f}</div>'
+                f'<div style="font-size:0.7rem;color:#ef4444;margin-top:3px;font-weight:700;">STOP &nbsp;−{dn_pct:.1f}%</div>'
+                f'</div>'
+                f'<div style="text-align:center;color:#444;font-size:1.3rem;padding:0 0.2rem;">›</div>'
+                f'<div style="text-align:center;background:#1a2a1e;border:1px solid #1e5f2a;'
+                f'border-radius:10px;padding:0.75rem 0.5rem;">'
+                f'<div style="font-size:1.15rem;font-weight:800;color:#10a37f;">{t1:.2f}</div>'
+                f'<div style="font-size:0.7rem;color:#10a37f;margin-top:3px;font-weight:700;">TARGET 1 &nbsp;+{up_pct:.1f}%</div>'
+                f'</div>'
+                f'<div style="text-align:center;color:#444;font-size:1.3rem;padding:0 0.2rem;">›</div>'
+                f'<div style="text-align:center;background:#1a2a28;border:1px solid #1e4f4a;'
+                f'border-radius:10px;padding:0.75rem 0.5rem;">'
+                f'<div style="font-size:1.15rem;font-weight:800;color:#26A69A;">{t2:.2f}</div>'
+                f'<div style="font-size:0.7rem;color:#26A69A;margin-top:3px;font-weight:700;">TARGET 2 &nbsp;+{t2_pct:.1f}%</div>'
+                f'</div>'
+                f'<div style="text-align:center;color:#444;font-size:1.3rem;padding:0 0.2rem;">›</div>'
+                f'<div style="text-align:center;background:#2a2410;border:1px solid #5f5010;'
+                f'border-radius:10px;padding:0.75rem 0.5rem;">'
+                f'<div style="font-size:1.35rem;font-weight:900;color:#fbbf24;">1 : {rr_val:.1f}</div>'
+                f'<div style="font-size:0.7rem;color:#888;margin-top:3px;font-weight:700;">RISK / REWARD</div>'
+                f'</div>'
+
                 f'</div>'
                 f'</div>'
-                f'<div style="padding:0.55rem 0.9rem 0.7rem;border-top:1px solid rgba(255,255,255,0.05);'
-                f'font-size:0.71rem;color:#9e9e9e;line-height:1.5;">'
-                f'<span style="color:#fbbf24;font-weight:700;font-size:0.65rem;text-transform:uppercase;'
-                f'letter-spacing:0.7px;margin-right:0.4rem;">Why:</span>{why_text}'
+
+                # ── 2-COL BOTTOM: WHY + MARKET CONTEXT ──
+                f'<div style="display:grid;grid-template-columns:1fr 1fr;border-top:1px solid #222;">'
+                f'<div style="padding:1.1rem 1.4rem;border-right:1px solid #1e1e1e;">'
+                f'<div style="font-size:0.68rem;color:#909090;font-weight:900;text-transform:uppercase;'
+                f'letter-spacing:1.2px;margin-bottom:0.65rem;padding-bottom:0.32rem;'
+                f'border-bottom:1px solid #222;">WHY THIS STOCK?</div>'
+                + bullet_html +
                 f'</div>'
+                f'<div style="padding:1.1rem 1.4rem;background:#111;">'
+                f'<div style="font-size:0.68rem;color:#909090;font-weight:900;text-transform:uppercase;'
+                f'letter-spacing:1.2px;margin-bottom:0.65rem;padding-bottom:0.32rem;'
+                f'border-bottom:1px solid #222;">MARKET CONTEXT</div>'
+                + _stock_ctx_html +
+                f'</div>'
+                f'</div>'
+
                 f'</div>',
                 unsafe_allow_html=True,
             )
@@ -4130,6 +4549,87 @@ def main():
             )
 
         # ── 3-tab results layout ──────────────────────────────────────────────
+
+        # Shared helpers — used by both Perfect Setups and Buy Signals cards
+        import re as _re
+        def _clean_why(reason):
+            r = _re.sub(r'\s*\[.*?\]', '', reason)
+            if ' \u2014 ' in r:   r = r.split(' \u2014 ', 1)[1]
+            elif ' - ' in r and len(r.split(' - ', 1)[1]) > 15: r = r.split(' - ', 1)[1]
+            r = _re.sub(r'\s*\([^)]{1,6}\)', '', r)
+            r = _re.sub(r'^Regime:\s*', '', r)
+            return r.strip().rstrip('.')
+
+        # Market context rows — built once, shared across all cards
+        _brent_snap = (_msnap or {}).get('brent')
+        _vix_snap   = (_msnap or {}).get('vix')
+        _oil_p  = _brent_snap['price']  if _brent_snap else None
+        _vix_p  = _vix_snap['price']    if _vix_snap  else None
+        _oil_c5 = _brent_snap['chg_5d'] if _brent_snap else 0
+        _ctx_rows = []
+        if _mscore <= -5:
+            _ctx_rows.append(("DANGER ZONE", "#ef4444",
+                f"Markets are in extreme distress (score {_mscore}/10). "
+                f"Even strong technical setups are failing right now. Consider staying out."))
+        elif _mscore <= -2:
+            _ctx_rows.append(("CAUTION", "#f97316",
+                f"Market headwinds are active (score {_mscore}/10). "
+                f"Use half your normal position size and keep stops tight."))
+        elif _mscore >= 6:
+            _ctx_rows.append(("IDEAL CONDITIONS", "#10a37f",
+                f"Strong tailwinds — oil healthy, markets calm, money flowing into Saudi. "
+                f"Good time to run full-size positions on quality setups."))
+        if _oil_p is not None:
+            from macro_data import _SAUDI_OIL_BREAKEVEN
+            _gap = _oil_p - _SAUDI_OIL_BREAKEVEN
+            _oil_s = ('+' if _oil_c5 >= 0 else '') + f'{_oil_c5:.1f}%'
+            if _oil_p < _SAUDI_OIL_BREAKEVEN - 10:
+                _ctx_rows.append(("OIL CRITICAL", "#ef4444",
+                    f"Brent at ${_oil_p:.1f} — ${abs(_gap):.0f} BELOW Saudi budget breakeven (${_SAUDI_OIL_BREAKEVEN:.0f}). "
+                    f"This week: {_oil_s}. Saudi govt revenue under serious pressure."))
+            elif _oil_p < _SAUDI_OIL_BREAKEVEN:
+                _ctx_rows.append(("OIL BELOW BREAKEVEN", "#f97316",
+                    f"Brent at ${_oil_p:.1f} — ${abs(_gap):.0f} below Saudi budget breakeven (${_SAUDI_OIL_BREAKEVEN:.0f}). "
+                    f"Fiscal pressure building — watch for market weakness."))
+            elif _oil_p >= _SAUDI_OIL_BREAKEVEN and _oil_c5 > 3:
+                _ctx_rows.append(("OIL SUPPORTIVE", "#10a37f",
+                    f"Brent at ${_oil_p:.1f} — ${_gap:.0f} above budget breakeven. "
+                    f"Rising {_oil_s} this week. Saudi revenues healthy."))
+        if _vix_p is not None:
+            if _vix_p > 35:
+                _ctx_rows.append(("MARKET PANIC", "#ef4444",
+                    f"VIX at {_vix_p:.0f} — panic territory. Foreign investors fleeing ALL emerging markets. "
+                    f"Stocks can drop 10–20% in days during spikes like this."))
+            elif _vix_p > 25:
+                _ctx_rows.append(("HIGH FEAR", "#f97316",
+                    f"VIX at {_vix_p:.0f} — above normal anxiety levels. "
+                    f"Use smaller position sizes until VIX drops below 20."))
+            elif _vix_p < 16:
+                _ctx_rows.append(("MARKETS CALM", "#10a37f",
+                    f"VIX at {_vix_p:.0f} — very low fear globally. Good for Saudi stocks."))
+        _high_impact_cats = ('GEOPOLITICAL', 'OIL & ENERGY', 'TRUMP / US', 'FED & RATES')
+        _card_news = [n for n in _filtered_news if n.get('_cat') in _high_impact_cats]
+        for _cn in _card_news[:3]:
+            _impact_why = {
+                'GEOPOLITICAL': 'Conflict or sanctions can halt oil flows and trigger panic selling in Saudi.',
+                'OIL & ENERGY': 'Oil news directly moves Saudi stocks — Aramco, banks & petrochemicals react first.',
+                'TRUMP / US':   'US policy shifts redirect global capital flows into or out of markets like Saudi.',
+                'FED & RATES':  'Rate decisions move investment money — lower rates = more money into EM.',
+            }.get(_cn['_cat'], 'This event could affect your trade.')
+            _ctx_rows.append((_cn['_cat'], _cn['_col'], f"{_cn['title']} — {_impact_why}"))
+        _alert_rows_html = "".join(
+            f'<div style="border-left:3px solid {_ac};background:{_ac}09;'
+            f'border-radius:0 7px 7px 0;padding:0.55rem 0.75rem;margin-bottom:0.3rem;">'
+            f'<div style="font-size:0.66rem;font-weight:900;text-transform:uppercase;'
+            f'letter-spacing:0.7px;color:{_ac};margin-bottom:0.2rem;">{_at}</div>'
+            f'<div style="font-size:0.8rem;color:#bbb;line-height:1.55;">{_ad}</div>'
+            f'</div>'
+            for _at, _ac, _ad in _ctx_rows
+        ) if _ctx_rows else (
+            '<div style="font-size:0.82rem;color:#484848;line-height:1.7;padding:0.4rem 0;">'
+            'No major market alerts right now. Conditions appear neutral — normal position sizing applies.</div>'
+        )
+
         tab_best, tab_buy = st.tabs([
             f"Perfect Setups  {len(_perfect_list)}",
             f"Buy Signals  {len(all_buy)}",
@@ -4143,306 +4643,106 @@ def main():
                     "</div>",
                     unsafe_allow_html=True)
             else:
-                import re as _re
-                def _clean_why(reason):
-                    # Strip [BRACKET] labels
-                    r = _re.sub(r'\s*\[.*?\]', '', reason)
-                    # If has " — ", use the plain-english part after it
-                    if ' \u2014 ' in r:
-                        r = r.split(' \u2014 ', 1)[1]
-                    elif ' - ' in r and len(r.split(' - ', 1)[1]) > 15:
-                        r = r.split(' - ', 1)[1]
-                    # Strip parenthetical technical values like (69) or (bullish)
-                    r = _re.sub(r'\s*\([^)]{1,6}\)', '', r)
-                    # Strip known noise prefixes
-                    r = _re.sub(r'^Regime:\s*', '', r)
-                    return r.strip().rstrip('.')
-
-                # ── Build macro risk alert for card injection ────────────────
-                _brent_snap = (_msnap or {}).get('brent')
-                _vix_snap   = (_msnap or {}).get('vix')
-                _oil_p  = _brent_snap['price']  if _brent_snap else None
-                _vix_p  = _vix_snap['price']    if _vix_snap  else None
-                _oil_c5 = _brent_snap['chg_5d'] if _brent_snap else 0
-
-                # ── Synthesise key context rows ──
-                _ctx_rows = []  # (label, color, message)
-
-                # 1. Macro health overall
-                if _mscore <= -5:
-                    _ctx_rows.append(("DANGER ZONE", "#ef4444",
-                        f"Markets are in extreme distress (score {_mscore}/10). "
-                        f"Even strong technical setups are failing right now. Consider staying out."))
-                elif _mscore <= -2:
-                    _ctx_rows.append(("CAUTION", "#f97316",
-                        f"Market headwinds are active (score {_mscore}/10). "
-                        f"Use half your normal position size and keep stops tight."))
-                elif _mscore >= 6:
-                    _ctx_rows.append(("IDEAL CONDITIONS", "#10a37f",
-                        f"Strong tailwinds — oil healthy, markets calm, money flowing into Saudi. "
-                        f"Good time to run full-size positions on quality setups."))
-
-                # 2. Oil vs Saudi budget breakeven
-                if _oil_p is not None:
-                    from macro_data import _SAUDI_OIL_BREAKEVEN
-                    _gap = _oil_p - _SAUDI_OIL_BREAKEVEN
-                    _oil_s = ('+' if _oil_c5 >= 0 else '') + f'{_oil_c5:.1f}%'
-                    if _oil_p < _SAUDI_OIL_BREAKEVEN - 10:
-                        _ctx_rows.append(("OIL CRITICAL", "#ef4444",
-                            f"Brent at ${_oil_p:.1f} — ${abs(_gap):.0f} BELOW Saudi budget breakeven (${_SAUDI_OIL_BREAKEVEN:.0f}). "
-                            f"This week: {_oil_s}. Saudi govt revenue under serious pressure. "
-                            f"Banks, Aramco, and petrochemicals are most exposed."))
-                    elif _oil_p < _SAUDI_OIL_BREAKEVEN:
-                        _ctx_rows.append(("OIL BELOW BREAKEVEN", "#f97316",
-                            f"Brent at ${_oil_p:.1f} — ${abs(_gap):.0f} below Saudi budget breakeven (${_SAUDI_OIL_BREAKEVEN:.0f}). "
-                            f"This week: {_oil_s}. Fiscal pressure building — watch for market weakness."))
-                    elif _oil_p >= _SAUDI_OIL_BREAKEVEN and _oil_c5 > 3:
-                        _ctx_rows.append(("OIL SUPPORTIVE", "#10a37f",
-                            f"Brent at ${_oil_p:.1f} — ${_gap:.0f} above budget breakeven. "
-                            f"Rising {_oil_s} this week. Saudi revenues healthy — positive for the whole market."))
-
-                # 3. VIX level
-                if _vix_p is not None:
-                    if _vix_p > 35:
-                        _ctx_rows.append(("MARKET PANIC", "#ef4444",
-                            f"VIX is at {_vix_p:.0f} — this is panic territory. "
-                            f"Foreign investors are fleeing ALL emerging markets including Saudi. "
-                            f"Stocks can drop 10–20% in days during VIX spikes like this."))
-                    elif _vix_p > 25:
-                        _ctx_rows.append(("HIGH FEAR", "#f97316",
-                            f"VIX at {_vix_p:.0f} — above normal anxiety levels. "
-                            f"Foreign money leaving EM. Use smaller position sizes until VIX drops below 20."))
-                    elif _vix_p < 16:
-                        _ctx_rows.append(("MARKETS CALM", "#10a37f",
-                            f"VIX at {_vix_p:.0f} — very low fear globally. "
-                            f"Investors are confident, risk appetite is strong. Good for Saudi stocks."))
-
-                # 4. Top news alerts (geopolitical + oil + trump only)
-                _high_impact_cats = ('GEOPOLITICAL', 'OIL & ENERGY', 'TRUMP / US', 'FED & RATES')
-                _card_news = [n for n in _filtered_news if n.get('_cat') in _high_impact_cats]
-                for _cn in _card_news[:3]:
-                    _impact_why = {
-                        'GEOPOLITICAL': 'Conflict or sanctions can halt oil flows and trigger panic selling in Saudi.',
-                        'OIL & ENERGY': 'Oil news directly moves Saudi stocks — Aramco, banks & petrochemicals react first.',
-                        'TRUMP / US':   'US policy shifts redirect global capital flows into or out of markets like Saudi.',
-                        'FED & RATES':  'Rate decisions move international investment money — lower rates = more money into EM.',
-                    }.get(_cn['_cat'], 'This event could affect your trade.')
-                    _ctx_rows.append((_cn['_cat'], _cn['_col'],
-                        f"{_cn['title']} — {_impact_why}"))
-
-                _card_alert_html = ""
-                if _ctx_rows:
-                    _alert_rows_html = "".join(
-                        f'<div style="border-left:3px solid {_ac};background:{_ac}08;'
-                        f'border-radius:0 8px 8px 0;padding:0.65rem 0.85rem;margin-bottom:0.4rem;">'
-                        f'<div style="font-size:0.65rem;font-weight:900;text-transform:uppercase;'
-                        f'letter-spacing:0.7px;color:{_ac};margin-bottom:0.28rem;">{_at}</div>'
-                        f'<div style="font-size:0.83rem;color:#c8c8c8;line-height:1.6;">{_ad}</div>'
-                        f'</div>'
-                        for _at, _ac, _ad in _ctx_rows
-                    )
-                    _card_alert_html = (
-                        f'<div style="background:#141414;border-top:1px solid #202020;'
-                        f'padding:1rem 1.5rem;">'
-                        f'<div style="font-size:0.68rem;font-weight:900;text-transform:uppercase;'
-                        f'letter-spacing:1.2px;color:#444;margin-bottom:0.75rem;padding-bottom:0.4rem;'
-                        f'border-bottom:1px solid #1c1c1c;">'
-                        f'KNOW BEFORE YOU TRADE — CURRENT MARKET CONTEXT</div>'
-                        f'{_alert_rows_html}'
-                        f'</div>'
-                    )
-
+                _rank_colors = ["#FFD700", "#C0C0C0", "#CD7F32"]
                 for _i, s in enumerate(_perfect_list):
-                    _rank_colors = ["#FFD700", "#C0C0C0", "#CD7F32"]
-                    _rc      = _rank_colors[_i] if _i < 3 else "#10a37f"
-                    _sym_bp  = s['ticker'].replace('.SR', '')
-                    _name_bp = s.get('name', _sym_bp)
-                    _p_bp    = s['price']
-                    _e_bp    = s.get('entry', _p_bp)
-                    _sl_bp   = s.get('stop_loss', _p_bp)
-                    _sc_bp   = s.get('score', 0)
-                    _conv_bp = s.get('conviction', 0)
-                    _setup   = s.get('setup_type', '')
-                    _raw_why = s.get('why_reasons') or s.get('signals', [])
+                    _rc       = _rank_colors[_i] if _i < 3 else "#10a37f"
                     _rank_num = ["#1", "#2", "#3"][_i] if _i < 3 else f"#{_i+1}"
-                    _cc_bp   = "#10a37f" if _conv_bp >= 70 else ("#4A9EFF" if _conv_bp >= 45 else "#fbbf24")
-                    _sc_color = "#10a37f" if _sc_bp >= 12 else ("#4A9EFF" if _sc_bp >= 7 else "#fbbf24")
-
-                    # ── Use exact values computed by signal engine ────────────
-                    _t1_bp   = s.get('target1', _e_bp)
-                    _t2_bp   = s.get('target2', _e_bp)
-
-                    _dn_bp   = (_e_bp - _sl_bp) / _e_bp * 100  if _e_bp > 0 else 0
-                    _up_bp   = (_t1_bp - _e_bp) / _e_bp * 100  if _e_bp > 0 else 0
-                    _t2_pct  = (_t2_bp - _e_bp) / _e_bp * 100  if _e_bp > 0 else 0
-                    # Display R:R to T1 (honest, conservative — what you actually target first)
-                    _rr_bp   = (_t1_bp - _e_bp) / (_e_bp - _sl_bp) if (_e_bp - _sl_bp) > 0 else 0
-
-                    # ── Clean why bullets ────────────────────────────────────
-                    _bullets = [_clean_why(r) for r in _raw_why[:5] if r]
-                    if not _bullets and _setup:
-                        _setup_labels_bp = {
-                            'Golden Cross': 'Moving averages crossed up — bullish trend starting',
-                            'Oversold Reversal': 'Price was oversold — bounce expected',
-                            'BB Bounce': 'Hit lower Bollinger Band — bounce expected',
-                            '52W Breakout': 'Breaking above 52-week high — strong momentum',
-                            'Deep Value': 'Deeply undervalued — potential recovery',
-                            'Trend Continuation': 'Strong uptrend still going',
-                            'Stoch Reversal': 'Stochastic oversold — reversal expected',
-                            'Volume Spike': 'Unusual buying volume — big institutional interest',
-                        }
-                        _bullets = [_setup_labels_bp.get(_setup, _setup)]
-
-                    _bullet_html = "".join(
-                        f'<div style="display:flex;align-items:flex-start;gap:0.6rem;padding:0.4rem 0;'
-                        f'border-bottom:1px solid rgba(255,255,255,0.05);">'
-                        f'<span style="color:#10a37f;font-size:0.85rem;line-height:1.4;flex-shrink:0;">✓</span>'
-                        f'<span style="font-size:0.88rem;color:#ddd;line-height:1.5;">{b}</span>'
-                        f'</div>'
-                        for b in _bullets
-                    ) if _bullets else '<span style="color:#666;font-size:0.85rem;">No specific signals recorded</span>'
-
-                    _setup_badge_colors = {
-                        'Golden Cross':       ('#fbbf24', '#2a2410'),
-                        'Oversold Reversal':  ('#60a5fa', '#101828'),
-                        'BB Bounce':          ('#a78bfa', '#1a1228'),
-                        '52W Breakout':       ('#10a37f', '#0a1f1a'),
-                        'Deep Value':         ('#f97316', '#1f1208'),
-                        'Trend Continuation': ('#34d399', '#0a1f14'),
-                        'Stoch Reversal':     ('#e879f9', '#1f0a22'),
-                        'Volume Spike':       ('#fb923c', '#1f1008'),
-                    }
-                    _sb_color, _sb_bg = _setup_badge_colors.get(_setup, (_rc, f'{_rc}18'))
-
-                    st.markdown(
-                        f'<div style="border:1px solid {_rc}40;border-left:5px solid {_rc};border-radius:14px;'
-                        f'background:#1c1c1c;margin-bottom:1.4rem;overflow:hidden;">'
-
-                        # ── HEADER ──
-                        f'<div style="display:flex;justify-content:space-between;align-items:flex-start;'
-                        f'padding:1.2rem 1.5rem 1rem;">'
-                        f'<div style="display:flex;align-items:flex-start;gap:0.8rem;">'
-                        f'<span style="font-size:0.75rem;font-weight:800;padding:0.28rem 0.7rem;border-radius:6px;'
-                        f'background:{_rc}20;color:{_rc};border:1px solid {_rc}55;white-space:nowrap;margin-top:0.25rem;">{_rank_num}</span>'
-                        f'<div>'
-                        f'<div style="display:flex;align-items:baseline;gap:0.6rem;flex-wrap:wrap;">'
-                        f'<span style="font-size:1.5rem;font-weight:900;color:{_rc};letter-spacing:0.5px;line-height:1.1;">{_sym_bp}</span>'
-                        f'<span style="font-size:1rem;color:#bbb;font-weight:500;line-height:1.1;">{_name_bp}</span>'
-                        f'</div>'
-                        + (f'<div style="margin-top:0.55rem;">'
-                           f'<span style="font-size:0.72rem;font-weight:700;padding:0.28rem 0.85rem;'
-                           f'border-radius:999px;background:{_sb_bg};color:{_sb_color};'
-                           f'border:1px solid {_sb_color}55;letter-spacing:0.3px;">{_setup}</span>'
-                           f'</div>' if _setup else '') +
-                        f'</div>'
-                        f'</div>'
-                        f'<div style="text-align:right;flex-shrink:0;">'
-                        f'<div style="font-size:1.5rem;font-weight:800;color:#fff;">SAR {_p_bp:.2f}</div>'
-                        f'<div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:0.4rem;">'
-                        f'<span style="font-size:0.78rem;font-weight:700;padding:0.22rem 0.7rem;border-radius:6px;'
-                        f'background:{_sc_color}20;color:{_sc_color};border:1px solid {_sc_color}44;" '
-                        f'title="Technical strength score out of 20">Score {_sc_bp}/20</span>'
-                        f'<span style="font-size:0.78rem;font-weight:700;padding:0.22rem 0.7rem;border-radius:6px;'
-                        f'background:{_cc_bp}20;color:{_cc_bp};border:1px solid {_cc_bp}44;cursor:help;" '
-                        f'title="% of indicators agreeing: price action, volume, RSI, MACD, multi-timeframe. Higher = stronger signal">Confidence {_conv_bp}%</span>'
-                        f'</div>'
-                        f'</div>'
-                        f'</div>'
-
-                        # ── PRICE LADDER ──
-                        f'<div style="background:#141414;border-top:1px solid #2a2a2a;border-bottom:1px solid #2a2a2a;'
-                        f'padding:1rem 1.5rem;">'
-                        f'<div style="font-size:0.7rem;color:#555;text-transform:uppercase;letter-spacing:1.2px;'
-                        f'font-weight:800;margin-bottom:0.8rem;">Your Trading Plan</div>'
-                        f'<div style="display:grid;grid-template-columns:1fr auto 1fr auto 1fr auto 1fr auto 1fr;'
-                        f'align-items:center;width:100%;gap:0.3rem;">'
-
-                        f'<div style="text-align:center;background:#1e2a3a;border:1px solid #1e3a5f;'
-                        f'border-radius:10px;padding:0.75rem 0.5rem;">'
-                        f'<div style="font-size:1.15rem;font-weight:800;color:#4A9EFF;">{_e_bp:.2f}</div>'
-                        f'<div style="font-size:0.7rem;color:#4A9EFF;margin-top:3px;font-weight:700;letter-spacing:0.5px;">ENTRY</div>'
-                        f'</div>'
-
-                        f'<div style="text-align:center;color:#444;font-size:1.3rem;padding:0 0.2rem;">›</div>'
-
-                        f'<div style="text-align:center;background:#2a1a1a;border:1px solid #5f1e1e;'
-                        f'border-radius:10px;padding:0.75rem 0.5rem;">'
-                        f'<div style="font-size:1.15rem;font-weight:800;color:#ef4444;">{_sl_bp:.2f}</div>'
-                        f'<div style="font-size:0.7rem;color:#ef4444;margin-top:3px;font-weight:700;">STOP &nbsp;−{_dn_bp:.1f}%</div>'
-                        f'</div>'
-
-                        f'<div style="text-align:center;color:#444;font-size:1.3rem;padding:0 0.2rem;">›</div>'
-
-                        f'<div style="text-align:center;background:#1a2a1e;border:1px solid #1e5f2a;'
-                        f'border-radius:10px;padding:0.75rem 0.5rem;">'
-                        f'<div style="font-size:1.15rem;font-weight:800;color:#10a37f;">{_t1_bp:.2f}</div>'
-                        f'<div style="font-size:0.7rem;color:#10a37f;margin-top:3px;font-weight:700;">TARGET 1 &nbsp;+{_up_bp:.1f}%</div>'
-                        f'</div>'
-
-                        f'<div style="text-align:center;color:#444;font-size:1.3rem;padding:0 0.2rem;">›</div>'
-
-                        f'<div style="text-align:center;background:#1a2a28;border:1px solid #1e4f4a;'
-                        f'border-radius:10px;padding:0.75rem 0.5rem;">'
-                        f'<div style="font-size:1.15rem;font-weight:800;color:#26A69A;">{_t2_bp:.2f}</div>'
-                        f'<div style="font-size:0.7rem;color:#26A69A;margin-top:3px;font-weight:700;">TARGET 2 &nbsp;+{_t2_pct:.1f}%</div>'
-                        f'</div>'
-
-                        f'<div style="text-align:center;color:#444;font-size:1.3rem;padding:0 0.2rem;">›</div>'
-
-                        f'<div style="text-align:center;background:#2a2410;border:1px solid #5f5010;'
-                        f'border-radius:10px;padding:0.75rem 0.5rem;">'
-                        f'<div style="font-size:1.35rem;font-weight:900;color:#fbbf24;">1 : {_rr_bp:.1f}</div>'
-                        f'<div style="font-size:0.7rem;color:#888;margin-top:3px;font-weight:700;">RISK / REWARD</div>'
-                        f'</div>'
-
-                        f'</div>'
-                        f'</div>'
-
-                        # ── WHY BULLETS ──
-                        f'<div style="padding:1rem 1.5rem;">'
-                        f'<div style="font-size:0.7rem;color:#555;text-transform:uppercase;letter-spacing:1.2px;'
-                        f'font-weight:800;margin-bottom:0.6rem;">Why this stock?</div>'
-                        f'{_bullet_html}'
-                        f'</div>'
-
-                        # ── MACRO RISK ALERT (only shown when there are active events) ──
-                        + _card_alert_html +
-
-                        f'</div>',
-                        unsafe_allow_html=True,
-                    )
+                    _render_card(s, 'buy', tier_color=_rc, rank_num=_rank_num)
 
         with tab_buy:
             filtered_buy = _f_all_buy
             if not filtered_buy:
-                st.markdown("<div class='msr-empty'>No buy signals found — try a wider period or different symbols.</div>", unsafe_allow_html=True)
+                st.markdown(
+                    "<div class='msr-empty'>No buy signals found — "
+                    "the scanner requires Score ≥ 3, Conviction ≥ 25% and R:R ≥ 0.8×.<br>"
+                    "Try a wider period or run a full market scan.</div>",
+                    unsafe_allow_html=True)
             else:
-                perfect = [s for s in filtered_buy
-                           if s.get('ind_score', 0) >= 2 and s.get('pa_score', 0) >= 2
-                           and s.get('score', 0) >= 4 and s.get('rr_ratio', 0) >= 2.0]
-                regular = [s for s in filtered_buy if s not in perfect]
+                # ── 3-tier quality split ─────────────────────────────────────
+                # Tier 1 — STRONG BUY: high conviction, great R:R, strong technicals
+                _t1 = [s for s in filtered_buy
+                       if s.get('score', 0) >= 7
+                       and s.get('rr_ratio', 0) >= 1.5
+                       and s.get('conviction', 0) >= 65]
+                # Tier 2 — BUY: solid setup but not quite elite
+                _t2 = [s for s in filtered_buy
+                       if s not in _t1
+                       and s.get('score', 0) >= 5
+                       and s.get('rr_ratio', 0) >= 1.2
+                       and s.get('conviction', 0) >= 40]
+                # Tier 3 — WATCHLIST: passed basic gates, worth watching
+                _t3 = [s for s in filtered_buy if s not in _t1 and s not in _t2]
 
-                if perfect:
+                # ── Quality summary banner ───────────────────────────────────
+                st.markdown(
+                    f'<div style="background:#141414;border:1px solid #222;border-radius:10px;'
+                    f'padding:0.85rem 1.2rem;margin-bottom:1rem;display:flex;'
+                    f'flex-wrap:wrap;gap:1.5rem;align-items:center;">'
+                    f'<div style="font-size:0.7rem;color:#505050;font-weight:700;'
+                    f'text-transform:uppercase;letter-spacing:0.8px;">Quality Filter</div>'
+                    # gates
+                    f'<div style="display:flex;gap:0.9rem;flex-wrap:wrap;">'
+                    f'<span style="font-size:0.74rem;color:#666;">Score ≥ 3</span>'
+                    f'<span style="color:#282828;">|</span>'
+                    f'<span style="font-size:0.74rem;color:#666;">Conviction ≥ 25%</span>'
+                    f'<span style="color:#282828;">|</span>'
+                    f'<span style="font-size:0.74rem;color:#666;">R:R ≥ 0.8×</span>'
+                    f'</div>'
+                    f'<div style="margin-left:auto;display:flex;gap:0.6rem;flex-shrink:0;">'
+                    f'<span style="font-size:0.74rem;font-weight:800;padding:0.22rem 0.75rem;'
+                    f'border-radius:6px;background:#10a37f18;color:#10a37f;border:1px solid #10a37f30;">'
+                    f'Strong Buy {len(_t1)}</span>'
+                    f'<span style="font-size:0.74rem;font-weight:800;padding:0.22rem 0.75rem;'
+                    f'border-radius:6px;background:#4A9EFF18;color:#4A9EFF;border:1px solid #4A9EFF30;">'
+                    f'Buy {len(_t2)}</span>'
+                    f'<span style="font-size:0.74rem;font-weight:800;padding:0.22rem 0.75rem;'
+                    f'border-radius:6px;background:#fbbf2418;color:#fbbf24;border:1px solid #fbbf2430;">'
+                    f'Watchlist {len(_t3)}</span>'
+                    f'</div>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+
+                # ── Tier 1: STRONG BUY ───────────────────────────────────────
+                if _t1:
                     st.markdown(
                         f'<div class="msr-sec-row"><div class="msr-sec-dot buy"></div>'
-                        f'<span class="msr-sec-title buy">Perfect Setups</span>'
-                        f'<span class="msr-sec-count">{len(perfect)} stocks</span>'
+                        f'<span class="msr-sec-title buy">STRONG BUY</span>'
+                        f'<span style="font-size:0.68rem;color:#555;margin-left:0.3rem;">'
+                        f'Score ≥ 7 · R:R ≥ 1.5× · Conviction ≥ 65%</span>'
+                        f'<span class="msr-sec-count">{len(_t1)} stocks</span>'
                         f'</div>',
                         unsafe_allow_html=True)
-                    for s in perfect:
-                        _render_card(s, 'buy')
+                    for s in _t1:
+                        _render_card(s, 'buy', tier_color='#10a37f')
 
-                if regular:
-                    if perfect:
-                        st.markdown('<div class="msr-hline"></div>', unsafe_allow_html=True)
+                # ── Tier 2: BUY ─────────────────────────────────────────────
+                if _t2:
                     st.markdown(
-                        f'<div class="msr-sec-row"><div class="msr-sec-dot buy"></div>'
-                        f'<span class="msr-sec-title buy">Buy Signals</span>'
-                        f'<span class="msr-sec-count">{len(regular)} stocks</span>'
+                        f'<div class="msr-sec-row" style="border-left:3px solid #4A9EFF22;">'
+                        f'<div class="msr-sec-dot" style="background:#4A9EFF;"></div>'
+                        f'<span class="msr-sec-title" style="color:#4A9EFF;">BUY</span>'
+                        f'<span style="font-size:0.68rem;color:#555;margin-left:0.3rem;">'
+                        f'Score ≥ 5 · R:R ≥ 1.2× · Conviction ≥ 40%</span>'
+                        f'<span class="msr-sec-count">{len(_t2)} stocks</span>'
                         f'</div>',
                         unsafe_allow_html=True)
-                    for s in regular:
-                        _render_card(s, 'buy')
+                    for s in _t2:
+                        _render_card(s, 'buy', tier_color='#4A9EFF')
+
+                # ── Tier 3: WATCHLIST ────────────────────────────────────────
+                if _t3:
+                    st.markdown(
+                        f'<div class="msr-sec-row" style="border-left:3px solid #fbbf2422;">'
+                        f'<div class="msr-sec-dot" style="background:#fbbf24;"></div>'
+                        f'<span class="msr-sec-title" style="color:#fbbf24;">WATCHLIST</span>'
+                        f'<span style="font-size:0.68rem;color:#555;margin-left:0.3rem;">'
+                        f'Passes basic gates — monitor before entering</span>'
+                        f'<span class="msr-sec-count">{len(_t3)} stocks</span>'
+                        f'</div>',
+                        unsafe_allow_html=True)
+                    for s in _t3:
+                        _render_card(s, 'buy', tier_color='#fbbf24')
 
 
 
