@@ -360,6 +360,10 @@ def main():
 
         st.session_state.show_market_pulse = False
 
+    if 'show_macro' not in st.session_state:
+
+        st.session_state.show_macro = False
+
 
 
     # ?? Load favorites from DB once per session ???????????????????????????
@@ -464,46 +468,43 @@ def main():
             gtLoaded = true;
         };
 
-        btn.addEventListener('click', function() {
-            if (!gtLoaded) {
-                var s = doc.createElement('script');
-                s.src = 'https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
-                doc.body.appendChild(s);
-                var check = setInterval(function() {
-                    var sel = doc.querySelector('.goog-te-combo');
-                    if (sel) {
-                        clearInterval(check);
-                        sel.value = 'ar';
-                        sel.dispatchEvent(new Event('change'));
-                        isArabic = true;
-                        btn.classList.add('active');
-                        btn.children[0].textContent = 'English';
-                    }
-                }, 300);
+        // Pre-load Google Translate script immediately so first click is instant
+        (function() {
+            var s = doc.createElement('script');
+            s.src = 'https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
+            doc.body.appendChild(s);
+        })();
+
+        function _doTranslate() {
+            var sel = doc.querySelector('.goog-te-combo');
+            if (!sel) {
+                // Widget not ready yet — retry in 200ms
+                setTimeout(_doTranslate, 200);
                 return;
             }
-            var sel = doc.querySelector('.goog-te-combo');
-            if (sel) {
-                if (isArabic) {
-                    sel.value = 'en';
-                    sel.dispatchEvent(new Event('change'));
-                    isArabic = false;
-                    btn.classList.remove('active');
-                    btn.children[0].textContent = 'العربية';
-                } else {
-                    sel.value = 'ar';
-                    sel.dispatchEvent(new Event('change'));
-                    isArabic = true;
-                    btn.classList.add('active');
-                    btn.children[0].textContent = 'English';
-                }
+            if (isArabic) {
+                sel.value = 'en';
+                sel.dispatchEvent(new Event('change'));
+                isArabic = false;
+                btn.classList.remove('active');
+                btn.children[0].textContent = 'العربية';
+            } else {
+                sel.value = 'ar';
+                sel.dispatchEvent(new Event('change'));
+                isArabic = true;
+                btn.classList.add('active');
+                btn.children[0].textContent = 'English';
             }
+        }
+
+        btn.addEventListener('click', function() {
+            _doTranslate();
         });
     })();
     </script>
     """, height=0)
 
-    if not st.session_state.show_results and not st.session_state.show_market_results and not st.session_state.show_market_pulse:
+    if not st.session_state.show_results and not st.session_state.show_market_results and not st.session_state.show_market_pulse and not st.session_state.show_macro:
 
         # CONTROLS PAGE
 
@@ -2905,8 +2906,8 @@ def main():
                                         st.session_state.mkt_period = _pk
                                         st.rerun()
 
-                    # Action buttons — 3 columns: Saved | Pulse | User
-                    _b1, _bp, _b2 = st.columns(3, gap="small")
+                    # Action buttons — 4 columns: Saved | Pulse | Macro | User
+                    _b1, _bp, _bm, _b2 = st.columns(4, gap="small")
                     with _b1:
                         with st.container(key="btn_saved"):
                             _fav_lbl = f"♡  Saved · {fav_count}" if has_favs else "♡  Saved"
@@ -2917,6 +2918,11 @@ def main():
                         with st.container(key="btn_pulse"):
                             if st.button("📡 Pulse", key="toolbar_pulse", width="stretch"):
                                 st.session_state.show_market_pulse = True
+                                st.rerun()
+                    with _bm:
+                        with st.container(key="btn_macro"):
+                            if st.button("🌍 Macro", key="toolbar_macro", width="stretch"):
+                                st.session_state.show_macro = True
                                 st.rerun()
                     with _b2:
                         with st.container(key="btn_user"):
@@ -3612,12 +3618,12 @@ def main():
         .msr-sec-count { font-size:0.58rem; padding:0.12rem 0.5rem; border-radius:16px;
                          background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.07); color:#606060; }
         .msr-empty { text-align:center; padding:2.5rem 1rem; color:#444; font-size:0.82rem; }
+        /* Kill default Streamlit page top padding so New Scan button sits flush */
+        .block-container { padding-top: 0.5rem !important; }
         </style>""", unsafe_allow_html=True)
 
         # ── Back button ──────────────────────────────────────────────────────
-        _bc, _ = st.columns([1, 6])
-        with _bc:
-            if st.button("← New Scan", type="secondary", width="stretch", key="ma_back_btn"):
+        if st.button("← New Scan", type="secondary", use_container_width=True, key="ma_back_btn"):
                 st.session_state.show_market_results = False
                 st.rerun()
 
@@ -3653,8 +3659,8 @@ def main():
 
         _perfect_list = sorted(
             [s for s in all_buy
-             if s.get('ind_score', 0) >= 2 and s.get('pa_score', 0) >= 2
-             and s.get('score', 0) >= 7 and s.get('rr_ratio', 0) >= 1.8
+             if s.get('score', 0) >= 7
+             and s.get('rr_ratio', 0) >= 1.8
              and s.get('conviction', 0) >= 50],
             key=lambda x: x.get('priority_score', 0), reverse=True)
 
@@ -3665,29 +3671,282 @@ def main():
         _avg_upside_ps = (sum(abs(s.get('target1', s['price']) - s.get('entry', s['price'])) / s.get('entry', s['price']) * 100 for s in _perfect_list if s.get('entry', 0) > 0) / len(_perfect_list)) if _perfect_list else 0
         _top_conv = max((s.get('conviction', 0) for s in _perfect_list), default=0)
 
+        # ── Market Scan Results Box — Premium Macro Intelligence ───────────────
+        try:
+            from macro_data import get_macro_snapshot, compute_macro_health, get_saudi_news_headlines
+            _msnap  = get_macro_snapshot()
+            _mscore, _mlabel, _mcolor, _mbg, _mfactors = compute_macro_health(_msnap) if _msnap else (0, "N/A", "#888", "#1a1a1a", [])
+            _news   = get_saudi_news_headlines()
+        except Exception:
+            _msnap = {}; _mscore = 0; _mlabel = "N/A"; _mcolor = "#888"; _mbg = "#1a1a1a"; _mfactors = []; _news = []
+
+        # ── plain-English score zone ──
+        if _mscore >= 7:
+            _zone_label = "IDEAL CONDITIONS"
+            _zone_desc  = "Everything is aligned in your favor. Oil is strong, global markets are calm, Saudi stocks have room to run. Buy your best setups at full size with confidence."
+            _zone_col   = '#10a37f'
+        elif _mscore >= 3:
+            _zone_label = "GOOD TIME TO BUY"
+            _zone_desc  = "Conditions are supportive. No major red flags—oil is healthy and markets are stable. Invest normally in your high-conviction setups."
+            _zone_col   = '#4A9EFF'
+        elif _mscore >= -2:
+            _zone_label = "NEUTRAL — MIXED SIGNALS"
+            _zone_desc  = "Some things look good, some look worrying. Trade normally but use tighter stop-losses and don't put all your money into one trade."
+            _zone_col   = '#fbbf24'
+        elif _mscore >= -5:
+            _zone_label = "BE CAREFUL"
+            _zone_desc  = "Markets have headwinds—oil may be falling or global fear is rising. Only trade your absolute best setups and cut your position size in half."
+            _zone_col   = '#f97316'
+        else:
+            _zone_label = "STAY OUT FOR NOW"
+            _zone_desc  = "Oil is dropping, global markets are panicking, or there is a major geopolitical shock. Do NOT open new positions. Wait for things to stabilize first."
+            _zone_col   = '#ef4444'
+
+        # ── playbook (concise action line for the bar) ──
+        _pb_lines = {
+            6:  ("Buy strong setups at full size — tailwinds are working in your favour.",      '#10a37f'),
+            2:  ("Normal position sizes — conditions are healthy with no major warning signs.", '#4A9EFF'),
+           -2:  ("Trade only your best setups — reduce each position size by 25–30%.",         '#fbbf24'),
+           -5:  ("High risk environment — max half-size positions with very tight stop-losses.",'#f97316'),
+        }
+        _pb_msg, _pb_col = next(
+            ((m, c) for thresh, (m, c) in sorted(_pb_lines.items(), reverse=True) if _mscore >= thresh),
+            ("Do not buy anything right now. Sit in cash and wait for oil and markets to recover.", '#ef4444')
+        )
+
+        # ── score bar fill 0–100% maps -10 → +10 ──
+        _bar_pct = int((_mscore + 10) / 20 * 100)
+
+        # ── instrument cards (all 8) — no emoji, label only ──
+        _INST_LABELS = {
+            'brent':  'BRENT OIL',
+            'gas':    'NAT GAS',
+            'aramco': 'ARAMCO',
+            'vix':    'VIX FEAR',
+            'usd':    'USD',
+            'gold':   'GOLD',
+            'sp500':  'S&P 500',
+            'em':     'EM ETF',
+        }
+        _inst_html = ""
+        for _ikey in ['brent', 'gas', 'aramco', 'vix', 'usd', 'gold', 'sp500', 'em']:
+            _d = (_msnap or {}).get(_ikey)
+            if not _d:
+                continue
+            _ip, _ic1, _ic5, _ibu = _d['price'], _d['chg_1d'], _d['chg_5d'], _d['bullish_up']
+            _ic1_col = '#10a37f' if (_ic1 >= 0) == _ibu else '#ef4444'
+            _ic5_col = '#10a37f' if (_ic5 >= 0) == _ibu else '#ef4444'
+            _is1 = '+' if _ic1 >= 0 else ''
+            _is5 = '+' if _ic5 >= 0 else ''
+            _unit = _d.get('unit', '')
+            if _unit in ('$/bbl', '$/MMBtu'):
+                _ipf = f"${_ip:.1f}"
+            elif _unit == '$/oz':
+                _ipf = f"${_ip:,.0f}"
+            elif _unit == 'SAR':
+                _ipf = f"SAR {_ip:.2f}"
+            elif _unit == '$':
+                _ipf = f"${_ip:.2f}"
+            else:
+                _ipf = f"{_ip:.1f}"
+            _ilbl = _INST_LABELS.get(_ikey, _ikey.upper())
+            _card_top_col = _ic5_col
+            _inst_html += (
+                f'<div style="background:#191919;border:1px solid #222;'
+                f'border-top:3px solid {_card_top_col};border-radius:10px;'
+                f'padding:0.85rem 1rem;min-width:110px;flex:1 1 110px;">'
+                f'<div style="font-size:0.62rem;color:#484848;font-weight:800;text-transform:uppercase;'
+                f'letter-spacing:0.9px;margin-bottom:0.5rem;">{_ilbl}</div>'
+                f'<div style="font-size:1.15rem;font-weight:900;color:#f0f0f0;'
+                f'margin-bottom:0.55rem;white-space:nowrap;">{_ipf}</div>'
+                f'<div style="display:flex;align-items:center;justify-content:space-between;'
+                f'margin-bottom:0.22rem;">'
+                f'<span style="font-size:0.64rem;color:#363636;text-transform:uppercase;'
+                f'letter-spacing:0.5px;">Today</span>'
+                f'<span style="font-size:0.84rem;font-weight:800;color:{_ic1_col};">'
+                f'{_is1}{_ic1:.1f}%</span></div>'
+                f'<div style="display:flex;align-items:center;justify-content:space-between;">'
+                f'<span style="font-size:0.64rem;color:#363636;text-transform:uppercase;'
+                f'letter-spacing:0.5px;">5 Days</span>'
+                f'<span style="font-size:0.84rem;font-weight:800;color:{_ic5_col};">'
+                f'{_is5}{_ic5:.1f}%</span></div>'
+                f'</div>'
+            )
+
+        # ── macro factors ──
+        _factors_html = ""
+        for _fem, _ftitle, _fdetail, _fcolor in _mfactors:
+            _factors_html += (
+                f'<div style="border-left:3px solid {_fcolor};background:{_fcolor}0a;'
+                f'border-radius:0 8px 8px 0;padding:0.65rem 0.85rem;margin-bottom:0.5rem;">'
+                f'<div style="font-size:0.86rem;font-weight:800;color:{_fcolor};'
+                f'line-height:1.35;margin-bottom:0.3rem;">{_ftitle}</div>'
+                f'<div style="font-size:0.8rem;color:#909090;line-height:1.65;">{_fdetail}</div>'
+                f'</div>'
+            )
+        if not _factors_html:
+            _factors_html = (
+                '<div style="font-size:0.85rem;color:#555;padding:0.8rem 0;">'
+                'No significant macro drivers detected — markets are calm.</div>'
+            )
+
+        # ── news: filter to only market-moving headlines ──
+        # Keywords that make a headline relevant to Saudi trading decisions
+        _NEWS_CATS = [
+            # (category_label, color, keywords_in_title_lower, why_it_matters_to_you)
+            ('GEOPOLITICAL', '#ef4444',
+             ['war','attack','conflict','military','strike','hamas','hezbollah','iran','russia',
+              'ukraine','middle east','gaza','israel','missile','sanction','coup','troops',
+              'escalat','tension','nuclear','rebel','terror','bomb','explosion','oil field'],
+             'Middle East conflict or sanctions directly impact oil supply and cause market panic.'),
+            ('OIL & ENERGY', '#f97316',
+             ['oil','crude','brent','wti','opec','barrel','petroleum','energy price',
+              'gas price','lng','natural gas','fuel','refin','oil output','production cut',
+              'oil supply','oil demand','oil market','energy market'],
+             'Oil price is the #1 driver of Saudi stocks. Any oil news moves the whole market.'),
+            ('TRUMP / US', '#fbbf24',
+             ['trump','tariff','trade war','us sanction','white house','executive order',
+              'biden','us president','pentagon','washington','us economy','us trade',
+              'us policy','us market','american'],
+             'US decisions move global money flows. Tariffs or sanctions ripple into Saudi.'),
+            ('FED & RATES', '#a78bfa',
+             ['fed ','federal reserve','powell','interest rate','rate cut','rate hike',
+              'inflation','monetary','central bank','quantitative','gdp','recession'],
+             'Interest rate decisions globally redirect investment money into or out of markets like Saudi.'),
+            ('SAUDI DIRECT', '#4A9EFF',
+             ['saudi','aramco','tasi','vision 2030','riyadh','mbs','sabic','maaden',
+              'neom','kingdom','dirham','alrajhi','snb','riyad bank','saudi economy'],
+             'This directly impacts Saudi companies and investor confidence on Tadawul.'),
+            ('GLOBAL MARKET', '#10a37f',
+             ['market crash','stock market','sell-off','rally','global economy','imf',
+              'world bank','china economy','emerging market','commodity','volatility',
+              'risk-off','risk off','capital flow'],
+             'Global market moves trigger international investors to move money in or out of Saudi.'),
+        ]
+
+        _filtered_news = []
+        for _nh in (_news or []):
+            _ttl_lower = _nh['title'].lower()
+            for _cat_label, _cat_col, _cat_kws, _cat_why in _NEWS_CATS:
+                if any(_kw in _ttl_lower for _kw in _cat_kws):
+                    _filtered_news.append({**_nh, '_cat': _cat_label, '_col': _cat_col, '_why': _cat_why})
+                    break   # one category per headline
+
+        # sort: GEOPOLITICAL and OIL first, then others
+        _cat_priority = {'GEOPOLITICAL': 0, 'OIL & ENERGY': 1, 'TRUMP / US': 2,
+                         'FED & RATES': 3, 'SAUDI DIRECT': 4, 'GLOBAL MARKET': 5}
+        _filtered_news.sort(key=lambda x: _cat_priority.get(x['_cat'], 9))
+
+        _news_html = ""
+        for _nh in _filtered_news[:7]:
+            _nsc  = _nh['_col']
+            _ndt  = _nh.get('date', '')[:10]
+            _news_html += (
+                f'<a href="{_nh["link"]}" target="_blank" style="text-decoration:none;display:block;">'
+                f'<div style="border-left:3px solid {_nsc};background:{_nsc}08;'
+                f'border-radius:0 8px 8px 0;padding:0.75rem 0.9rem;margin-bottom:0.55rem;">'
+                # row 1: category badge + date + read arrow
+                f'<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.35rem;">'
+                f'<span style="font-size:0.66rem;font-weight:900;text-transform:uppercase;'
+                f'letter-spacing:0.6px;padding:0.18rem 0.6rem;border-radius:4px;'
+                f'background:{_nsc}22;color:{_nsc};flex-shrink:0;">{_nh["_cat"]}</span>'
+                f'<span style="font-size:0.68rem;color:#383838;">{_ndt}</span>'
+                f'<span style="margin-left:auto;font-size:0.7rem;color:{_nsc};'
+                f'font-weight:800;flex-shrink:0;">READ &rarr;</span>'
+                f'</div>'
+                # row 2: headline
+                f'<div style="font-size:0.9rem;color:#e0e0e0;line-height:1.55;'
+                f'font-weight:600;margin-bottom:0.35rem;">{_nh["title"]}</div>'
+                # row 3: why it matters
+                f'<div style="font-size:0.74rem;color:#585858;line-height:1.5;">'
+                f'WHY IT MATTERS &rarr; {_nh["_why"]}</div>'
+                f'</div></a>'
+            )
+
+        if not _news_html:
+            _news_html = (
+                f'<div style="background:#1a1a1a;border-radius:10px;padding:1.2rem;'
+                f'text-align:center;">'
+                f'<div style="font-size:0.95rem;font-weight:700;color:#555;'
+                f'margin-bottom:0.4rem;">No Major Alerts Right Now</div>'
+                f'<div style="font-size:0.8rem;color:#3a3a3a;line-height:1.6;">'
+                f'No geopolitical events, oil shocks, or major policy news detected. '
+                f'This is actually a good sign — calm news = stable markets.</div>'
+                f'</div>'
+            )
+
         st.markdown(
-            f"<div style='background:#212121;border:1px solid #303030;border-radius:12px;"
-            f"padding:1.6rem 1.8rem;margin-bottom:1.4rem;'>"
-            f"<div style='display:flex;justify-content:space-between;align-items:center;"
-            f"flex-wrap:wrap;gap:0.5rem;margin-bottom:1rem;'>"
-            f"<div>"
-            f"<div style='font-size:1.3rem;font-weight:700;color:#fff;line-height:1.2;'>Market Scan Results</div>"
-            f"<div style='font-size:0.78rem;color:#9e9e9e;margin-top:0.2rem;font-weight:500;'>"
-            f"{scanned} stocks scanned &nbsp;·&nbsp; {_period_disp}</div>"
-            f"</div>"
-            f"<span style='font-size:0.7rem;font-weight:700;padding:0.28rem 0.9rem;"
-            f"border-radius:20px;background:rgba(255,215,0,0.12);color:#FFD700;"
-            f"border:1px solid rgba(255,215,0,0.3);'>{len(_perfect_list)} Perfect Setups Found</span>"
-            f"</div>"
-            f"<div style='border-top:1px solid #303030;margin-bottom:0.9rem;'></div>"
-            f"<div style='display:grid;grid-template-columns:repeat(4,1fr);gap:0.7rem;'>"
-            + _msr_tile("Total Buy Signals", str(len(all_buy)), "#10a37f", f"from {scanned} scanned", "#10a37f")
-            + _msr_tile("Perfect Setups",    str(len(_perfect_list)), "#FFD700", "highest quality picks", "#FFD700")
-            + _msr_tile("Avg Upside",        f"{_avg_upside_ps:.1f}%", "#26A69A", "on perfect setups", "#26A69A")
-            + _msr_tile("Avg Risk/Reward",   f"{_avg_rr_ps:.1f}×", "#4A9EFF", "reward per 1 risk", "#4A9EFF")
-            + "</div></div>",
+            # ── outer container ──
+            f'<div style="border:1px solid #222;border-left:4px solid {_mcolor};'
+            f'border-radius:14px;background:#141414;padding:1.6rem 1.8rem;'
+            f'margin-bottom:1.2rem;box-shadow:0 6px 40px #00000060;">'
+
+            # ══ HEADER ROW ══
+            f'<div style="display:flex;justify-content:space-between;align-items:center;'
+            f'flex-wrap:wrap;gap:0.8rem;margin-bottom:1.5rem;">'
+            f'<div>'
+            f'<div style="font-size:1.5rem;font-weight:900;color:#f2f2f2;'
+            f'letter-spacing:-0.5px;line-height:1.1;margin-bottom:0.45rem;">'
+            f'Market Scan Results</div>'
+            f'<div style="display:flex;flex-wrap:wrap;gap:0.55rem;align-items:center;">'
+            f'<span style="font-size:0.77rem;color:#444;">{scanned} tickers &middot; {_period_disp}</span>'
+            f'<span style="background:#FFD70012;color:#FFD700;border:1px solid #FFD70028;'
+            f'font-size:0.77rem;font-weight:800;padding:0.2rem 0.7rem;border-radius:6px;">'
+            f'{len(_perfect_list)} Perfect Setups</span>'
+            f'<span style="background:#10a37f12;color:#10a37f;border:1px solid #10a37f28;'
+            f'font-size:0.77rem;font-weight:800;padding:0.2rem 0.7rem;border-radius:6px;">'
+            f'{len(all_buy)} Buy Signals</span>'
+            f'</div></div>'
+            f'<div style="text-align:center;">'
+            f'<div style="background:{_mcolor}18;color:{_mcolor};border:1px solid {_mcolor}35;'
+            f'font-size:0.84rem;font-weight:900;padding:0.45rem 1.3rem;border-radius:20px;'
+            f'white-space:nowrap;letter-spacing:0.3px;margin-bottom:0.3rem;">{_mlabel}</div>'
+            f'<div style="font-size:0.64rem;color:#303030;font-weight:700;">'
+            f'Score {_mscore:+d} / 10</div>'
+            f'</div>'
+            f'</div>'
+
+            # ══ MARKET CONDITIONS SCORE ══
+            f'<div style="background:#191919;border:1px solid #202020;border-radius:12px;'
+            f'padding:1.1rem 1.3rem;margin-bottom:1.3rem;">'
+            f'<div style="display:flex;justify-content:space-between;align-items:center;'
+            f'margin-bottom:0.7rem;">'
+            f'<span style="font-size:0.7rem;color:#3c3c3c;font-weight:800;'
+            f'text-transform:uppercase;letter-spacing:1px;">Market Conditions Today</span>'
+            f'<span style="font-size:0.95rem;font-weight:900;color:{_zone_col};">'
+            f'{_zone_label}</span>'
+            f'</div>'
+            # bar + live position dot
+            f'<div style="position:relative;height:18px;margin-bottom:0.55rem;">'
+            f'<div style="position:absolute;top:4px;left:0;right:0;height:10px;'
+            f'background:#1e1e1e;border-radius:8px;overflow:hidden;">'
+            f'<div style="height:100%;width:{_bar_pct}%;border-radius:8px;'
+            f'background:linear-gradient(90deg,#ef4444,#f97316,#fbbf24,#4A9EFF,#10a37f);"></div>'
+            f'</div>'
+            f'<div style="position:absolute;top:0;left:clamp(8px,{_bar_pct}%,calc(100% - 8px));'
+            f'transform:translateX(-50%);width:18px;height:18px;border-radius:50%;'
+            f'background:{_zone_col};border:3px solid #191919;'
+            f'box-shadow:0 0 12px {_zone_col}bb;z-index:2;"></div>'
+            f'</div>'
+            # zone labels
+            f'<div style="display:grid;grid-template-columns:repeat(5,1fr);text-align:center;">'
+            f'<span style="font-size:0.6rem;color:#ef4444;font-weight:700;">STAY OUT</span>'
+            f'<span style="font-size:0.6rem;color:#f97316;font-weight:700;">BE CAREFUL</span>'
+            f'<span style="font-size:0.6rem;color:#fbbf24;font-weight:700;">NEUTRAL</span>'
+            f'<span style="font-size:0.6rem;color:#4A9EFF;font-weight:700;">GOOD TIME</span>'
+            f'<span style="font-size:0.6rem;color:#10a37f;font-weight:700;">IDEAL</span>'
+            f'</div>'
+            f'</div>'
+
+            # ══ INSTRUMENT GRID ══
+            f'<div style="display:flex;gap:0.5rem;flex-wrap:wrap;">'
+            f'{_inst_html}'
+            f'</div>'
+
+            f'</div>',  # end outer box
             unsafe_allow_html=True,
         )
+
 
         # ── Sort (always by priority score, no user control needed) ─────────
         def _sorted(lst):
@@ -3707,8 +3966,7 @@ def main():
             setup    = stock.get('setup_type', '')
             signals  = stock.get('why_reasons') or stock.get('signals', [])
             mtf      = stock.get('mtf_score', 0)
-            is_perf  = (stock.get('ind_score', 0) >= 2 and stock.get('pa_score', 0) >= 2
-                        and score >= 7 and rr >= 1.8 and conv >= 50)
+            is_perf  = (score >= 7 and rr >= 1.8 and conv >= 50)
 
             stop_pct = abs(entry - stop) / entry * 100 if entry > 0 else 0
             t1_pct   = abs(t1   - entry) / entry * 100 if entry > 0 else 0
@@ -3805,9 +4063,7 @@ def main():
 
         best_picks = sorted(
             [s for s in all_stocks
-             if s.get('ind_score', 0) >= 2
-             and s.get('pa_score', 0) >= 2
-             and s.get('score', 0) >= 4
+             if s.get('score', 0) >= 4
              and s.get('rr_ratio', 0) >= 1.8
              and s.get('conviction', 0) >= 45],
             key=_best_picks_score, reverse=True)
@@ -3902,6 +4158,100 @@ def main():
                     r = _re.sub(r'^Regime:\s*', '', r)
                     return r.strip().rstrip('.')
 
+                # ── Build macro risk alert for card injection ────────────────
+                _brent_snap = (_msnap or {}).get('brent')
+                _vix_snap   = (_msnap or {}).get('vix')
+                _oil_p  = _brent_snap['price']  if _brent_snap else None
+                _vix_p  = _vix_snap['price']    if _vix_snap  else None
+                _oil_c5 = _brent_snap['chg_5d'] if _brent_snap else 0
+
+                # ── Synthesise key context rows ──
+                _ctx_rows = []  # (label, color, message)
+
+                # 1. Macro health overall
+                if _mscore <= -5:
+                    _ctx_rows.append(("DANGER ZONE", "#ef4444",
+                        f"Markets are in extreme distress (score {_mscore}/10). "
+                        f"Even strong technical setups are failing right now. Consider staying out."))
+                elif _mscore <= -2:
+                    _ctx_rows.append(("CAUTION", "#f97316",
+                        f"Market headwinds are active (score {_mscore}/10). "
+                        f"Use half your normal position size and keep stops tight."))
+                elif _mscore >= 6:
+                    _ctx_rows.append(("IDEAL CONDITIONS", "#10a37f",
+                        f"Strong tailwinds — oil healthy, markets calm, money flowing into Saudi. "
+                        f"Good time to run full-size positions on quality setups."))
+
+                # 2. Oil vs Saudi budget breakeven
+                if _oil_p is not None:
+                    from macro_data import _SAUDI_OIL_BREAKEVEN
+                    _gap = _oil_p - _SAUDI_OIL_BREAKEVEN
+                    _oil_s = ('+' if _oil_c5 >= 0 else '') + f'{_oil_c5:.1f}%'
+                    if _oil_p < _SAUDI_OIL_BREAKEVEN - 10:
+                        _ctx_rows.append(("OIL CRITICAL", "#ef4444",
+                            f"Brent at ${_oil_p:.1f} — ${abs(_gap):.0f} BELOW Saudi budget breakeven (${_SAUDI_OIL_BREAKEVEN:.0f}). "
+                            f"This week: {_oil_s}. Saudi govt revenue under serious pressure. "
+                            f"Banks, Aramco, and petrochemicals are most exposed."))
+                    elif _oil_p < _SAUDI_OIL_BREAKEVEN:
+                        _ctx_rows.append(("OIL BELOW BREAKEVEN", "#f97316",
+                            f"Brent at ${_oil_p:.1f} — ${abs(_gap):.0f} below Saudi budget breakeven (${_SAUDI_OIL_BREAKEVEN:.0f}). "
+                            f"This week: {_oil_s}. Fiscal pressure building — watch for market weakness."))
+                    elif _oil_p >= _SAUDI_OIL_BREAKEVEN and _oil_c5 > 3:
+                        _ctx_rows.append(("OIL SUPPORTIVE", "#10a37f",
+                            f"Brent at ${_oil_p:.1f} — ${_gap:.0f} above budget breakeven. "
+                            f"Rising {_oil_s} this week. Saudi revenues healthy — positive for the whole market."))
+
+                # 3. VIX level
+                if _vix_p is not None:
+                    if _vix_p > 35:
+                        _ctx_rows.append(("MARKET PANIC", "#ef4444",
+                            f"VIX is at {_vix_p:.0f} — this is panic territory. "
+                            f"Foreign investors are fleeing ALL emerging markets including Saudi. "
+                            f"Stocks can drop 10–20% in days during VIX spikes like this."))
+                    elif _vix_p > 25:
+                        _ctx_rows.append(("HIGH FEAR", "#f97316",
+                            f"VIX at {_vix_p:.0f} — above normal anxiety levels. "
+                            f"Foreign money leaving EM. Use smaller position sizes until VIX drops below 20."))
+                    elif _vix_p < 16:
+                        _ctx_rows.append(("MARKETS CALM", "#10a37f",
+                            f"VIX at {_vix_p:.0f} — very low fear globally. "
+                            f"Investors are confident, risk appetite is strong. Good for Saudi stocks."))
+
+                # 4. Top news alerts (geopolitical + oil + trump only)
+                _high_impact_cats = ('GEOPOLITICAL', 'OIL & ENERGY', 'TRUMP / US', 'FED & RATES')
+                _card_news = [n for n in _filtered_news if n.get('_cat') in _high_impact_cats]
+                for _cn in _card_news[:3]:
+                    _impact_why = {
+                        'GEOPOLITICAL': 'Conflict or sanctions can halt oil flows and trigger panic selling in Saudi.',
+                        'OIL & ENERGY': 'Oil news directly moves Saudi stocks — Aramco, banks & petrochemicals react first.',
+                        'TRUMP / US':   'US policy shifts redirect global capital flows into or out of markets like Saudi.',
+                        'FED & RATES':  'Rate decisions move international investment money — lower rates = more money into EM.',
+                    }.get(_cn['_cat'], 'This event could affect your trade.')
+                    _ctx_rows.append((_cn['_cat'], _cn['_col'],
+                        f"{_cn['title']} — {_impact_why}"))
+
+                _card_alert_html = ""
+                if _ctx_rows:
+                    _alert_rows_html = "".join(
+                        f'<div style="border-left:3px solid {_ac};background:{_ac}08;'
+                        f'border-radius:0 8px 8px 0;padding:0.65rem 0.85rem;margin-bottom:0.4rem;">'
+                        f'<div style="font-size:0.65rem;font-weight:900;text-transform:uppercase;'
+                        f'letter-spacing:0.7px;color:{_ac};margin-bottom:0.28rem;">{_at}</div>'
+                        f'<div style="font-size:0.83rem;color:#c8c8c8;line-height:1.6;">{_ad}</div>'
+                        f'</div>'
+                        for _at, _ac, _ad in _ctx_rows
+                    )
+                    _card_alert_html = (
+                        f'<div style="background:#141414;border-top:1px solid #202020;'
+                        f'padding:1rem 1.5rem;">'
+                        f'<div style="font-size:0.68rem;font-weight:900;text-transform:uppercase;'
+                        f'letter-spacing:1.2px;color:#444;margin-bottom:0.75rem;padding-bottom:0.4rem;'
+                        f'border-bottom:1px solid #1c1c1c;">'
+                        f'KNOW BEFORE YOU TRADE — CURRENT MARKET CONTEXT</div>'
+                        f'{_alert_rows_html}'
+                        f'</div>'
+                    )
+
                 for _i, s in enumerate(_perfect_list):
                     _rank_colors = ["#FFD700", "#C0C0C0", "#CD7F32"]
                     _rc      = _rank_colors[_i] if _i < 3 else "#10a37f"
@@ -3918,18 +4268,15 @@ def main():
                     _cc_bp   = "#10a37f" if _conv_bp >= 70 else ("#4A9EFF" if _conv_bp >= 45 else "#fbbf24")
                     _sc_color = "#10a37f" if _sc_bp >= 12 else ("#4A9EFF" if _sc_bp >= 7 else "#fbbf24")
 
-                    # ── Targets: always guarantee minimum 1.5× R:R ───────────
-                    _risk    = max(abs(_e_bp - _sl_bp), _e_bp * 0.02)  # at least 2% risk
-                    _sl_bp   = min(_sl_bp, _e_bp - _risk)              # ensure stop is below entry
-                    _t1_bp   = _e_bp + max(_risk * 1.5, abs(s.get('target1', 0) - _e_bp))
-                    _t2_bp   = _e_bp + max(_risk * 2.5, abs(s.get('target2', 0) - _e_bp))
-                    if _t2_bp <= _t1_bp:
-                        _t2_bp = _t1_bp + _risk
+                    # ── Use exact values computed by signal engine ────────────
+                    _t1_bp   = s.get('target1', _e_bp)
+                    _t2_bp   = s.get('target2', _e_bp)
 
-                    _dn_bp   = (_e_bp - _sl_bp) / _e_bp * 100
-                    _up_bp   = (_t1_bp - _e_bp) / _e_bp * 100
-                    _t2_pct  = (_t2_bp - _e_bp) / _e_bp * 100
-                    _rr_bp   = _up_bp / _dn_bp if _dn_bp > 0 else 0
+                    _dn_bp   = (_e_bp - _sl_bp) / _e_bp * 100  if _e_bp > 0 else 0
+                    _up_bp   = (_t1_bp - _e_bp) / _e_bp * 100  if _e_bp > 0 else 0
+                    _t2_pct  = (_t2_bp - _e_bp) / _e_bp * 100  if _e_bp > 0 else 0
+                    # Display R:R to T1 (honest, conservative — what you actually target first)
+                    _rr_bp   = (_t1_bp - _e_bp) / (_e_bp - _sl_bp) if (_e_bp - _sl_bp) > 0 else 0
 
                     # ── Clean why bullets ────────────────────────────────────
                     _bullets = [_clean_why(r) for r in _raw_why[:5] if r]
@@ -4058,6 +4405,9 @@ def main():
                         f'{_bullet_html}'
                         f'</div>'
 
+                        # ── MACRO RISK ALERT (only shown when there are active events) ──
+                        + _card_alert_html +
+
                         f'</div>',
                         unsafe_allow_html=True,
                     )
@@ -4095,6 +4445,34 @@ def main():
                         _render_card(s, 'buy')
 
 
+
+    elif st.session_state.show_macro:
+
+        # ── MACRO INTELLIGENCE FULL PAGE ──────────────────────────────────────
+        apply_ui_theme()
+        st.markdown("""
+        <style>
+        header[data-testid="stHeader"] { display: none !important; }
+        section[data-testid="stMainBlockContainer"] { padding-top: 1rem !important; }
+        </style>""", unsafe_allow_html=True)
+
+        back_col, title_col = st.columns([1, 6], gap="small")
+        with back_col:
+            if st.button("← Home", key="macro_back_btn", type="secondary", width="stretch"):
+                st.session_state.show_macro = False
+                st.rerun()
+        with title_col:
+            st.markdown(
+                "<div style='font-size:1.4rem;font-weight:900;color:#e8e8e8;"
+                "letter-spacing:-0.5px;padding-top:0.15rem;'>"
+                "🌍 Macro Intelligence "
+                "<span style='font-size:0.7rem;font-weight:600;color:#555;'>"
+                "Global factors affecting Saudi stocks</span></div>",
+                unsafe_allow_html=True,
+            )
+        st.markdown("<div style='height:0.4rem'></div>", unsafe_allow_html=True)
+        from macro_tab import render_macro_tab
+        render_macro_tab()
 
     elif st.session_state.show_market_pulse:
 

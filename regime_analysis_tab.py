@@ -30,26 +30,27 @@ def _glowbar(pct, color=BULL, height="8px"):
 REGIME_COLOR = {"TREND": "#26A69A", "RANGE": "#4A9EFF", "VOLATILE": "#FF6B6B"}
 
 REGIME_DESC = {
-    "TREND":    "Market is making directional moves — momentum strategies work best.",
-    "RANGE":    "Price is oscillating between support and resistance — mean-reversion setups favoured.",
-    "VOLATILE": "Choppy and unpredictable action — reduce size, widen stops, avoid breakouts.",
+    "TREND":    "Market is making clear directional moves — momentum and trend-following strategies work best. Ride the direction.",
+    "RANGE":    "Price is bouncing between a support floor and resistance ceiling — buy the dips, take profit at the top.",
+    "VOLATILE": "Price is moving fast and unpredictably — high ATR with no clear direction. Reduce size, widen stops, wait for a clearer setup.",
 }
 
 REGIME_STRATEGY = {
     "TREND": [
-        ("✅ Ride the trend",       "Follow the direction with trailing stops."),
-        ("✅ Breakout entries",     "Buy pullbacks to EMA, not parabolic tops."),
-        ("⚠️ Avoid counter-trend", "Mean-reversion has poor odds in strong trends."),
+        ("✅ Follow the trend",       "Enter in the trend direction. Use trailing stops to lock in profits."),
+        ("✅ Buy pullbacks to EMA",   "Don’t chase the top. Wait for a dip to the 20 or 50 EMA then buy."),
+        ("⚠️ Avoid counter-trades",  "Going against a strong trend has low odds. Wait for reversal confirmation first."),
     ],
     "RANGE": [
-        ("✅ Buy at support",          "Enter near the lower bound of the range."),
-        ("✅ Sell at resistance",       "Take profit near the upper bound of the range."),
-        ("⚠️ Avoid breakout trades",  "False breakouts are common in ranging markets."),
+        ("✅ Buy at support",          "Enter near the lower bound where price has bounced before."),
+        ("✅ Take profit at resistance", "Don’t be greedy — the upper bound is where sellers show up."),
+        ("⚠️ Watch out for breakouts", "If price closes strongly above resistance, the range may be ending — that’s a new opportunity."),
     ],
     "VOLATILE": [
-        ("⚠️ Reduce position size", "Wider swings mean larger drawdowns."),
-        ("✅ Wait for clarity",      "Let volatility settle before entering new positions."),
-        ("⚠️ Avoid tight stops",    "Price will whipsaw through normal stop levels."),
+        ("⚠️ Cut your position size",  "In volatile markets, losses can be bigger than expected. Trade smaller."),
+        ("✅ Widen your stop loss",    "Tight stops will get hit by noise. Give the trade more room, or skip it."),
+        ("✅ Wait for a clear setup",  "Volatile regimes often transition to TREND or RANGE. Patience pays."),
+        ("⚠️ Avoid breakout entries",  "Breakouts in volatile markets fail often. Wait for a confirmed close above/below the level."),
     ],
 }
 

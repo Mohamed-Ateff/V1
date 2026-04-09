@@ -820,14 +820,21 @@ def run_market_analysis(tickers_list, period="6mo", min_score=2, sector_filter=N
             w52_low   = float(low.iloc[-lookback:].min())
             w52_pos   = (cp - w52_low) / (w52_high - w52_low) * 100 if (w52_high - w52_low) > 0 else 50
 
-            # Regime
+            # Regime — 3-tier classification
+            # TREND:    ADX > 25  (clear directional momentum)
+            # RANGE:    ADX < 20 AND tight Bollinger bands (bb_width < 0.04)
+            # VOLATILE: High ATR (> 3% of price) AND no clear trend
             atr_pct = cur_atr / cp if cp > 0 else 0
             if cur_adx > 25:
                 regime = "TREND"
-            elif bb_width_pct < 0.04:
+            elif cur_adx < 20 and bb_width_pct < 0.04:
+                regime = "RANGE"
+            elif atr_pct > 0.025 and cur_adx < 25:
+                regime = "VOLATILE"
+            elif cur_adx < 20:
                 regime = "RANGE"
             else:
-                regime = "VOLATILE"
+                regime = "RANGE"
 
             # ── REGIME-AWARE WEIGHTED SCORING ────────────────────────────────
             # Key insight: not all indicators work in all conditions.
@@ -1113,8 +1120,14 @@ def run_market_analysis(tickers_list, period="6mo", min_score=2, sector_filter=N
                     stop_loss = round(raw_stop, 2)
                 high_20  = float(high.iloc[-20:].max())
                 high_60  = float(high.iloc[-60:].max()) if len(high) >= 60 else high_20
-                target1  = round(high_20, 2) if high_20 > cp * 1.005 else round(cp + cur_atr * 2.0, 2)
-                target2  = round(high_60, 2) if high_60 > target1 * 1.01 else round(cp + cur_atr * 4.0, 2)
+                _raw_t1  = round(high_20, 2) if high_20 > cp * 1.005 else round(cp + cur_atr * 2.0, 2)
+                _raw_t2  = round(high_60, 2) if high_60 > _raw_t1 * 1.01 else round(cp + cur_atr * 4.0, 2)
+                # Enforce minimum R:R: T1 must be at least 1.5× risk above entry, T2 at least 2.5×
+                _risk_dist = abs(cp - stop_loss)
+                target1  = round(max(_raw_t1, cp + _risk_dist * 1.5), 2)
+                target2  = round(max(_raw_t2, cp + _risk_dist * 2.5), 2)
+                if target2 <= target1:
+                    target2 = round(target1 + _risk_dist, 2)
             else:             # SELL side
                 struct_high = float(high.iloc[-20:].max())
                 raw_stop    = struct_high + cur_atr * 0.3
