@@ -475,7 +475,7 @@ def signal_analysis_tab(df, info_icon):
         combo_accent_cycle = [BULL, INFO, NEUT, PURP, "#F472B6", GOLD]
 
         # â”€â”€ Filter / sort controls â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        fc1, fc2, fc3, fc4 = st.columns([1.5, 1.5, 2, 2])
+        fc1, = st.columns([1])
         with fc1:
             st.markdown(
                 f"<div style='font-size:0.62rem;color:{muted};text-transform:uppercase;"
@@ -484,32 +484,8 @@ def signal_analysis_tab(df, info_icon):
             _size_opts = ["All sizes", "2-Way only", "3-Way only", "4-Way only", "5-Way only", "6-Way only"]
             _cc_size = st.selectbox("Size filter", _size_opts, index=0, key="cc_size_filt",
                                     label_visibility="collapsed")
-        with fc2:
-            st.markdown(
-                f"<div style='font-size:0.62rem;color:{muted};text-transform:uppercase;"
-                f"letter-spacing:0.7px;font-weight:700;margin-bottom:0.3rem;'>Min Signals</div>",
-                unsafe_allow_html=True)
-            _cc_minsig = st.number_input("Min signals", min_value=1, value=3, step=1,
-                                          key="cc_minsig", label_visibility="collapsed")
-        with fc3:
-            st.markdown(
-                f"<div style='font-size:0.62rem;color:{muted};text-transform:uppercase;"
-                f"letter-spacing:0.7px;font-weight:700;margin-bottom:0.3rem;'>Sort By</div>",
-                unsafe_allow_html=True)
-            _sort_opts = {"Wilson Score": "wilson", "Win Rate": "win_rate",
-                          "Expectancy": "expectancy", "Profit Factor": "profit_factor",
-                          "Total Signals": "total"}
-            _cc_sort_label = st.selectbox("Sort by", list(_sort_opts.keys()), index=0,
-                                           key="cc_sortby", label_visibility="collapsed")
-            _sort_key = _sort_opts[_cc_sort_label]
-        with fc4:
-            st.markdown(
-                f"<div style='font-size:0.62rem;color:{muted};text-transform:uppercase;"
-                f"letter-spacing:0.7px;font-weight:700;margin-bottom:0.3rem;'>Detail Cards per Group</div>",
-                unsafe_allow_html=True)
-            _cc_top_per_group = st.number_input("Cards per group", min_value=1, max_value=50,
-                                                  value=5, step=1, key="cc_topgroup",
-                                                  label_visibility="collapsed")
+        _sort_key = "win_rate"
+        _cc_top_per_group = 5
 
         # â”€â”€ Resolve size filter â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         _size_filter = None
@@ -526,7 +502,7 @@ def signal_analysis_tab(df, info_icon):
                     continue
                 n_c = cd["total"]
                 wr  = cd["success_rate"]
-                if n_c < _cc_minsig or wr >= 100:
+                if wr >= 100:
                     continue
                 rp = {r: v for r, v in cd.get("regime_performance", {}).items() if v > 0}
                 best_r = max(rp, key=rp.get) if rp else ""
@@ -556,7 +532,7 @@ def signal_analysis_tab(df, info_icon):
             all_combo_data.sort(key=lambda x: x[_sort_key], reverse=True)
 
         if not all_combo_data:
-            st.info("No combinations found. Try increasing Combo Depth, a longer date range, or lower Min Signals.")
+            st.info("No combinations found. Try increasing Combo Depth or using a longer date range.")
         else:
             total_combos = len(all_combo_data)
 
@@ -744,10 +720,9 @@ def signal_analysis_tab(df, info_icon):
             # ─────────────────────────────────────────────────────────────────
             # 4 ANALYSIS SUB-TABS
             # ─────────────────────────────────────────────────────────────────
-            ctab1, ctab2, ctab3, ctab4 = st.tabs([
+            ctab1, ctab2, ctab3 = st.tabs([
                 "Leaderboard",
                 "Regime Champions",
-                "Category Mix",
                 "Deep Cards",
             ])
 
@@ -967,96 +942,8 @@ def signal_analysis_tab(df, info_icon):
                         unsafe_allow_html=True,
                     )
 
-            # ── Category Mix ──────────────────────────────────────────────────
-            with ctab3:
-                insight_toggle(
-                    "combo_catmix",
-                    "What does Category Mix mean?",
-                    "<p>Every indicator belongs to a broad family based on what it measures:</p>"
-                    "<ul>"
-                    "<li><strong>Trend</strong> -- EMA, SMA, PSAR, Ichimoku, WMA, ADX. They follow direction.</li>"
-                    "<li><strong>Momentum</strong> -- RSI, MACD, Stochastics, ROC, CCI. They measure speed of price change.</li>"
-                    "<li><strong>Volatility</strong> -- Bollinger Bands, Keltner Channel, Donchian. They measure price range expansion.</li>"
-                    "<li><strong>Volume</strong> -- MFI, CMF, VWAP, OBV. They use trading volume to confirm moves.</li>"
-                    "</ul>"
-                    "<p>The bar chart shows which <em>mix of families</em> produces the highest average win rate. "
-                    "For example, combining a Trend indicator with a Volume indicator may outperform two Trend indicators together. "
-                    "Expand any row to see all combinations in that mix and their individual stats.</p>"
-                )
-                for _row in all_combo_data:
-                    _cats = sorted(set(_ind_cat(p) for p in _row["indicators"]))
-                    _row["_cat_mix"] = " + ".join(_cats)
-                _mix_grps = {}
-                for _row in all_combo_data:
-                    _mx = _row["_cat_mix"]
-                    _mix_grps.setdefault(_mx, []).append(_row)
-                _mix_summ = sorted([{
-                    "mix":     _mx,
-                    "count":   len(_grp),
-                    "avg_wr":  float(np.mean([x["win_rate"] for x in _grp])),
-                    "avg_pf":  float(np.mean([x["profit_factor"] for x in _grp])),
-                    "avg_exp": float(np.mean([x["expectancy"] for x in _grp])),
-                    "best":    max(_grp, key=lambda x: x["wilson"]),
-                    "combos":  _grp,
-                } for _mx, _grp in _mix_grps.items()], key=lambda x: x["avg_wr"], reverse=True)
-
-                _max_awr = max(x["avg_wr"] for x in _mix_summ) if _mix_summ else 100
-                _cmh = "<div style='margin-bottom:0.85rem;'>"
-                for _ms in _mix_summ:
-                    _mx_cats = _ms["mix"].split(" + ")
-                    _dots = "".join(
-                        f"<span style='display:inline-block;width:6px;height:6px;border-radius:50%;"
-                        f"background:{_cat_col.get(c, GOLD)};margin-right:2px;vertical-align:middle;'></span>"
-                        for c in _mx_cats
-                    )
-                    _bw2 = int(_ms["avg_wr"] / max(_max_awr, 1) * 100)
-                    _bc2 = BULL if _ms["avg_wr"] >= 55 else NEUT if _ms["avg_wr"] >= 45 else BEAR
-                    _cmh += (
-                        f"<div style='margin-bottom:0.7rem;'>"
-                        f"<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:0.22rem;'>"
-                        f"<div style='display:flex;align-items:center;gap:0.28rem;'>{_dots}"
-                        f"<span style='font-size:0.7rem;font-weight:700;color:{text_col};'>{_ms['mix']}</span>"
-                        f"<span style='font-size:0.56rem;color:{muted};'>({_ms['count']} combos)</span></div>"
-                        f"<div style='display:flex;gap:0.65rem;'>"
-                        f"<span style='font-size:0.65rem;font-weight:800;color:{_bc2};'>Avg WR: {_ms['avg_wr']:.1f}%</span>"
-                        f"<span style='font-size:0.65rem;color:{muted};'>PF: {_ms['avg_pf']:.2f}</span>"
-                        f"<span style='font-size:0.65rem;color:{BULL if _ms['avg_exp']>0 else BEAR};'>Exp: {_ms['avg_exp']:+.2f}%</span>"
-                        f"</div></div>"
-                        f"<div style='background:{border};border-radius:3px;height:5px;'>"
-                        f"<div style='background:{_bc2};border-radius:3px;height:5px;width:{_bw2}%;'></div></div>"
-                        f"<div style='font-size:0.58rem;color:{muted};margin-top:0.12rem;'>"
-                        f"Best: <strong style='color:{text_col};'>{_ms['best']['label']}</strong>"
-                        f" -- {_ms['best']['win_rate']:.1f}% WR | {_ms['best']['total']} signals</div>"
-                        f"</div>"
-                    )
-                _cmh += "</div>"
-                st.markdown(_cmh, unsafe_allow_html=True)
-
-                for _msi, _ms in enumerate(_mix_summ):
-                    _cac3 = combo_accent_cycle[_msi % len(combo_accent_cycle)]
-                    with st.expander(
-                        f"{_ms['mix']}  --  {_ms['count']} combos  |  Avg WR {_ms['avg_wr']:.1f}%  |  Best {_ms['best']['win_rate']:.1f}%",
-                        expanded=(_msi < 2),
-                    ):
-                        _make_combo_card(_ms["best"], "#1 in mix", _cac3)
-                        _mix_tbl = [{
-                            "Rank":          _mi4 + 1,
-                            "Combination":   _mr4["label"],
-                            "Size":          f"{_mr4['size']}-Way",
-                            "Win %":         round(_mr4["win_rate"], 1),
-                            "Signals":       _mr4["total"],
-                            "Profit Factor": round(_mr4["profit_factor"], 2),
-                            "Expectancy %":  round(_mr4["expectancy"], 2),
-                            "Wilson Score":  round(_mr4["wilson"], 1),
-                            "Std Dev":       round(_mr4.get("consistency", 0), 1),
-                            "Max W-Streak":  _mr4.get("max_consec_wins", 0),
-                        } for _mi4, _mr4 in enumerate(
-                            sorted(_ms["combos"], key=lambda x: x["win_rate"], reverse=True)
-                        )]
-                        st.dataframe(pd.DataFrame(_mix_tbl).set_index("Rank"), use_container_width=True)
-
             # ── Deep Cards ────────────────────────────────────────────────────
-            with ctab4:
+            with ctab3:
                 insight_toggle(
                     "combo_deepcards",
                     "How to read a Deep Card?",
