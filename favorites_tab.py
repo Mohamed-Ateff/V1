@@ -197,8 +197,13 @@ def render_favorites_panel() -> None:
     if not st.session_state.get('show_favorites_panel', False):
         return
 
-    favs = st.session_state.get('favorites', [])
+    favs      = st.session_state.get('favorites', [])
     _r_colors = {'TREND': '#4A9EFF', 'RANGE': '#FFC107', 'VOLATILE': '#FF6B6B'}
+
+    # split by type
+    _ind_favs   = [f for f in favs if f.get('save_type') == 'indicator']
+    _combo_favs = [f for f in favs if f.get('save_type') == 'combo']
+    _strat_favs = [f for f in favs if f.get('save_type') not in ('indicator', 'combo')]
 
     with st.container(key="fav_panel_wrap"):
         # ── header row ────────────────────────────────────────────────
@@ -207,7 +212,7 @@ def render_favorites_panel() -> None:
             count_badge = f"<span class='fav-hdr-count'>{len(favs)}</span>" if favs else ""
             st.markdown(
                 f"<div class='fav-hdr'><span class='fav-hdr-icon'>★</span>"
-                f"<span class='fav-hdr-title'>Saved Strategies</span>{count_badge}</div>",
+                f"<span class='fav-hdr-title'>Saved Analysis</span>{count_badge}</div>",
                 unsafe_allow_html=True)
         with hc2:
             with st.container(key="fav_close_panel"):
@@ -219,56 +224,169 @@ def render_favorites_panel() -> None:
         if not favs:
             st.markdown(
                 "<div class='fav-empty'><div class='fav-empty-icon'>☆</div>"
-                "<div class='fav-empty-txt'>No saved strategies yet.<br>"
-                "Run an analysis, open <b>Signal Analysis → Indicator Combinations</b>, "
-                "and tap <b>★ Save Strategy</b> on any combination you like.</div></div>",
+                "<div class='fav-empty-txt'>Nothing saved yet.<br>"
+                "Run a <b>Signal Analysis</b> and tap <b>☆ Save</b> on any indicator "
+                "or combination card. Also works on <b>Tadawul AI</b> result pages.</div></div>",
                 unsafe_allow_html=True)
             return
 
-        # ── strategy cards ────────────────────────────────────────────
-        for _fi, _fav in enumerate(favs):
-            _parts  = _fav.get('pair', '').split(' + ')
-            _pill_a = _parts[0] if _parts else ''
-            _pill_b = _parts[1] if len(_parts) > 1 else ''
-            _regime = _fav.get('best_regime') or ''
+        # ── helper: render one fav card + delete button ───────────────
+        def _fav_card(f_idx: int, fav: dict, label: str, accent: str,
+                      extra_pills: list = None):
+            _regime = fav.get('best_regime') or ''
             _bc     = _r_colors.get(_regime, '#9e9e9e')
-            _wr     = _fav.get('win_rate', 0)
+            _wr     = fav.get('win_rate', 0)
             _wr_c   = '#26A69A' if _wr >= 55 else ('#FFC107' if _wr >= 45 else '#ef5350')
-            _ag     = _fav.get('avg_gain', 0)
-            _al     = _fav.get('avg_loss', 0)
+            _ag     = fav.get('avg_gain', 0)
+            _al     = fav.get('avg_loss', 0)
             _ag_c   = '#26A69A' if _ag >= 1 else ('#FFC107' if _ag > 0 else '#ef5350')
-            _al_c   = '#ef5350' if _al < 0 else '#FFC107'
-            _sym    = _fav.get('symbol', '').replace('.SR', '')
+            _sym    = fav.get('symbol', '').replace('.SR', '')
+            _disp   = fav.get('pair_display', fav.get('pair', ''))
+            _sn     = fav.get('stock_name', '')
+            _exp_c  = '#26A69A' if fav.get('expectancy', 0) > 0 else '#ef5350'
+
+            # pills row from pair_display (split by +)
+            _parts = [p.strip() for p in _disp.split('+')]
+            _pills_html = ''
+            for pi, pn in enumerate(_parts):
+                _pills_html += f"<span class='fav-pill'>{pn}</span>"
+                if pi < len(_parts) - 1:
+                    _pills_html += "<span class='fav-plus'>+</span>"
+
+            # settings row (risk/reward + period) for indicators & combos
+            _settings_html = ''
+            _rv = fav.get('risk_val'); _rw = fav.get('reward_val')
+            _pl = fav.get('period_label', '')
+            if _rv and _rw:
+                _settings_html = (
+                    f"<span style='font-size:0.58rem;color:#9e9e9e;border:1px solid #404040;"
+                    f"border-radius:4px;padding:0.1rem 0.4rem;'>"
+                    f"R:R {_rv}:{_rw}</span>"
+                    f"<span style='font-size:0.58rem;color:#9e9e9e;border:1px solid #404040;"
+                    f"border-radius:4px;padding:0.1rem 0.4rem;margin-left:0.2rem;'>"
+                    f"{_pl.split('(')[0].strip() if _pl else ''}</span>"
+                )
 
             _card = (
-                "<div class='fav-card'>"
+                "<div class='fav-card' style='border-left:3px solid "
+                + accent + ";'>"
                 "<div class='fav-card-top'>"
                 f"<span class='fav-sym'>{_sym}</span>"
+                f"<span style='font-size:0.58rem;font-weight:700;color:{accent};"
+                f"background:{accent}18;border:1px solid {accent}44;border-radius:4px;"
+                f"padding:0.1rem 0.45rem;'>{label}</span>"
                 "<span class='fav-sep'>|</span>"
-                f"<span class='fav-pill'>{_pill_a}</span>"
-                "<span class='fav-plus'>+</span>"
-                f"<span class='fav-pill'>{_pill_b}</span>"
+                + _pills_html
+                + (_settings_html)
                 + (f"<span class='fav-regime' style='color:{_bc};border-color:{_bc};'>{_regime}</span>" if _regime else '')
-                + f"<span class='fav-date'>{_fav.get('saved_at', '')}</span>"
+                + f"<span class='fav-date'>{fav.get('saved_at', '')}</span>"
                 "</div>"
                 "<div class='fav-card-bot'>"
                 f"<div class='fav-si'><span class='fsl'>Win Rate</span><span class='fsv' style='color:{_wr_c}'>{_wr:.1f}%</span></div>"
                 f"<div class='fav-si'><span class='fsl'>Avg Gain</span><span class='fsv' style='color:{_ag_c}'>+{_ag:.2f}%</span></div>"
-                f"<div class='fav-si'><span class='fsl'>Avg Loss</span><span class='fsv' style='color:{_al_c}'>{_al:.2f}%</span></div>"
-                f"<div class='fav-si'><span class='fsl'>Signals</span><span class='fsv'>{_fav.get('signals', 0)}</span></div>"
+                f"<div class='fav-si'><span class='fsl'>Expectancy</span><span class='fsv' style='color:{_exp_c}'>{fav.get('expectancy',0):+.2f}%</span></div>"
+                f"<div class='fav-si'><span class='fsl'>Signals</span><span class='fsv'>{fav.get('signals', 0)}</span></div>"
                 "</div>"
                 "</div>"
             )
-
             _ec1, _ec2 = st.columns([12, 1])
             with _ec1:
                 st.markdown(_card, unsafe_allow_html=True)
             with _ec2:
-                if st.button("✕", key=f"fav_del_{_fi}", width="stretch"):
+                if st.button("✕", key=f"fav_del_{f_idx}", width="stretch"):
                     _user = st.session_state.get('auth_username', '')
-                    delete_favorite(_user, _fav.get('id', ''))
-                    st.session_state.favorites = [f for f in favs if f.get('id') != _fav.get('id')]
+                    delete_favorite(_user, fav.get('id', ''))
+                    st.session_state.favorites = [x for x in favs if x.get('id') != fav.get('id')]
                     st.rerun()
+
+        _global_idx = 0
+
+        # ── Section: Saved Indicators ─────────────────────────────────
+        if _ind_favs:
+            st.markdown(
+                "<div style='display:flex;align-items:center;gap:0.5rem;"
+                "margin:0.6rem 0 0.5rem 0;'>"
+                "<span style='width:3px;height:0.9rem;background:#4caf50;border-radius:2px;"
+                "flex-shrink:0;display:inline-block;'></span>"
+                "<span style='font-size:0.72rem;font-weight:800;color:#4caf50;"
+                "text-transform:uppercase;letter-spacing:0.5px;'>Saved Indicators</span>"
+                f"<span style='font-size:0.58rem;color:#757575;'>({len(_ind_favs)})</span>"
+                "</div>",
+                unsafe_allow_html=True)
+            for _fav in _ind_favs:
+                _fav_card(_global_idx, _fav, "Indicator", "#4caf50")
+                _global_idx += 1
+
+        # ── Section: Saved Combinations ───────────────────────────────
+        if _combo_favs:
+            st.markdown(
+                "<div style='display:flex;align-items:center;gap:0.5rem;"
+                "margin:0.9rem 0 0.5rem 0;'>"
+                "<span style='width:3px;height:0.9rem;background:#FFD700;border-radius:2px;"
+                "flex-shrink:0;display:inline-block;'></span>"
+                "<span style='font-size:0.72rem;font-weight:800;color:#FFD700;"
+                "text-transform:uppercase;letter-spacing:0.5px;'>Saved Combinations</span>"
+                f"<span style='font-size:0.58rem;color:#757575;'>({len(_combo_favs)})</span>"
+                "</div>",
+                unsafe_allow_html=True)
+            for _fav in _combo_favs:
+                _fav_card(_global_idx, _fav, "Combo", "#FFD700")
+                _global_idx += 1
+
+        # ── Section: Saved Strategies (Tadawul AI) ────────────────────
+        if _strat_favs:
+            st.markdown(
+                "<div style='display:flex;align-items:center;gap:0.5rem;"
+                "margin:0.9rem 0 0.5rem 0;'>"
+                "<span style='width:3px;height:0.9rem;background:#f472b6;border-radius:2px;"
+                "flex-shrink:0;display:inline-block;'></span>"
+                "<span style='font-size:0.72rem;font-weight:800;color:#f472b6;"
+                "text-transform:uppercase;letter-spacing:0.5px;'>Saved Strategies</span>"
+                f"<span style='font-size:0.58rem;color:#757575;'>({len(_strat_favs)})</span>"
+                "</div>",
+                unsafe_allow_html=True)
+            for _fav in _strat_favs:
+                _parts  = _fav.get('pair', '').split(' + ')
+                _pill_a = _parts[0] if _parts else ''
+                _pill_b = _parts[1] if len(_parts) > 1 else ''
+                _regime = _fav.get('best_regime') or ''
+                _bc     = _r_colors.get(_regime, '#9e9e9e')
+                _wr     = _fav.get('win_rate', 0)
+                _wr_c   = '#26A69A' if _wr >= 55 else ('#FFC107' if _wr >= 45 else '#ef5350')
+                _ag     = _fav.get('avg_gain', 0)
+                _al     = _fav.get('avg_loss', 0)
+                _ag_c   = '#26A69A' if _ag >= 1 else ('#FFC107' if _ag > 0 else '#ef5350')
+                _sym    = _fav.get('symbol', '').replace('.SR', '')
+
+                _card = (
+                    "<div class='fav-card' style='border-left:3px solid #f472b6;'>"
+                    "<div class='fav-card-top'>"
+                    f"<span class='fav-sym'>{_sym}</span>"
+                    "<span class='fav-sep'>|</span>"
+                    f"<span class='fav-pill'>{_pill_a}</span>"
+                    "<span class='fav-plus'>+</span>"
+                    f"<span class='fav-pill'>{_pill_b}</span>"
+                    + (f"<span class='fav-regime' style='color:{_bc};border-color:{_bc};'>{_regime}</span>" if _regime else '')
+                    + f"<span class='fav-date'>{_fav.get('saved_at', '')}</span>"
+                    "</div>"
+                    "<div class='fav-card-bot'>"
+                    f"<div class='fav-si'><span class='fsl'>Win Rate</span><span class='fsv' style='color:{_wr_c}'>{_wr:.1f}%</span></div>"
+                    f"<div class='fav-si'><span class='fsl'>Avg Gain</span><span class='fsv' style='color:{_ag_c}'>+{_ag:.2f}%</span></div>"
+                    f"<div class='fav-si'><span class='fsl'>Avg Loss</span><span class='fsv' style='color:#ef5350'>{_al:.2f}%</span></div>"
+                    f"<div class='fav-si'><span class='fsl'>Signals</span><span class='fsv'>{_fav.get('signals', 0)}</span></div>"
+                    "</div>"
+                    "</div>"
+                )
+                _ec1, _ec2 = st.columns([12, 1])
+                with _ec1:
+                    st.markdown(_card, unsafe_allow_html=True)
+                with _ec2:
+                    if st.button("✕", key=f"fav_del_{_global_idx}", width="stretch"):
+                        _user = st.session_state.get('auth_username', '')
+                        delete_favorite(_user, _fav.get('id', ''))
+                        st.session_state.favorites = [x for x in favs if x.get('id') != _fav.get('id')]
+                        st.rerun()
+                _global_idx += 1
 
 
 # ── Save button (combo cards) ─────────────────────────────────────────────────
@@ -294,7 +412,6 @@ def render_save_button(i: int, ka: str, kb: str, row: dict, top_names: dict) -> 
             else:
                 if 'favorites' not in st.session_state:
                     st.session_state.favorites = []
-                # capture the current price at save time
                 _entry_price = None
                 _df = st.session_state.get('df')
                 if _df is not None:
@@ -317,6 +434,104 @@ def render_save_button(i: int, ka: str, kb: str, row: dict, top_names: dict) -> 
                     'best_regime':   row['best_regime'],
                     'saved_at':      _today_date.today().strftime('%b %d, %Y'),
                     'entry_price':   _entry_price,
+                    'save_type':     'strategy',
+                }
+                upsert_favorite(_user, _new_fav)
+                st.session_state.favorites.append(_new_fav)
+            st.rerun()
+
+
+# ── Save button: single indicator ─────────────────────────────────────────────
+
+def render_save_indicator_button(idx: int, ind: dict, risk_val: int,
+                                  reward_val: int, period_label: str) -> None:
+    """☆/★ save button for a single indicator card."""
+    _sym      = st.session_state.get('analyzed_symbol', '')
+    _fav_id   = f"ind__{_sym}__{ind['key']}"
+    _cur_favs = st.session_state.get('favorites', [])
+    _is_saved = any(f.get('id') == _fav_id for f in _cur_favs)
+    _btn_lbl  = "★  Saved — click to remove" if _is_saved else f"☆  Save  {ind['name']}"
+
+    _sv_col, _ = st.columns([3, 7])
+    with _sv_col:
+        if st.button(_btn_lbl, key=f"fav_save_ind_{idx}_{ind['key']}", width="stretch"):
+            _user = st.session_state.get('auth_username', '')
+            if _is_saved:
+                delete_favorite(_user, _fav_id)
+                st.session_state.favorites = [f for f in _cur_favs if f.get('id') != _fav_id]
+            else:
+                if 'favorites' not in st.session_state:
+                    st.session_state.favorites = []
+                _new_fav = {
+                    'id':            _fav_id,
+                    'symbol':        _sym,
+                    'stock_name':    st.session_state.get('analyzed_stock_name', ''),
+                    'pair':          ind['key'],
+                    'pair_display':  ind['name'],
+                    'win_rate':      ind['win_rate'],
+                    'profit_factor': ind['profit_factor'],
+                    'expectancy':    ind['expectancy'],
+                    'avg_gain':      ind['avg_gain'],
+                    'avg_loss':      ind['avg_loss'],
+                    'signals':       ind['total'],
+                    'best_regime':   ind.get('best_regime', ''),
+                    'saved_at':      _today_date.today().strftime('%b %d, %Y'),
+                    'entry_price':   None,
+                    'save_type':     'indicator',
+                    'risk_val':      risk_val,
+                    'reward_val':    reward_val,
+                    'period_label':  period_label,
+                    'combo_indicators': ind['name'],
+                }
+                upsert_favorite(_user, _new_fav)
+                st.session_state.favorites.append(_new_fav)
+            st.rerun()
+
+
+# ── Save button: N-way combo ──────────────────────────────────────────────────
+
+def render_save_combo_button(idx: int, row: dict, all_names: dict,
+                              risk_val: int, reward_val: int, period_label: str) -> None:
+    """☆/★ save button for a combination card in the Signal Analysis tab."""
+    _sym      = st.session_state.get('analyzed_symbol', '')
+    _key_str  = '__'.join(sorted(row['indicators']))
+    _fav_id   = f"combo__{_sym}__{_key_str}"
+    _cur_favs = st.session_state.get('favorites', [])
+    _is_saved = any(f.get('id') == _fav_id for f in _cur_favs)
+    _ind_names = [all_names.get(k, k) for k in row['indicators']]
+    _display   = ' + '.join(_ind_names)
+    _btn_lbl   = "★  Saved — click to remove" if _is_saved else f"☆  Save  {row['size']}-Way Combo"
+
+    _sv_col, _ = st.columns([3, 7])
+    with _sv_col:
+        if st.button(_btn_lbl, key=f"fav_save_combo_{idx}_{_key_str[:30]}", width="stretch"):
+            _user = st.session_state.get('auth_username', '')
+            if _is_saved:
+                delete_favorite(_user, _fav_id)
+                st.session_state.favorites = [f for f in _cur_favs if f.get('id') != _fav_id]
+            else:
+                if 'favorites' not in st.session_state:
+                    st.session_state.favorites = []
+                _new_fav = {
+                    'id':               _fav_id,
+                    'symbol':           _sym,
+                    'stock_name':       st.session_state.get('analyzed_stock_name', ''),
+                    'pair':             ' + '.join(row['indicators']),
+                    'pair_display':     _display,
+                    'win_rate':         row['win_rate'],
+                    'profit_factor':    row['profit_factor'],
+                    'expectancy':       row['expectancy'],
+                    'avg_gain':         row['avg_gain'],
+                    'avg_loss':         row['avg_loss'],
+                    'signals':          row['total'],
+                    'best_regime':      row.get('best_regime', ''),
+                    'saved_at':         _today_date.today().strftime('%b %d, %Y'),
+                    'entry_price':      None,
+                    'save_type':        'combo',
+                    'risk_val':         risk_val,
+                    'reward_val':       reward_val,
+                    'period_label':     period_label,
+                    'combo_indicators': _display,
                 }
                 upsert_favorite(_user, _new_fav)
                 st.session_state.favorites.append(_new_fav)

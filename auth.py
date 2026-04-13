@@ -61,6 +61,18 @@ def init_db():
             conn.execute("ALTER TABLE user_favorites ADD COLUMN stock_name TEXT")
         except Exception:
             pass  # column already exists
+        # Advanced save system: type + analysis settings
+        for _col_ddl in [
+            "ALTER TABLE user_favorites ADD COLUMN save_type TEXT DEFAULT 'strategy'",
+            "ALTER TABLE user_favorites ADD COLUMN risk_val INTEGER DEFAULT 1",
+            "ALTER TABLE user_favorites ADD COLUMN reward_val INTEGER DEFAULT 2",
+            "ALTER TABLE user_favorites ADD COLUMN period_label TEXT DEFAULT 'Medium (63d)'",
+            "ALTER TABLE user_favorites ADD COLUMN combo_indicators TEXT",
+        ]:
+            try:
+                conn.execute(_col_ddl)
+            except Exception:
+                pass
         conn.commit()
 
 
@@ -88,8 +100,8 @@ def upsert_favorite(username: str, fav: dict) -> None:
             INSERT INTO user_favorites
               (username, fav_id, symbol, pair, pair_display, win_rate, profit_factor,
                expectancy, avg_gain, avg_loss, signals, best_regime, saved_at, entry_price,
-               stock_name)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+               stock_name, save_type, risk_val, reward_val, period_label, combo_indicators)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             ON CONFLICT(username, fav_id) DO UPDATE SET
               symbol=excluded.symbol, pair=excluded.pair,
               pair_display=excluded.pair_display, win_rate=excluded.win_rate,
@@ -97,7 +109,10 @@ def upsert_favorite(username: str, fav: dict) -> None:
               avg_gain=excluded.avg_gain, avg_loss=excluded.avg_loss,
               signals=excluded.signals, best_regime=excluded.best_regime,
               saved_at=excluded.saved_at, entry_price=excluded.entry_price,
-              stock_name=excluded.stock_name
+              stock_name=excluded.stock_name,
+              save_type=excluded.save_type, risk_val=excluded.risk_val,
+              reward_val=excluded.reward_val, period_label=excluded.period_label,
+              combo_indicators=excluded.combo_indicators
         """, (
             username,
             fav.get('id', ''),
@@ -114,6 +129,11 @@ def upsert_favorite(username: str, fav: dict) -> None:
             fav.get('saved_at', ''),
             fav.get('entry_price', None),
             fav.get('stock_name', ''),
+            fav.get('save_type', 'strategy'),
+            fav.get('risk_val', 1),
+            fav.get('reward_val', 2),
+            fav.get('period_label', 'Medium (63d)'),
+            fav.get('combo_indicators', ''),
         ))
         conn.commit()
 

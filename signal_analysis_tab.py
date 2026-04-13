@@ -2,7 +2,7 @@
 import pandas as pd
 import numpy as np
 from math import sqrt as _sqrt
-from favorites_tab import render_save_button
+from favorites_tab import render_save_button, render_save_indicator_button, render_save_combo_button
 from ui_helpers import insight_toggle
 
 
@@ -463,6 +463,7 @@ def signal_analysis_tab(df, info_icon):
                     except Exception:
                         pass
 
+                render_save_indicator_button(idx, ind, risk_val, reward_val, _period_label)
                 st.markdown("<div style='margin-bottom:1.5rem;'></div>", unsafe_allow_html=True)
 
     # â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
@@ -781,8 +782,11 @@ def signal_analysis_tab(df, info_icon):
                 champ_pf  = champ.get("profit_factor", 0)
                 champ_lp  = 100 - champ_wr
                 ea_col    = "#81c784" if champ_ea > 0 else BEAR
-                con_col   = "#81c784" if champ_con < 15 else "#ffb74d"
+                con_col   = "#81c784" if champ_con < 8 else ("#ffb74d" if champ_con < 15 else "#ef5350")
                 pf_col    = "#81c784" if champ_pf >= 1.5 else "#ffb74d"
+                _pf_tag   = "Very Strong" if champ_pf >= 2 else ("Strong" if champ_pf >= 1.5 else ("Decent" if champ_pf >= 1 else "Losing"))
+                _ea_tag   = "Positive edge" if champ_ea > 0 else "Negative edge"
+                _con_tag  = "Stable" if champ_con < 8 else ("Moderate" if champ_con < 15 else "Variable")
 
                 st.markdown(
                     # outer glow wrapper
@@ -840,36 +844,60 @@ def signal_analysis_tab(df, info_icon):
                     f"<span style='font-size:0.68rem;color:{BULL};font-weight:700;'>{champ['wins']} wins ({champ_wr:.1f}%)</span>"
                     f"<span style='font-size:0.68rem;color:{BEAR};font-weight:700;'>{champ['losses']} losses ({champ_lp:.1f}%)</span>"
                     f"</div>"
-                    f"<div style='display:grid;grid-template-columns:repeat(5,1fr);gap:0.35rem;'>"
+                    f"<div style='display:grid;grid-template-columns:repeat(5,1fr);gap:0.4rem;'>"
 
-                    f"<div style='background:rgba(255,255,255,0.04);border:1px solid #303030;border-radius:8px;"
-                    f"padding:0.55rem 0.4rem;text-align:center;'>"
-                    f"<div style='font-size:0.55rem;color:{muted};text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.25rem;'>Signals</div>"
-                    f"<div style='font-size:1.15rem;font-weight:900;color:{text_col};line-height:1;'>{champ['total']}</div>"
+                    # ── Box 1: Signals ──
+                    f"<div style='background:rgba(33,150,243,0.07);border:1px solid rgba(33,150,243,0.2);"
+                    f"border-top:3px solid {INFO};border-radius:10px;"
+                    f"padding:0.65rem 0.4rem;text-align:center;'>"
+                    f"<div style='font-size:0.52rem;color:{muted};text-transform:uppercase;"
+                    f"letter-spacing:0.6px;font-weight:700;margin-bottom:0.25rem;'>Signals</div>"
+                    f"<div style='font-size:1.3rem;font-weight:900;color:{INFO};line-height:1;'>{champ['total']}</div>"
+                    f"<div style='font-size:0.5rem;color:{muted};margin-top:0.2rem;'>"
+                    f"{champ['wins']}W &nbsp;/&nbsp; {champ['losses']}L</div>"
                     f"</div>"
 
-                    f"<div style='background:rgba(255,255,255,0.04);border:1px solid #303030;border-radius:8px;"
-                    f"padding:0.55rem 0.4rem;text-align:center;'>"
-                    f"<div style='font-size:0.55rem;color:{muted};text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.25rem;'>Expectancy</div>"
-                    f"<div style='font-size:1.15rem;font-weight:900;color:{ea_col};line-height:1;'>{champ_ea:+.2f}%</div>"
+                    # ── Box 2: Expectancy ──
+                    f"<div style='background:{ea_col}0F;border:1px solid {ea_col}30;"
+                    f"border-top:3px solid {ea_col};border-radius:10px;"
+                    f"padding:0.65rem 0.4rem;text-align:center;'>"
+                    f"<div style='font-size:0.52rem;color:{muted};text-transform:uppercase;"
+                    f"letter-spacing:0.6px;font-weight:700;margin-bottom:0.25rem;'>Expectancy</div>"
+                    f"<div style='font-size:1.3rem;font-weight:900;color:{ea_col};line-height:1;'>{champ_ea:+.2f}%</div>"
+                    f"<div style='font-size:0.5rem;color:{ea_col};margin-top:0.2rem;font-weight:600;'>"
+                    f"{_ea_tag}</div>"
                     f"</div>"
 
-                    f"<div style='background:rgba(255,255,255,0.04);border:1px solid #303030;border-radius:8px;"
-                    f"padding:0.55rem 0.4rem;text-align:center;'>"
-                    f"<div style='font-size:0.55rem;color:{muted};text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.25rem;'>Profit Factor</div>"
-                    f"<div style='font-size:1.15rem;font-weight:900;color:{pf_col};line-height:1;'>{champ_pf:.2f}</div>"
+                    # ── Box 3: Profit Factor ──
+                    f"<div style='background:{pf_col}0F;border:1px solid {pf_col}30;"
+                    f"border-top:3px solid {pf_col};border-radius:10px;"
+                    f"padding:0.65rem 0.4rem;text-align:center;'>"
+                    f"<div style='font-size:0.52rem;color:{muted};text-transform:uppercase;"
+                    f"letter-spacing:0.6px;font-weight:700;margin-bottom:0.25rem;'>Profit Factor</div>"
+                    f"<div style='font-size:1.3rem;font-weight:900;color:{pf_col};line-height:1;'>{champ_pf:.2f}</div>"
+                    f"<div style='font-size:0.5rem;color:{pf_col};margin-top:0.2rem;font-weight:600;'>"
+                    f"{_pf_tag}</div>"
                     f"</div>"
 
-                    f"<div style='background:rgba(255,255,255,0.04);border:1px solid #303030;border-radius:8px;"
-                    f"padding:0.55rem 0.4rem;text-align:center;'>"
-                    f"<div style='font-size:0.55rem;color:{muted};text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.25rem;'>Combo Size</div>"
-                    f"<div style='font-size:1.15rem;font-weight:900;color:{INFO};line-height:1;'>{champ['size']}-Way</div>"
+                    # ── Box 4: Combo Size ──
+                    f"<div style='background:rgba(156,39,176,0.07);border:1px solid rgba(156,39,176,0.2);"
+                    f"border-top:3px solid {PURP};border-radius:10px;"
+                    f"padding:0.65rem 0.4rem;text-align:center;'>"
+                    f"<div style='font-size:0.52rem;color:{muted};text-transform:uppercase;"
+                    f"letter-spacing:0.6px;font-weight:700;margin-bottom:0.25rem;'>Combo Size</div>"
+                    f"<div style='font-size:1.3rem;font-weight:900;color:{PURP};line-height:1;'>{champ['size']}-Way</div>"
+                    f"<div style='font-size:0.5rem;color:{muted};margin-top:0.2rem;'>indicators</div>"
                     f"</div>"
 
-                    f"<div style='background:rgba(255,255,255,0.04);border:1px solid #303030;border-radius:8px;"
-                    f"padding:0.55rem 0.4rem;text-align:center;'>"
-                    f"<div style='font-size:0.55rem;color:{muted};text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.25rem;'>Consistency</div>"
-                    f"<div style='font-size:1.15rem;font-weight:900;color:{con_col};line-height:1;'>{champ_con:.1f}%</div>"
+                    # ── Box 5: Consistency ──
+                    f"<div style='background:{con_col}0F;border:1px solid {con_col}30;"
+                    f"border-top:3px solid {con_col};border-radius:10px;"
+                    f"padding:0.65rem 0.4rem;text-align:center;'>"
+                    f"<div style='font-size:0.52rem;color:{muted};text-transform:uppercase;"
+                    f"letter-spacing:0.6px;font-weight:700;margin-bottom:0.25rem;'>Consistency</div>"
+                    f"<div style='font-size:1.3rem;font-weight:900;color:{con_col};line-height:1;'>{champ_con:.1f}%</div>"
+                    f"<div style='font-size:0.5rem;color:{con_col};margin-top:0.2rem;font-weight:600;'>"
+                    f"{_con_tag}</div>"
                     f"</div>"
 
                     f"</div></div></div>"  # end stats grid, right col, 2-col grid
@@ -888,8 +916,7 @@ def signal_analysis_tab(df, info_icon):
                     f"</div>",
                     unsafe_allow_html=True,
                 )
-
-                # Top-10 strip (2 rows x 5)
+                render_save_combo_button(0, champ, _all_names, risk_val, reward_val, _period_label)
                 for _row_start in [0, 5]:
                     _strip_items = all_combo_data[_row_start:_row_start + 5]
                     if not _strip_items:
@@ -1116,6 +1143,9 @@ def signal_analysis_tab(df, info_icon):
                         for _ci, _cr in enumerate(_top_n):
                             _cac4 = combo_accent_cycle[_ci % len(combo_accent_cycle)]
                             _make_combo_card(_cr, f"#{_ci + 1}", _cac4)
+                            render_save_combo_button(
+                                _ci + _sv * 100, _cr, _all_names, risk_val, reward_val, _period_label
+                            )
 
                         # Remaining in table
                         if _rest2:
