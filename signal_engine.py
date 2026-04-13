@@ -717,9 +717,15 @@ def find_consensus_signals(_signals_df):
 
 @st.cache_data(show_spinner=False, ttl=300)
 
-def analyze_indicator_combinations(_signals_df, _df, profit_target=0.05, holding_period=20, stop_loss=0.03):
+def analyze_indicator_combinations(_signals_df, _df, profit_target=0.05, holding_period=20, stop_loss=0.03, max_combo_size=4):
 
-    """Analyze performance of indicator combinations with advanced metrics."""
+    """Analyse ALL indicator combinations from 2-way pairs up to max_combo_size-way.
+
+    Each combination fires only when ALL its indicators signal a buy on the same bar.
+    Results are sorted by combo size so the caller can group/filter by size.
+    """
+
+    from itertools import combinations as _ic
 
     signals_df = _signals_df
 
@@ -745,19 +751,23 @@ def analyze_indicator_combinations(_signals_df, _df, profit_target=0.05, holding
 
 
 
-    # 2-indicator combinations
+    # Exhaustive combinations: 2-way, 3-way, … up to max_combo_size-way
 
-    for i in range(len(buy_indicators)):
+    for combo_size in range(2, min(max_combo_size + 1, len(buy_indicators) + 1)):
 
-        for j in range(i+1, len(buy_indicators)):
+        for combo_inds in _ic(buy_indicators, combo_size):
 
-            ind1, ind2 = buy_indicators[i], buy_indicators[j]
+            # Fast numpy AND — all indicators must fire on the same bar
 
-            combo_name = f"{ind1} + {ind2}"
+            combined = buy_arrays[combo_inds[0]].copy()
+
+            for _ind in combo_inds[1:]:
+
+                combined = combined & buy_arrays[_ind]
 
 
 
-            both  = np.where((buy_arrays[ind1] == 1) & (buy_arrays[ind2] == 1))[0]
+            both  = np.where(combined == 1)[0]
 
             both  = both[both < n - holding_period]
 
@@ -766,6 +776,10 @@ def analyze_indicator_combinations(_signals_df, _df, profit_target=0.05, holding
             if total == 0:
 
                 continue
+
+
+
+            combo_name = " + ".join(combo_inds)
 
 
 
@@ -958,6 +972,8 @@ def analyze_indicator_combinations(_signals_df, _df, profit_target=0.05, holding
                 'max_loss': min(losses) if losses else 0,
 
                 'signals': signal_records,
+
+                'combo_size': combo_size,
 
                 'regime_performance': {
 
