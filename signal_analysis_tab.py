@@ -721,10 +721,9 @@ def signal_analysis_tab(df, info_icon):
             # ─────────────────────────────────────────────────────────────────
             # 4 ANALYSIS SUB-TABS
             # ─────────────────────────────────────────────────────────────────
-            ctab1, ctab2, ctab3 = st.tabs([
-                "Leaderboard",
+            ctab1, ctab2 = st.tabs([
+                "Combinations",
                 "Regime Champions",
-                "Deep Cards",
             ])
 
             # ── Leaderboard ───────────────────────────────────────────────────
@@ -1056,6 +1055,16 @@ def signal_analysis_tab(df, info_icon):
 
             # ── Deep Cards ────────────────────────────────────────────────────
             with ctab3:
+                st.markdown(
+                    f"<div style='display:flex;align-items:center;gap:0.6rem;"
+                    f"margin:1.8rem 0 1rem 0;'>"
+                    f"<div style='flex:1;height:1px;background:{border};'></div>"
+                    f"<span style='font-size:0.65rem;font-weight:800;text-transform:uppercase;"
+                    f"letter-spacing:1.2px;color:{muted};padding:0 0.6rem;'>Deep Analysis by Combo Size</span>"
+                    f"<div style='flex:1;height:1px;background:{border};'></div>"
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )
                 insight_toggle(
                     "combo_deepcards",
                     "What does 2-Way / 3-Way / 4-Way mean? (click to understand)",
