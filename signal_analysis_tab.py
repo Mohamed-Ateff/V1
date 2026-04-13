@@ -778,29 +778,114 @@ def signal_analysis_tab(df, info_icon):
                 champ_wr  = champ["win_rate"]
                 champ_ea  = champ["expectancy"]
                 champ_con = champ.get("consistency", 0)
+                champ_pf  = champ.get("profit_factor", 0)
+                champ_lp  = 100 - champ_wr
                 ea_col    = "#81c784" if champ_ea > 0 else BEAR
                 con_col   = "#81c784" if champ_con < 15 else "#ffb74d"
+                pf_col    = "#81c784" if champ_pf >= 1.5 else "#ffb74d"
 
                 st.markdown(
-                    f"<div style='background:linear-gradient(135deg,rgba(255,215,0,0.08),rgba(76,175,80,0.06));"
-                    f"border:2px solid rgba(255,215,0,0.38);border-radius:13px;"
-                    f"padding:1.1rem 1.4rem;margin-bottom:1rem;'>"
-                    f"<div style='display:flex;align-items:center;gap:0.45rem;margin-bottom:0.45rem;'>"
-                    f"<span style='font-size:0.56rem;font-weight:800;text-transform:uppercase;"
-                    f"letter-spacing:1px;color:{GOLD};'>BEST COMBINATION OVERALL</span>"
-                    f"<span style='margin-left:auto;font-size:0.56rem;color:{muted};font-weight:600;'>"
-                    f"{total_combos:,} combinations analysed</span>"
+                    # outer glow wrapper
+                    f"<div style='"
+                    f"background:linear-gradient(135deg,rgba(255,215,0,0.07) 0%,rgba(255,215,0,0.03) 50%,rgba(76,175,80,0.05) 100%);"
+                    f"border:2px solid rgba(255,215,0,0.55);"
+                    f"border-radius:16px;"
+                    f"padding:1.6rem 1.8rem 1.4rem 1.8rem;"
+                    f"margin-bottom:1.2rem;"
+                    f"box-shadow:0 0 32px rgba(255,215,0,0.12),0 4px 24px rgba(0,0,0,0.5);"
+                    f"position:relative;overflow:hidden;"
+                    f"'>"
+
+                    # subtle shimmer strip at top
+                    f"<div style='position:absolute;top:0;left:0;right:0;height:3px;"
+                    f"background:linear-gradient(90deg,transparent,{GOLD},transparent);opacity:0.7;'></div>"
+
+                    # top row: crown badge + label + count
+                    f"<div style='display:flex;align-items:center;gap:0.6rem;margin-bottom:1rem;'>"
+                    f"<div style='font-size:1.5rem;line-height:1;'>&#127942;</div>"
+                    f"<div>"
+                    f"<div style='font-size:0.65rem;font-weight:900;text-transform:uppercase;"
+                    f"letter-spacing:1.5px;color:{GOLD};line-height:1;'>Best Combination Overall</div>"
+                    f"<div style='font-size:0.6rem;color:{muted};margin-top:0.2rem;font-weight:500;'>"
+                    f"#1 out of {total_combos:,} combinations tested &mdash; {champ['size']}-Way signal</div>"
                     f"</div>"
-                    f"<div style='display:flex;flex-wrap:wrap;align-items:center;gap:0.25rem;margin-bottom:0.7rem;'>"
+                    f"</div>"
+
+                    # indicator badges row
+                    f"<div style='display:flex;flex-wrap:wrap;align-items:center;gap:0.3rem;margin-bottom:1.1rem;'>"
                     f"{_badges(champ['indicators'])}</div>"
-                    f"<div style='display:grid;grid-template-columns:repeat(6,1fr);gap:0.35rem;'>"
-                    f"<div style='text-align:center;'><div style='font-size:1.5rem;font-weight:900;color:{GOLD};line-height:1;'>{champ_wr:.1f}%</div><div style='font-size:0.5rem;color:{muted};text-transform:uppercase;'>Win Rate</div></div>"
-                    f"<div style='text-align:center;'><div style='font-size:1.5rem;font-weight:900;color:{BULL};line-height:1;'>{champ['wins']}</div><div style='font-size:0.5rem;color:{muted};text-transform:uppercase;'>Winners</div></div>"
-                    f"<div style='text-align:center;'><div style='font-size:1.5rem;font-weight:900;color:{text_col};line-height:1;'>{champ['total']}</div><div style='font-size:0.5rem;color:{muted};text-transform:uppercase;'>Signals</div></div>"
-                    f"<div style='text-align:center;'><div style='font-size:1.5rem;font-weight:900;color:{ea_col};line-height:1;'>{champ_ea:+.2f}%</div><div style='font-size:0.5rem;color:{muted};text-transform:uppercase;'>Expectancy</div></div>"
-                    f"<div style='text-align:center;'><div style='font-size:1.5rem;font-weight:900;color:{INFO};line-height:1;'>{champ['size']}-Way</div><div style='font-size:0.5rem;color:{muted};text-transform:uppercase;'>Combo Size</div></div>"
-                    f"<div style='text-align:center;'><div style='font-size:1.5rem;font-weight:900;color:{con_col};line-height:1;'>{champ_con:.1f}%</div><div style='font-size:0.5rem;color:{muted};text-transform:uppercase;'>Std Dev</div></div>"
-                    f"</div></div>",
+
+                    # big win rate + win/loss bar + secondary stats split
+                    f"<div style='display:grid;grid-template-columns:auto 1fr;gap:1.5rem;align-items:center;margin-bottom:1rem;'>"
+
+                    # left: giant win rate
+                    f"<div style='text-align:center;padding:0.9rem 1.4rem;"
+                    f"background:rgba(255,215,0,0.06);border:1px solid rgba(255,215,0,0.3);"
+                    f"border-radius:12px;min-width:130px;'>"
+                    f"<div style='font-size:0.6rem;font-weight:700;text-transform:uppercase;"
+                    f"letter-spacing:1px;color:{GOLD};margin-bottom:0.3rem;'>Win Rate</div>"
+                    f"<div style='font-size:3.2rem;font-weight:900;color:{GOLD};line-height:1;"
+                    f"letter-spacing:-2px;'>{champ_wr:.1f}<span style='font-size:1.5rem;'>%</span></div>"
+                    f"<div style='font-size:0.62rem;color:{muted};margin-top:0.25rem;'>"
+                    f"{champ['wins']}W &nbsp;/&nbsp; {champ['losses']}L</div>"
+                    f"</div>"
+
+                    # right: win/loss bar + 5 stat pills
+                    f"<div>"
+                    f"<div style='display:flex;border-radius:5px;overflow:hidden;height:8px;margin-bottom:0.35rem;'>"
+                    f"<div style='width:{champ_wr:.1f}%;background:linear-gradient(90deg,#43a047,#66bb6a);'></div>"
+                    f"<div style='width:{champ_lp:.1f}%;background:linear-gradient(90deg,#e53935,#ef5350);'></div>"
+                    f"</div>"
+                    f"<div style='display:flex;justify-content:space-between;margin-bottom:0.85rem;'>"
+                    f"<span style='font-size:0.68rem;color:{BULL};font-weight:700;'>{champ['wins']} wins ({champ_wr:.1f}%)</span>"
+                    f"<span style='font-size:0.68rem;color:{BEAR};font-weight:700;'>{champ['losses']} losses ({champ_lp:.1f}%)</span>"
+                    f"</div>"
+                    f"<div style='display:grid;grid-template-columns:repeat(5,1fr);gap:0.35rem;'>"
+
+                    f"<div style='background:rgba(255,255,255,0.04);border:1px solid #303030;border-radius:8px;"
+                    f"padding:0.55rem 0.4rem;text-align:center;'>"
+                    f"<div style='font-size:0.55rem;color:{muted};text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.25rem;'>Signals</div>"
+                    f"<div style='font-size:1.15rem;font-weight:900;color:{text_col};line-height:1;'>{champ['total']}</div>"
+                    f"</div>"
+
+                    f"<div style='background:rgba(255,255,255,0.04);border:1px solid #303030;border-radius:8px;"
+                    f"padding:0.55rem 0.4rem;text-align:center;'>"
+                    f"<div style='font-size:0.55rem;color:{muted};text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.25rem;'>Expectancy</div>"
+                    f"<div style='font-size:1.15rem;font-weight:900;color:{ea_col};line-height:1;'>{champ_ea:+.2f}%</div>"
+                    f"</div>"
+
+                    f"<div style='background:rgba(255,255,255,0.04);border:1px solid #303030;border-radius:8px;"
+                    f"padding:0.55rem 0.4rem;text-align:center;'>"
+                    f"<div style='font-size:0.55rem;color:{muted};text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.25rem;'>Profit Factor</div>"
+                    f"<div style='font-size:1.15rem;font-weight:900;color:{pf_col};line-height:1;'>{champ_pf:.2f}</div>"
+                    f"</div>"
+
+                    f"<div style='background:rgba(255,255,255,0.04);border:1px solid #303030;border-radius:8px;"
+                    f"padding:0.55rem 0.4rem;text-align:center;'>"
+                    f"<div style='font-size:0.55rem;color:{muted};text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.25rem;'>Combo Size</div>"
+                    f"<div style='font-size:1.15rem;font-weight:900;color:{INFO};line-height:1;'>{champ['size']}-Way</div>"
+                    f"</div>"
+
+                    f"<div style='background:rgba(255,255,255,0.04);border:1px solid #303030;border-radius:8px;"
+                    f"padding:0.55rem 0.4rem;text-align:center;'>"
+                    f"<div style='font-size:0.55rem;color:{muted};text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.25rem;'>Consistency</div>"
+                    f"<div style='font-size:1.15rem;font-weight:900;color:{con_col};line-height:1;'>{champ_con:.1f}%</div>"
+                    f"</div>"
+
+                    f"</div></div></div>"  # end stats grid, right col, 2-col grid
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )
+                # best regime badge (built separately to avoid quote nesting)
+                _champ_br      = champ["best_regime"] or "N/A"
+                _champ_br_col  = regime_color_map.get(champ["best_regime"], GOLD)
+                _champ_br_pct  = champ["regime_perf"].get(champ["best_regime"], 0)
+                st.markdown(
+                    f"<div style='margin-top:-0.6rem;margin-bottom:1.2rem;font-size:0.68rem;color:{muted};"
+                    f"padding:0.5rem 1.8rem;'>"
+                    f"Best regime: <strong style='color:{_champ_br_col};font-size:0.72rem;'>"
+                    f"{_champ_br} &mdash; {_champ_br_pct:.0f}% win rate in that regime</strong>"
+                    f"</div>",
                     unsafe_allow_html=True,
                 )
 
@@ -811,20 +896,20 @@ def signal_analysis_tab(df, info_icon):
                         break
                     _sh = (
                         f"<div style='display:grid;grid-template-columns:repeat({len(_strip_items)},1fr);"
-                        f"gap:0.35rem;margin-bottom:0.35rem;'>"
+                        f"gap:0.4rem;margin-bottom:0.4rem;'>"
                     )
                     for _sti, _str in enumerate(_strip_items):
                         _idx  = _row_start + _sti
                         _stac = combo_accent_cycle[_idx % len(combo_accent_cycle)]
                         _sh += (
                             f"<div style='background:{BG2};border:1px solid {border};"
-                            f"border-top:2px solid {_stac};border-radius:8px;padding:0.55rem 0.32rem;text-align:center;'>"
-                            f"<div style='font-size:0.48rem;color:{muted};font-weight:700;margin-bottom:0.1rem;'>#{_idx+1} | {_str['size']}-Way</div>"
-                            f"<div style='font-size:0.55rem;font-weight:800;color:{_stac};line-height:1.3;'>"
+                            f"border-top:3px solid {_stac};border-radius:9px;padding:0.65rem 0.4rem;text-align:center;'>"
+                            f"<div style='font-size:0.55rem;color:{muted};font-weight:700;margin-bottom:0.15rem;'>#{_idx+1} &nbsp;|&nbsp; {_str['size']}-Way</div>"
+                            f"<div style='font-size:0.65rem;font-weight:800;color:{_stac};line-height:1.35;margin-bottom:0.2rem;'>"
                             + " + ".join(_all_names.get(p, p) for p in _str["indicators"])
                             + f"</div>"
-                            f"<div style='font-size:0.92rem;font-weight:900;color:{text_col};'>{_str['win_rate']:.0f}%</div>"
-                            f"<div style='font-size:0.52rem;color:{muted};'>{_str['total']} sig | exp {_str['expectancy']:+.1f}%</div>"
+                            f"<div style='font-size:1.15rem;font-weight:900;color:{text_col};line-height:1;'>{_str['win_rate']:.0f}%</div>"
+                            f"<div style='font-size:0.6rem;color:{muted};margin-top:0.1rem;'>{_str['total']} sig &nbsp;&bull;&nbsp; exp {_str['expectancy']:+.1f}%</div>"
                             f"</div>"
                         )
                     _sh += "</div>"
@@ -856,8 +941,8 @@ def signal_analysis_tab(df, info_icon):
                     })
                 _tbl_df = pd.DataFrame(_tbl_rows).set_index("Rank")
                 st.markdown(
-                    f"<div style='font-size:0.6rem;color:{muted};margin-bottom:0.3rem;font-weight:600;'>"
-                    f"Click any column header to sort | {total_combos:,} combinations:</div>",
+                    f"<div style='font-size:0.7rem;color:{muted};margin-bottom:0.35rem;font-weight:600;'>"
+                    f"Click any column header to sort &nbsp;&bull;&nbsp; {total_combos:,} combinations:</div>",
                     unsafe_allow_html=True,
                 )
                 st.dataframe(_tbl_df, use_container_width=True, height=500)
@@ -946,20 +1031,48 @@ def signal_analysis_tab(df, info_icon):
             with ctab3:
                 insight_toggle(
                     "combo_deepcards",
-                    "How to read a Deep Card?",
-                    "<p>Each card shows the full picture for one combination. Here is what every field means:</p>"
+                    "What does 2-Way / 3-Way / 4-Way mean? (click to understand)",
+                    "<h4 style='margin:0 0 0.6rem 0;color:#fff;font-size:0.9rem;'>What is a N-Way Combination?</h4>"
+                    "<p>A <strong>combination</strong> means: multiple indicators all agreed at the same moment and a trade signal fired. "
+                    "The number tells you how many indicators had to agree together:</p>"
+                    "<div style='display:grid;grid-template-columns:repeat(2,1fr);gap:0.5rem;margin:0.6rem 0;'>"
+                    "<div style='background:rgba(33,150,243,0.08);border:1px solid rgba(33,150,243,0.25);border-radius:8px;padding:0.6rem 0.8rem;'>"
+                    "<div style='font-size:1.1rem;font-weight:900;color:#90caf9;'>2-Way</div>"
+                    "<div style='font-size:0.72rem;color:#e0e0e0;line-height:1.5;margin-top:0.25rem;'>"
+                    "Two indicators fired at the same bar. Example: RSI went oversold <strong>AND</strong> MACD crossed bullish at the same candle. "
+                    "More signals, easier to trigger.</div></div>"
+                    "<div style='background:rgba(76,175,80,0.08);border:1px solid rgba(76,175,80,0.25);border-radius:8px;padding:0.6rem 0.8rem;'>"
+                    "<div style='font-size:1.1rem;font-weight:900;color:#81c784;'>3-Way</div>"
+                    "<div style='font-size:0.72rem;color:#e0e0e0;line-height:1.5;margin-top:0.25rem;'>"
+                    "Three indicators all agreed. Example: RSI oversold <strong>AND</strong> MACD bullish cross <strong>AND</strong> price above EMA. "
+                    "Rarer signal but higher conviction.</div></div>"
+                    "<div style='background:rgba(255,215,0,0.06);border:1px solid rgba(255,215,0,0.25);border-radius:8px;padding:0.6rem 0.8rem;'>"
+                    "<div style='font-size:1.1rem;font-weight:900;color:#FFD700;'>4-Way</div>"
+                    "<div style='font-size:0.72rem;color:#e0e0e0;line-height:1.5;margin-top:0.25rem;'>"
+                    "Four indicators in agreement simultaneously. Very rare but extremely high confidence when it happens. "
+                    "Fewer total trades but often a better win rate.</div></div>"
+                    "<div style='background:rgba(156,39,176,0.08);border:1px solid rgba(156,39,176,0.25);border-radius:8px;padding:0.6rem 0.8rem;'>"
+                    "<div style='font-size:1.1rem;font-weight:900;color:#ce93d8;'>5 / 6-Way</div>"
+                    "<div style='font-size:0.72rem;color:#e0e0e0;line-height:1.5;margin-top:0.25rem;'>"
+                    "Five or six indicators must all align. Extremely rare signals -- only appears a handful of times per year. "
+                    "Use these as ultra-high-confidence confirmation only.</div></div>"
+                    "</div>"
+                    "<p style='margin-top:0.5rem;'><strong style='color:#FFD700;'>The trade-off:</strong> more indicators = fewer signals but higher quality. "
+                    "Fewer indicators = more signals but more noise. Compare the win rates across sizes in the Leaderboard tab to find your sweet spot.</p>"
+                    "<hr style='border:none;border-top:1px solid #303030;margin:0.8rem 0;'>"
+                    "<p style='font-weight:700;color:#fff;margin-bottom:0.4rem;'>Each card below shows the full picture for one combination:</p>"
                     "<ul>"
                     "<li><strong>Win % bar</strong> -- green = wins, red = losses, split proportionally.</li>"
                     "<li><strong>Avg Gain / Avg Loss</strong> -- average size of winning vs losing trades.</li>"
                     "<li><strong>Avg Hold</strong> -- average number of days the trade was open before closing.</li>"
                     "<li><strong>Profit Factor</strong> -- total profit divided by total loss. Above 1.5 is strong.</li>"
                     "<li><strong>Expectancy</strong> -- average money made per trade. Positive = edge exists.</li>"
-                    "<li><strong>Wilson Score</strong> -- a confidence-adjusted win rate that penalises small sample sizes.</li>"
+                    "<li><strong>Wilson Score</strong> -- confidence-adjusted win rate that penalises small sample sizes.</li>"
                     "<li><strong>Max W-Streak / L-Streak</strong> -- longest consecutive winning or losing run.</li>"
                     "<li><strong>Signals/100</strong> -- how frequently this combination fires (per 100 price bars).</li>"
-                    "<li><strong>Consistency (Std Dev)</strong> -- how stable the monthly win rate is. Lower = more consistent all year.</li>"
-                    "<li><strong>Monthly bars</strong> -- each bar = one month. Taller green = high win rate that month. Shows seasonality.</li>"
-                    "<li><strong>Trade history</strong> -- expand to see every individual trade with its entry, exit, gain, and regime.</li>"
+                    "<li><strong>Consistency (Std Dev)</strong> -- how stable the monthly win rate is. Lower = more reliable all year.</li>"
+                    "<li><strong>Monthly bars</strong> -- each bar = one month. Taller green = high win rate that month.</li>"
+                    "<li><strong>Trade history</strong> -- expand to see every individual trade with entry, exit, gain, and regime.</li>"
                     "</ul>"
                 )
                 _sz_names = {
