@@ -8,6 +8,7 @@ Decision Intelligence engine (same as Decision tab).
 import streamlit as st
 import numpy as np
 import pandas as pd
+from ui_helpers import insight_toggle
 
 # ── Design tokens (match rest of app) ────────────────────────────────────────
 BULL  = "#4caf50"
@@ -407,7 +408,18 @@ def trade_validator_tab(df, latest, current_price):
     #  WHY — Key reasons behind the verdict
     # ══════════════════════════════════════════════════════════════════════════
     st.markdown(_sec("Why This Verdict — Key Factors", act_col), unsafe_allow_html=True)
-
+    insight_toggle(
+        "tv_verdict",
+        "How is this verdict determined?",
+        "<p>The Trade Validator runs the current trade setup through every analytical engine simultaneously "
+        "and weighs the evidence. The verdict is determined by the <strong>net weight of all signals</strong>:</p>"
+        "<div class='itog-row'><span class='itog-dot'></span><span><strong>Strong BUY</strong> &mdash; 4 or more engines confirm bullish setup with high confidence.</span></div>"
+        "<div class='itog-row'><span class='itog-dot'></span><span><strong>Weak BUY</strong> &mdash; Majority bullish but some engines are neutral or conflicted.</span></div>"
+        "<div class='itog-row'><span class='itog-dot'></span><span><strong>HOLD / NEUTRAL</strong> &mdash; Mixed signals. The evidence is split; waiting for clarity is recommended.</span></div>"
+        "<div class='itog-row'><span class='itog-dot'></span><span><strong>AVOID</strong> &mdash; Multiple engines flagging bearish conditions or invalid setup structure.</span></div>"
+        "<p>Each key factor listed below shows exactly which part of the analysis pushed the verdict in its direction.</p>"
+    )
+    
     factors        = d.get("factors", [])
     sorted_factors = sorted(factors, key=lambda f: abs(f["pts"]), reverse=True)
     top_bull       = [f for f in sorted_factors if f["pts"] > 0][:5]
@@ -490,7 +502,19 @@ def trade_validator_tab(df, latest, current_price):
     #  ENGINE CONSENSUS
     # ══════════════════════════════════════════════════════════════════════════
     st.markdown(_sec("Cross-Engine Consensus", INFO), unsafe_allow_html=True)
-
+    insight_toggle(
+        "tv_consensus",
+        "What is Cross-Engine Consensus?",
+        "<p>The platform has 5 independent analytical engines, each looking at the market from a different lens:</p>"
+        "<div class='itog-row'><span class='itog-dot'></span><span><strong>Signal Engine</strong> &mdash; Classic technical indicators (EMA, MACD, RSI, Volume).</span></div>"
+        "<div class='itog-row'><span class='itog-dot'></span><span><strong>Price Action Engine</strong> &mdash; Chart patterns, candlestick formations, Bull/Bear score.</span></div>"
+        "<div class='itog-row'><span class='itog-dot'></span><span><strong>Volume Profile Engine</strong> &mdash; Where institutions traded (POC, VAH, VAL, HPZ).</span></div>"
+        "<div class='itog-row'><span class='itog-dot'></span><span><strong>SMC Engine</strong> &mdash; Smart Money Concepts: order blocks, FVGs, liquidity zones.</span></div>"
+        "<div class='itog-row'><span class='itog-dot'></span><span><strong>Regime Engine</strong> &mdash; What market state are we in: Trend, Range, or Volatile?</span></div>"
+        "<p>When all 5 engines agree, the trade setup has the highest probability of success. "
+        "When they conflict, the validator shows you exactly which engines disagree and why.</p>"
+    )
+    
     # ── Weighted summary header ──────────────────────────────────────────────
     total_w  = sum(v['weight'] for v in verdicts.values())
     agree_w  = sum(v['weight'] for v in verdicts.values() if v['verdict'] == 'agree')

@@ -3,6 +3,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import pandas as pd
 import numpy as np
+from ui_helpers import insight_toggle
 
 BULL  = "#4caf50"
 BEAR  = "#f44336"
@@ -445,7 +446,19 @@ def volume_profile_tab(df, current_price):
 
     # ══ 2. KEY PRICE LEVELS — Volume Based ═══════════════════════════════════
     st.markdown(_sec("Key Price Levels — Volume Based", PURP), unsafe_allow_html=True)
-
+    insight_toggle(
+        "vp_levels",
+        "What are POC, VAH, and VAL?",
+        "<p><strong>Point of Control (POC)</strong> &mdash; The exact price where the most volume was traded. "
+        "This is the market's 'fair value' anchor. Price tends to return here when it drifts away.</p>"
+        "<p><strong>Value Area High (VAH)</strong> &mdash; The upper boundary of the price range that contained 70% of all trading volume. "
+        "Acting as resistance: price above VAH is trading in 'premium' territory.</p>"
+        "<p><strong>Value Area Low (VAL)</strong> &mdash; The lower boundary of the 70% value area. "
+        "Acting as support: price below VAL is trading in 'discount' territory and often attracts buyers.</p>"
+        "<p>When price is <strong>inside the Value Area</strong>, there is high acceptance &mdash; price may range. "
+        "When price breaks <strong>outside</strong>, it often moves fast until it finds a new value area.</p>"
+    )
+    
     hvns_above = sorted([v for v in vp["hvns"] if v > current_price])
     hvns_below = sorted([v for v in vp["hvns"] if v < current_price], reverse=True)
     lvns_above = sorted([v for v in vp["lvns"] if v > current_price])
@@ -513,6 +526,17 @@ def volume_profile_tab(df, current_price):
 
     # ══ 4. CHART ══════════════════════════════════════════════════════════════
     st.markdown(_sec("Volume Profile Chart", INFO), unsafe_allow_html=True)
+    insight_toggle(
+        "vp_chart",
+        "How to read the Volume Profile chart?",
+        "<p>The horizontal bars show how much volume was traded at each price level. "
+        "<strong>Tall bars</strong> = high-acceptance zones where buyers and sellers agreed heavily on price.</p>"
+        "<p><strong>Short bars</strong> = low-volume nodes (LVNs) where price moved quickly and held briefly. "
+        "These are often where price accelerates through in the future.</p>"
+        "<p>The <strong style='color:#ff9800'>orange line</strong> marks the Point of Control (POC). "
+        "Price above the POC tends to be bullish; below is bearish. "
+        "Breakouts from the Value Area with volume confirmation are the highest-conviction setups.</p>"
+    )
     fig = _build_vp_chart(df, vp, sig, current_price, tail=90)
     st.plotly_chart(fig, width='stretch', config={"displayModeBar": False})
 

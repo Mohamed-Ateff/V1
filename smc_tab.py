@@ -8,6 +8,7 @@ import streamlit as st
 import plotly.graph_objects as go
 import pandas as pd
 import numpy as np
+from ui_helpers import insight_toggle
 
 # ── Design tokens (match rest of app) ────────────────────────────────────────
 BULL  = "#4caf50"
@@ -716,7 +717,21 @@ def smc_tab(df, current_price):
 
     # ── 4 SIGNAL CARDS in a single 4-column row ────────────────────────────
     st.markdown(_sec("SMC Signal Breakdown", PURP), unsafe_allow_html=True)
-
+    insight_toggle(
+        "smc_breakdown",
+        "What are Smart Money Concepts (SMC)?",
+        "<p><strong>Order Blocks (OB)</strong> &mdash; The last bullish or bearish candle before a strong impulsive move. "
+        "Institutions place large orders here, making these zones high-probability reversal areas.</p>"
+        "<p><strong>Fair Value Gaps (FVG)</strong> &mdash; Price imbalances created when the market moved so fast that the buy/sell orders were not filled. "
+        "Price tends to fill these gaps before continuing in the original direction.</p>"
+        "<p><strong>Change of Character (CHoCH)</strong> &mdash; The first sign that a trend may be reversing. "
+        "In an uptrend: price breaks below the previous swing low for the first time.</p>"
+        "<p><strong>Break of Structure (BOS)</strong> &mdash; Confirms the trend is continuing. "
+        "In an uptrend: price breaks above the previous swing high, confirming bullish momentum.</p>"
+        "<p><strong>Liquidity Sweeps</strong> &mdash; Smart money triggers stop-losses clustered above swing highs or below swing lows "
+        "to grab liquidity before reversing. A sweep followed by a strong rejection is a powerful entry signal.</p>"
+    )
+    
     sc1, sc2, sc3, sc4 = st.columns(4, gap="small")
 
     # ── helper: compact signal card

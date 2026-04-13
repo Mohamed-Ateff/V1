@@ -2915,23 +2915,13 @@ def main():
                                         st.session_state.mkt_period = _pk
                                         st.rerun()
 
-                    # Action buttons — 4 columns: Saved | Pulse | Macro | User
-                    _b1, _bp, _bm, _b2 = st.columns(4, gap="small")
+                    # Action buttons — 2 columns: Saved | User
+                    _b1, _b2 = st.columns(2, gap="small")
                     with _b1:
                         with st.container(key="btn_saved"):
                             _fav_lbl = f"♡  Saved · {fav_count}" if has_favs else "♡  Saved"
                             if st.button(_fav_lbl, key="toolbar_fav", width="stretch"):
                                 st.session_state.show_favorites_panel = not st.session_state.get('show_favorites_panel', False)
-                                st.rerun()
-                    with _bp:
-                        with st.container(key="btn_pulse"):
-                            if st.button("📡 Pulse", key="toolbar_pulse", width="stretch"):
-                                st.session_state.show_market_pulse = True
-                                st.rerun()
-                    with _bm:
-                        with st.container(key="btn_macro"):
-                            if st.button("🌍 Macro", key="toolbar_macro", width="stretch"):
-                                st.session_state.show_macro = True
                                 st.rerun()
                     with _b2:
                         with st.container(key="btn_user"):
@@ -3212,50 +3202,6 @@ def main():
                             label_visibility="collapsed",
                         )
 
-                        # ── Shared filter renderer ──────────────────────────
-                        def _render_scan_filters(suffix=""):
-                            """Render filter controls and return current values."""
-                            _SECTORS = ["All Sectors", "Banks", "Petrochemicals", "Cement",
-                                        "Utilities", "Telecom & Tech", "Insurance", "Food & Agri",
-                                        "REITs", "Retail", "Healthcare", "Transport", "Real Estate", "Other"]
-
-                            st.markdown("<div class='cp-input-label' style='margin-top:0.7rem;'>Filters</div>", unsafe_allow_html=True)
-
-                            # Signal type
-                            st.markdown("<div style='font-size:0.65rem;color:#666;margin-bottom:0.25rem;'>Signal Type</div>", unsafe_allow_html=True)
-                            _sig_type = st.radio(
-                                "Signal Type", ["All", "Buy Only", "Sell Only"],
-                                horizontal=True, key=f"flt_sig_{suffix}",
-                                label_visibility="collapsed")
-
-                            # Sector
-                            st.markdown("<div style='font-size:0.65rem;color:#666;margin-bottom:0.25rem;margin-top:0.5rem;'>Sector</div>", unsafe_allow_html=True)
-                            _sector = st.selectbox(
-                                "Sector", _SECTORS, index=0,
-                                key=f"flt_sector_{suffix}", label_visibility="collapsed")
-
-                            # Min Score
-                            st.markdown("<div style='font-size:0.65rem;color:#666;margin-bottom:0.1rem;margin-top:0.5rem;'>Min Score</div>", unsafe_allow_html=True)
-                            _min_score = st.slider(
-                                "Min Score", min_value=1, max_value=8, value=1,
-                                key=f"flt_score_{suffix}", label_visibility="collapsed")
-
-                            # Min R:R
-                            st.markdown("<div style='font-size:0.65rem;color:#666;margin-bottom:0.1rem;margin-top:0.5rem;'>Min R:R Ratio</div>", unsafe_allow_html=True)
-                            _min_rr = st.slider(
-                                "Min R:R", min_value=0.0, max_value=5.0, value=0.0, step=0.5,
-                                key=f"flt_rr_{suffix}", label_visibility="collapsed",
-                                format="%.1f×")
-
-                            # Min Conviction
-                            st.markdown("<div style='font-size:0.65rem;color:#666;margin-bottom:0.1rem;margin-top:0.5rem;'>Min Conviction %</div>", unsafe_allow_html=True)
-                            _min_conv = st.slider(
-                                "Min Conviction", min_value=0, max_value=90, value=0, step=5,
-                                key=f"flt_conv_{suffix}", label_visibility="collapsed",
-                                format="%d%%")
-
-                            return _sig_type, _sector, _min_score, _min_rr, _min_conv
-
                         if _scan_mode == "Enter Symbols":
                             st.markdown("<div class='cp-input-label'>Stock Symbols (comma separated)</div>", unsafe_allow_html=True)
                             ma_symbols_input = st.text_input(
@@ -3272,7 +3218,6 @@ def main():
                                 unsafe_allow_html=True)
 
                             ma_start_es, ma_end_es = _render_scan_params("_es")
-                            _es_sig, _es_sec, _es_sc, _es_rr, _es_cv = _render_scan_filters("es")
 
                             if 'ma_results' not in st.session_state:
                                 st.session_state.ma_results = None
@@ -3289,11 +3234,6 @@ def main():
                                     st.session_state.ma_results       = res
                                     st.session_state.ma_scanned_count = len(ma_tickers)
                                     st.session_state.ma_scan_params   = {'start': str(_sd), 'end': str(_ed)}
-                                    st.session_state.ma_filter_sig    = st.session_state.get('flt_sig_es', 'All')
-                                    st.session_state.ma_filter_sector = st.session_state.get('flt_sector_es', 'All Sectors')
-                                    st.session_state.ma_filter_score  = st.session_state.get('flt_score_es', 1)
-                                    st.session_state.ma_filter_rr     = st.session_state.get('flt_rr_es', 0.0)
-                                    st.session_state.ma_filter_conv   = st.session_state.get('flt_conv_es', 0)
                                     st.session_state.show_market_results = True
 
                             st.markdown("<div class='cp-run-wrap'>", unsafe_allow_html=True)
@@ -3319,8 +3259,6 @@ def main():
                                 "Full market scan — takes 1-2 minutes.</div>",
                                 unsafe_allow_html=True)
 
-                            _all_sig, _all_sec, _all_sc, _all_rr, _all_cv = _render_scan_filters("all")
-
                             def run_market_analysis_callback_all():
                                 _pv = {
                                     "3 Months": "3mo",
@@ -3335,11 +3273,6 @@ def main():
                                     st.session_state.ma_scanned_count    = len(ma_tickers_all)
                                     st.session_state.ma_scan_params      = {
                                         "period": st.session_state.get("scr_period_sel", "6 Months")}
-                                    st.session_state.ma_filter_sig    = st.session_state.get('flt_sig_all', 'All')
-                                    st.session_state.ma_filter_sector = st.session_state.get('flt_sector_all', 'All Sectors')
-                                    st.session_state.ma_filter_score  = st.session_state.get('flt_score_all', 1)
-                                    st.session_state.ma_filter_rr     = st.session_state.get('flt_rr_all', 0.0)
-                                    st.session_state.ma_filter_conv   = st.session_state.get('flt_conv_all', 0)
                                     st.session_state.show_market_results = True
 
                             st.markdown("<div class='cp-run-wrap'>", unsafe_allow_html=True)
@@ -4138,86 +4071,127 @@ def main():
                         _op = _bs['price']; _oc5 = _bs['chg_5d']
                         _gap = _op - _SAUDI_OIL_BREAKEVEN
                         _os  = ('+' if _oc5 >= 0 else '') + f'{_oc5:.1f}%'
+                        _oil_metric = f'${_op:.1f}  {_os}'
                         if _op < _SAUDI_OIL_BREAKEVEN - 10:
                             _ctx_stock.append(("OIL CRITICAL", "#ef4444",
-                                f"Brent at ${_op:.1f} — ${abs(_gap):.0f} BELOW the ${_SAUDI_OIL_BREAKEVEN:.0f} breakeven. "
-                                f"This week: {_os}. {'Aramco dividends and Saudi revenues are under real pressure — direct risk to this stock.' if _is_oil_linked else 'Government spending may be cut, reducing sector contracts.'}"))
+                                f"Brent ${_op:.1f} — ${abs(_gap):.0f} below the ${_SAUDI_OIL_BREAKEVEN:.0f} Saudi budget breakeven ({_os} this week). "
+                                f"{'Aramco dividends and Saudi revenues are under severe pressure. Direct risk to stock.' if _is_oil_linked else 'Government spending cuts likely — sector contract flow at risk.'}",
+                                'bear', _oil_metric))
                         elif _op < _SAUDI_OIL_BREAKEVEN:
                             _ctx_stock.append(("OIL BELOW BREAKEVEN", "#f97316",
-                                f"Brent at ${_op:.1f}, this week {_os}. "
-                                f"${abs(_gap):.0f} below Saudi budget line — fiscal pressure is building. "
-                                f"{'Companies in this sector sell oil-linked products. Lower oil = lower selling prices and margins.' if _is_oil_linked else 'Watch for delayed government contracts.'}"))
+                                f"Brent ${_op:.1f} ({_os} this week), ${abs(_gap):.0f} below budget breakeven. "
+                                f"{'Oil-linked product pricing under pressure — watch margins closely.' if _is_oil_linked else 'Fiscal pressure building — watch for delayed government contracts.'}",
+                                'watch', _oil_metric))
                         elif _oc5 > 2:
-                            _ctx_stock.append(("OIL RISING", "#10a37f",
-                                f"Brent at ${_op:.1f}, up {_os} this week — above Saudi budget breakeven by ${_gap:.0f}. "
-                                f"{'Positive for Aramco dividends and Saudi revenue. Tailwind for this stock.' if _is_oil_linked else 'Rising oil strengthens Saudi government cash flow — positive backdrop.'}"))
+                            _ctx_stock.append(("OIL TAILWIND", "#10a37f",
+                                f"Brent ${_op:.1f}, up {_os} this week — ${_gap:.0f} above Saudi breakeven. "
+                                f"{'Strong feedstock cost environment. Aramco dividends and sector revenue supported.' if _is_oil_linked else 'Rising oil strengthens Saudi fiscal position — positive backdrop for government-linked spending.'}",
+                                'bull', _oil_metric))
                         elif _oc5 < -3:
-                            _ctx_stock.append(("OIL FALLING", "#f97316",
-                                f"Brent at ${_op:.1f}, down {_os} this week. "
-                                f"{'Feedstock costs may fall but so does product pricing. Watch margins.' if sector == 'Petrochemicals' else 'Declining oil signals Saudi revenue risk.'}"))
+                            _ctx_stock.append(("OIL DECLINING", "#f97316",
+                                f"Brent ${_op:.1f}, down {_os} this week. "
+                                f"{'Product pricing may compress even as feedstock drops — net margin impact uncertain.' if sector == 'Petrochemicals' else 'Weakening oil signals Saudi revenue headwind — monitor closely.'}",
+                                'watch', _oil_metric))
                     except Exception:
                         pass
 
-            # 2. VIX — if bank, REIT, or globally sensitive
+            # 2. VIX — global fear gauge
             if 'vix' in _sprof['snap_keys'] or _is_bank:
                 _vs = (_msnap or {}).get('vix')
                 if _vs:
                     _vp = _vs['price']
+                    _vix_metric = f'VIX {_vp:.0f}'
                     if _vp > 35:
-                        _ctx_stock.append(("MARKET PANIC", "#ef4444",
-                            f"VIX at {_vp:.0f} — panic-level fear globally. "
-                            f"{'Foreign money is leaving ALL emerging markets. Loan demand collapses in crises.' if _is_bank else 'International investors are selling Saudi holdings to cover losses elsewhere.'}"))
+                        _ctx_stock.append(("EXTREME FEAR", "#ef4444",
+                            f"VIX at {_vp:.0f} — panic-level volatility. Foreign capital is exiting emerging markets aggressively. "
+                            f"{'Credit demand collapses in crises — loan growth stalls, default risk rises.' if _is_bank else 'International investors are unwinding Saudi positions to cover losses elsewhere. Risk is elevated.'}",
+                            'bear', _vix_metric))
                     elif _vp > 25:
-                        _ctx_stock.append(("HIGH FEAR", "#f97316",
-                            f"VIX at {_vp:.0f} — elevated fear. "
-                            f"{'Banks face rising credit risk when fear is high.' if _is_bank else 'Risk-off sentiment puts pressure on this type of stock. Reduce position size.'}"))
+                        _ctx_stock.append(("ELEVATED FEAR", "#f97316",
+                            f"VIX at {_vp:.0f} — markets anxious. Risk-off flows can hit Tadawul as foreign money retreats. "
+                            f"{'Banks face wider credit spreads and tighter lending conditions.' if _is_bank else 'Reduce position sizing — volatility makes entries less reliable.'}",
+                            'watch', _vix_metric))
                     elif _vp < 16:
-                        _ctx_stock.append(("CALM MARKETS", "#10a37f",
-                            f"VIX at {_vp:.0f} — very low fear. "
-                            f"{'Banks can lend freely; risk appetite is strong.' if _is_bank else 'Low volatility supports growth positions. Good conditions for this trade.'}"))
+                        _ctx_stock.append(("LOW VOLATILITY", "#10a37f",
+                            f"VIX at {_vp:.0f} — market calm. Risk appetite is healthy, capital flows are supportive. "
+                            f"{'Banks can grow loan books freely; appetite for credit is strong.' if _is_bank else 'Good conditions for momentum trades — low fear means fewer sudden reversals.'}",
+                            'bull', _vix_metric))
 
-            # 3. Interest rates — if bank or rate-sensitive
+            # 3. Interest rates
             if 'FED & RATES' in _sprof['news_cats']:
+                _rate_metric = f'Macro {_mscore:+d}'
                 if _mscore <= -3:
-                    _ctx_stock.append(("RATES RISK", "#f97316",
-                        f"Global rate environment is a headwind right now (macro score {_mscore}/10). "
-                        f"{'Higher-for-longer rates compress net interest margins on new loans.' if _is_bank else 'Rate sensitivity — higher rates increase financing costs for this sector.'}"))
+                    _ctx_stock.append(("RATE HEADWIND", "#f97316",
+                        f"Rate macro score {_mscore}/10 — conditions are a headwind. "
+                        f"{'Higher-for-longer rates compress net interest margins on new loans.' if _is_bank else 'Elevated rates raise financing costs and pressure growth valuations in this sector.'}",
+                        'watch', _rate_metric))
                 elif _mscore >= 5:
-                    _ctx_stock.append(("RATES SUPPORTIVE", "#10a37f",
-                        f"Rate conditions appear supportive (macro score {_mscore}/10). "
-                        f"{'Rate easing boosts loan margins and credit growth.' if _is_bank else 'Lower rates reduce financing costs and support valuations.'}"))
+                    _ctx_stock.append(("RATES EASING", "#10a37f",
+                        f"Rate macro score {_mscore}/10 — easing conditions are a tailwind. "
+                        f"{'Lower rates stimulate credit demand and expand bank margins.' if _is_bank else 'Falling rates reduce sector financing costs and lift asset valuations.'}",
+                        'bull', _rate_metric))
 
-            # 4. Relevant news headlines filtered for this stock's sectors
+            # 4. Relevant news headlines
             _news_for_stock = [n for n in _filtered_news if n.get('_cat') in _sprof['news_cats']]
             for _ni, _nn in enumerate(_news_for_stock[:2]):
                 _ncat = _nn['_cat']
                 _nwhy = {
                     'OIL & ENERGY':   f"Oil moves directly affect {'revenues and feedstock costs' if _is_oil_linked else 'Saudi government spending and market sentiment'}.",
-                    'GEOPOLITICAL':   "Middle East tensions can disrupt oil supply routes and trigger rapid market selloffs on Tadawul.",
-                    'TRUMP / US':     "US trade and sanctions policy redirects global money flows — Saudi assets included.",
-                    'FED & RATES':    f"{'Rate changes affect bank lending margins directly.' if _is_bank else 'Rate decisions move global capital between markets — Saudi included.'}",
+                    'GEOPOLITICAL':   "Middle East tensions can disrupt supply routes and trigger rapid selling on Tadawul.",
+                    'TRUMP / US':     "US trade and sanctions policy redirects global capital — Saudi assets included.",
+                    'FED & RATES':    f"{'Fed decisions hit bank lending margins directly.' if _is_bank else 'Rate moves shift global capital allocation — Saudi included.'}",
                     'SAUDI DIRECT':   "This directly involves Saudi policy or companies in your sector.",
                     'GLOBAL MARKET':  "Global risk-off events pull foreign investors out of emerging markets like Saudi Arabia.",
                 }.get(_ncat, "This event may affect your trade.")
                 _ctx_stock.append((_ncat, _nn['_col'],
-                    f"{_nn['title']}  —  {_nwhy}"))
+                    f"{_nn['title']} — {_nwhy}",
+                    'news', ''))
 
-            # 5. Fall back if nothing found
+            # 5. Fallback
             if not _ctx_stock:
-                _ctx_stock.append(("NO ALERTS", "#484848",
-                    f"No major events affecting {_sprof['label']} stocks right now. "
-                    f"Conditions appear neutral — {_sprof['why']}"))
+                _ctx_stock.append(("NO ACTIVE ALERTS", "#484848",
+                    f"No major macro events flagged for {_sprof['label']} right now. "
+                    f"{_sprof['why']}",
+                    'neutral', ''))
 
-            # Build per-stock context HTML
-            _stock_ctx_html = "".join(
-                f'<div style="border-left:3px solid {_cc};background:{_cc}09;'
-                f'border-radius:0 7px 7px 0;padding:0.5rem 0.75rem;margin-bottom:0.3rem;">'
-                f'<div style="font-size:0.65rem;font-weight:900;text-transform:uppercase;'
-                f'letter-spacing:0.7px;color:{_cc};margin-bottom:0.18rem;">{_cl}</div>'
-                f'<div style="font-size:0.79rem;color:#c0c0c0;line-height:1.55;">{_ct}</div>'
-                f'</div>'
-                for _cl, _cc, _ct in _ctx_stock
-            )
+            # ── Context HTML builder ──────────────────────────────────────
+            _CTX_ICONS = {
+                'bull':    ('&#9650;', '#10a37f'),   # ▲
+                'bear':    ('&#9660;', '#ef4444'),   # ▼
+                'watch':   ('&#9670;', '#f97316'),   # ◆
+                'neutral': ('&#9679;', '#484848'),   # ●
+                'news':    ('&#8594;', None),        # →  (uses item color)
+            }
+            def _ctx_item_html(entry):
+                _cl, _cc, _ct = entry[0], entry[1], entry[2]
+                _imp = entry[3] if len(entry) > 3 else 'neutral'
+                _met = entry[4] if len(entry) > 4 else ''
+                _icon_char, _icon_col = _CTX_ICONS.get(_imp, ('&#9679;', _cc))
+                _ic = _icon_col if _icon_col else _cc
+                _metric_html = (
+                    f'<span style="font-size:0.65rem;font-weight:800;color:{_cc};'
+                    f'background:{_cc}18;padding:0.1rem 0.45rem;border-radius:4px;'
+                    f'font-family:monospace;white-space:nowrap;letter-spacing:0.3px;">{_met}</span>'
+                    if _met else ''
+                )
+                return (
+                    f'<div style="border-radius:8px;border:1px solid {_cc}20;'
+                    f'background:{_cc}0a;padding:0.6rem 0.8rem;margin-bottom:0.45rem;'
+                    f'border-left:3px solid {_cc};">'
+                    f'<div style="display:flex;align-items:center;'
+                    f'justify-content:space-between;margin-bottom:0.3rem;">'
+                    f'<div style="display:flex;align-items:center;gap:0.35rem;">'
+                    f'<span style="font-size:0.65rem;font-weight:900;color:{_ic};line-height:1;">{_icon_char}</span>'
+                    f'<span style="font-size:0.58rem;font-weight:900;letter-spacing:1.2px;'
+                    f'color:{_cc};text-transform:uppercase;">{_cl}</span>'
+                    f'</div>'
+                    f'{_metric_html}'
+                    f'</div>'
+                    f'<div style="font-size:0.88rem;color:#b8b8b8;line-height:1.6;'
+                    f'padding-left:1.1rem;">{_ct}</div>'
+                    f'</div>'
+                )
+            _stock_ctx_html = "".join(_ctx_item_html(e) for e in _ctx_stock)
 
             dn_pct = (entry - stop) / entry * 100 if entry > 0 else 0
             up_pct = (t1   - entry) / entry * 100  if entry > 0 else 0
@@ -4261,7 +4235,7 @@ def main():
                 f'<div style="display:flex;align-items:flex-start;gap:0.6rem;padding:0.38rem 0;'
                 f'border-bottom:1px solid rgba(255,255,255,0.04);">'
                 f'<span style="color:#10a37f;font-size:0.82rem;line-height:1.4;flex-shrink:0;">&#10003;</span>'
-                f'<span style="font-size:0.84rem;color:#d0d0d0;line-height:1.5;">{b}</span>'
+                f'<span style="font-size:0.92rem;color:#d0d0d0;line-height:1.55;">{b}</span>'
                 f'</div>'
                 for b in bullets
             ) if bullets else '<span style="color:#484848;font-size:0.82rem;">No specific signals recorded</span>'
@@ -4448,15 +4422,23 @@ def main():
                 # ── 2-COL BOTTOM: WHY + MARKET CONTEXT ──
                 f'<div style="display:grid;grid-template-columns:1fr 1fr;border-top:1px solid #222;">'
                 f'<div style="padding:1.1rem 1.4rem;border-right:1px solid #1e1e1e;">'
-                f'<div style="font-size:0.68rem;color:#909090;font-weight:900;text-transform:uppercase;'
+                f'<div style="font-size:0.7rem;color:#707070;font-weight:900;text-transform:uppercase;'
                 f'letter-spacing:1.2px;margin-bottom:0.65rem;padding-bottom:0.32rem;'
                 f'border-bottom:1px solid #222;">WHY THIS STOCK?</div>'
                 + bullet_html +
                 f'</div>'
-                f'<div style="padding:1.1rem 1.4rem;background:#111;">'
-                f'<div style="font-size:0.68rem;color:#909090;font-weight:900;text-transform:uppercase;'
-                f'letter-spacing:1.2px;margin-bottom:0.65rem;padding-bottom:0.32rem;'
-                f'border-bottom:1px solid #222;">MARKET CONTEXT</div>'
+                f'<div style="padding:1.1rem 1.3rem 1.2rem;background:#0d0d0d;">'
+                f'<div style="display:flex;align-items:center;justify-content:space-between;'
+                f'margin-bottom:0.7rem;padding-bottom:0.4rem;border-bottom:1px solid #1e1e1e;">'
+                f'<span style="font-size:0.7rem;color:#606060;font-weight:900;'
+                f'text-transform:uppercase;letter-spacing:1.5px;">Market Context</span>'
+                f'<span style="font-size:0.58rem;font-weight:700;'
+                f'color:{_sprof.get("color","#888")};'
+                f'background:{_sprof.get("color","#888")}18;'
+                f'padding:0.12rem 0.55rem;border-radius:4px;'
+                f'border:1px solid {_sprof.get("color","#888")}35;'
+                f'white-space:nowrap;">{_sprof.get("label", sector or "General")}</span>'
+                f'</div>'
                 + _stock_ctx_html +
                 f'</div>'
                 f'</div>'

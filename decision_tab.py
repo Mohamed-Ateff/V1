@@ -8,6 +8,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
+from ui_helpers import insight_toggle
 
 # Lazy-import sibling modules only when needed to avoid circular imports
 def _import_pa():
@@ -917,8 +918,8 @@ def render_decision_tab(df, symbol_input, stock_name, current_price):
         f"letter-spacing:1.2px;font-weight:700;margin-bottom:0.3rem;'>Signal Strength</div>"
         f"<div style='font-size:3rem;font-weight:900;color:{conf_c};"
         f"line-height:1;letter-spacing:-1px;'>{sig_strength}%</div>"
-        f"<div style='font-size:0.72rem;color:#757575;margin-top:0.2rem;'>"
-        f"{d['bull_n']} of {total_sigs} signals bullish</div>"
+        f"<div style='font-size:0.72rem;color:#aaaaaa;margin-top:0.2rem;'>"
+        f"{d['bull_n']} bullish &nbsp;&middot;&nbsp; {d['bear_n']} bearish &nbsp;&middot;&nbsp; {total_sigs} total groups</div>"
         f"</div>"
         f"</div>"
         # Score bar
@@ -932,7 +933,22 @@ def render_decision_tab(df, symbol_input, stock_name, current_price):
         f"</div>",
         unsafe_allow_html=True,
     )
-
+    insight_toggle(
+        "signal_strength",
+        "How is Signal Strength calculated?",
+        f"<p>The platform scores <strong>{total_sigs} independent indicator groups</strong> — each one examines the market from a different angle:</p>"
+        "<div class='itog-row'><span class='itog-dot'></span><span><strong>EMA Stack</strong> — Are prices above or below the 20/50/200-day moving averages? Full alignment = strongest trend signal.</span></div>"
+        "<div class='itog-row'><span class='itog-dot'></span><span><strong>MACD</strong> — Is momentum increasing bullishly or bearishly? Is the MACD line crossing its signal line?</span></div>"
+        "<div class='itog-row'><span class='itog-dot'></span><span><strong>RSI</strong> — Is the stock oversold (below 35, bounce potential) or overbought (above 70, pullback risk)?</span></div>"
+        "<div class='itog-row'><span class='itog-dot'></span><span><strong>Stochastic</strong> — Fast line crossing from oversold or overbought territory signals potential reversals.</span></div>"
+        "<div class='itog-row'><span class='itog-dot'></span><span><strong>Bollinger Bands</strong> — Is price near or outside the lower band (oversold) or upper band (stretched)?</span></div>"
+        "<div class='itog-row'><span class='itog-dot'></span><span><strong>ADX + Directional Index</strong> — Is there a strong trend direction? Is +DI (bullish momentum) or &minus;DI (bearish) dominant?</span></div>"
+        "<div class='itog-row'><span class='itog-dot'></span><span><strong>Volume &amp; OBV</strong> — Is smart money flowing in (accumulation) or out (distribution)?</span></div>"
+        "<div class='itog-row'><span class='itog-dot'></span><span><strong>Market Regime</strong> — Is the market Trending, Range-bound, or Volatile? Signals perform differently in each state.</span></div>"
+        "<p><strong>Signal Strength % = Bullish votes &divide; Total votes &times; 100.</strong> "
+        "Above 60% means most groups agree on a bullish setup. The Composite Score bar weights how strong each vote is, not just the count.</p>"
+    )
+    
 
     # ══════════════════════════════════════════════════════════════════════════
     #  2. PRICE LADDER  (BUY signal only)
@@ -1068,6 +1084,19 @@ def render_decision_tab(df, symbol_input, stock_name, current_price):
             _accent = _TAB_ACCENTS.get(_tlabel, BULL)
             _conf   = _sig.get("conf", 50)
             _cc     = BULL if _conf >= 65 else (NEUT if _conf >= 45 else BEAR)
+            _conf_explain = (
+                f"This module found {_conf}% of its internal checks pointing bullish. "
+                "That puts it in the Strong zone (≥65%) — meaning the evidence from this specific "
+                "analysis area is highly consistent. It's one of several modules contributing to the overall Decision."
+                if _conf >= 65 else (
+                f"This module found {_conf}% of its internal checks pointing bullish. "
+                "That's the Moderate zone (45–64%) — there are bullish signals present but also "
+                "some conflicting data. It contributes to the Decision but shouldn't be acted on alone."
+                if _conf >= 45 else
+                f"This module found only {_conf}% of its checks pointing bullish (Weak zone, below 45%). "
+                "The evidence here leans bearish or is mixed. This signal is included for context "
+                "but carries less weight — wait for confirmation from other modules before acting."
+            ))
 
             # ── Confidence ring (pure CSS) ───────────────────────────────────
             _deg    = round(_conf / 100 * 360)
@@ -1121,9 +1150,10 @@ def render_decision_tab(df, symbol_input, stock_name, current_price):
                 f"</div>"
                 f"</div>"
                 f"<div>"
-                f"<div style='font-size:0.62rem;color:#555;text-transform:uppercase;"
+                f"<div style='font-size:0.62rem;color:#9e9e9e;text-transform:uppercase;"
                 f"letter-spacing:0.6px;font-weight:700;'>Confidence</div>"
-                f"<div style='font-size:0.7rem;font-weight:700;color:{_cc};'>"
+                f"<div style='font-size:0.75rem;font-weight:800;color:{_cc};"
+                f"letter-spacing:0.3px;'>"
                 f"{'Strong' if _conf >= 65 else ('Moderate' if _conf >= 45 else 'Weak')}"
                 f"</div>"
                 f"</div>"
@@ -1131,6 +1161,11 @@ def render_decision_tab(df, symbol_input, stock_name, current_price):
 
                 f"</div>",
                 unsafe_allow_html=True,
+            )
+            insight_toggle(
+                f"conf_{_tlabel.replace(' ','_')}",
+                f"Why is confidence {_conf}% — {_tlabel}?",
+                f"<p>{_conf_explain}</p>",
             )
 
             # ── Price Ladder ─────────────────────────────────────────────────

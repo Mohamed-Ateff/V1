@@ -1,5 +1,100 @@
 import streamlit as st
 
+# ── Global CSS for insight toggles (injected once via apply_ui_theme) ─────────
+_INSIGHT_CSS = """
+<style>
+/* ── Insight Toggle Expander ─────────────────────────────────────── */
+details.insight-toggle {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-left: 3px solid #26A69A;
+    border-radius: 10px;
+    margin: 0.5rem 0 1rem 0;
+    overflow: hidden;
+}
+details.insight-toggle summary {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.65rem 1rem;
+    cursor: pointer;
+    list-style: none;
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: #26A69A;
+    letter-spacing: 0.2px;
+    user-select: none;
+    transition: background 0.15s;
+}
+details.insight-toggle summary:hover {
+    background: rgba(38,166,154,0.06);
+}
+details.insight-toggle summary::-webkit-details-marker { display: none; }
+details.insight-toggle summary .itog-icon {
+    font-size: 1rem;
+    line-height: 1;
+    flex-shrink: 0;
+}
+details.insight-toggle summary .itog-arrow {
+    margin-left: auto;
+    font-size: 0.7rem;
+    opacity: 0.5;
+    transition: transform 0.2s;
+}
+details.insight-toggle[open] summary .itog-arrow {
+    transform: rotate(180deg);
+}
+details.insight-toggle .itog-body {
+    padding: 0 1rem 1rem 1rem;
+    border-top: 1px solid rgba(255,255,255,0.06);
+}
+details.insight-toggle .itog-body p {
+    font-size: 0.78rem;
+    color: #c0c0c0;
+    line-height: 1.7;
+    margin: 0.7rem 0 0 0;
+}
+details.insight-toggle .itog-body strong {
+    color: #e8e8e8;
+    font-weight: 700;
+}
+details.insight-toggle .itog-body .itog-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    margin: 0.45rem 0;
+    font-size: 0.77rem;
+    color: #b0b0b0;
+    line-height: 1.55;
+}
+details.insight-toggle .itog-body .itog-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #26A69A;
+    flex-shrink: 0;
+    margin-top: 0.45rem;
+}
+</style>
+"""
+
+def insight_toggle(key: str, label: str, body_html: str):
+    """Render a click-to-expand insight card. Call after any section header."""
+    # Inject CSS once per session
+    if "_insight_css_injected" not in st.session_state:
+        st.markdown(_INSIGHT_CSS, unsafe_allow_html=True)
+        st.session_state["_insight_css_injected"] = True
+    st.markdown(
+        f"""<details class="insight-toggle" id="insight-{key}">
+  <summary>
+    <span class="itog-icon">ⓘ</span>
+    <span>{label}</span>
+    <span class="itog-arrow">▼</span>
+  </summary>
+  <div class="itog-body">{body_html}</div>
+</details>""",
+        unsafe_allow_html=True,
+    )
+
 def info_icon(tooltip_text):
 
     """Create a small help icon with tooltip explanation."""

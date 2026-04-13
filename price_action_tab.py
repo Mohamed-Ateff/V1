@@ -1,8 +1,9 @@
-﻿import streamlit as st
+import streamlit as st
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import pandas as pd
 import numpy as np
+from ui_helpers import insight_toggle
 
 BULL  = "#4caf50"
 BEAR  = "#f44336"
@@ -366,6 +367,11 @@ def price_action_analysis_tab(df, info_icon):
 
     # ── 2. KEY PRICE LEVELS ───────────────────────────────────────────────────
     st.markdown(_sec("Key Price Levels", INFO), unsafe_allow_html=True)
+    insight_toggle(
+        'pa_levels',
+        'How are Key Price Levels identified?',
+        '<p><strong>Support levels</strong> are price zones where buying pressure historically exceeded selling pressure, causing price to bounce upward. The more times a level has been tested and held, the stronger and more reliable it is.</p><p><strong>Resistance levels</strong> are zones where sellers dominated and price reversed downward. Once broken convincingly (with volume), resistance often flips to become support.</p><p>Levels are identified using swing highs/lows from recent trading sessions, looking for clusters of price rejections and high-volume nodes.</p>',
+    )
     level_data = [
         ("Resistance 2", res2,          BEAR,      f"{(res2  - current_price)/current_price*100:+.2f}%"),
         ("Resistance 1", res1,          "#FF7A7A",  f"{(res1  - current_price)/current_price*100:+.2f}%"),
@@ -392,6 +398,11 @@ def price_action_analysis_tab(df, info_icon):
 
     # ── 3. REACTION ZONES ────────────────────────────────────────────────────
     st.markdown(_sec("Key Reaction Zones", PURP), unsafe_allow_html=True)
+    insight_toggle(
+        'pa_zones',
+        'What are Key Reaction Zones?',
+        '<p>Reaction zones are wider price bands (not single lines) where the market has repeatedly shown a strong response. Unlike precise support/resistance levels, these are <strong>high-probability reversal areas</strong> based on multiple touches.</p><p><strong>Zone Strength</strong> is rated by the number of times price tested that zone and reversed: 3+ touches = Strong, 2 touches = Moderate, 1 touch = Weak.</p><p>Zones near the current price with a Strong rating are the highest-priority levels to watch for entries or exits.</p>',
+    )
     zc1, zc2 = st.columns(2, gap="medium")
     for col, lvl, sc, strength_str, touches, zone_lo, zone_hi, label in [
         (zc1, res1, r_sc, r_str, r_touches, r_zone_lo, r_zone_hi, "Resistance Zone"),
@@ -433,7 +444,12 @@ def price_action_analysis_tab(df, info_icon):
     # ── 4. TRADE SETUP (above chart) ─────────────────────────────────────────
     ma = recent_df["Close"].rolling(window=ma_period).mean()
     st.markdown(_sec("Trade Setup", BULL), unsafe_allow_html=True)
-
+    insight_toggle(
+        'pa_setup',
+        'How are Bull and Bear scores calculated?',
+        "<p>The <strong style='color:#4caf50'>Bull Score</strong> and <strong style='color:#f44336'>Bear Score</strong> are composite ratings (0-100) from the Price Action Engine.</p><div class='itog-row'><span class='itog-dot'></span><span><strong>Candlestick Patterns</strong> &mdash; Hammer, engulfing, doji, morning star etc. +5 to +20 points each.</span></div><div class='itog-row'><span class='itog-dot'></span><span><strong>Chart Patterns</strong> &mdash; Head &amp; shoulders, double tops/bottoms, triangles, flags. +10 to +25 points.</span></div><div class='itog-row'><span class='itog-dot'></span><span><strong>Price Action vs. Levels</strong> &mdash; Is price bouncing from support, or rejecting resistance? +5 to +15 points.</span></div><div class='itog-row'><span class='itog-dot'></span><span><strong>Volume Confirmation</strong> &mdash; Does volume confirm the move? High volume on a breakout adds confidence. +5 to +10 points.</span></div><p>A score above 60 indicates a clear directional bias. When Bull Score &gt; Bear Score by 15+ points, it is a <strong>high-conviction directional setup</strong>.</p>",
+    )
+    
     ts = _compute_trade_setup(
         df=recent_df, current_price=current_price, trend=trend,
         sup1=sup1, sup2=sup2, res1=res1, res2=res2,
@@ -461,14 +477,28 @@ def price_action_analysis_tab(df, info_icon):
             f"{ts['no_trade_reason']}</div>"
             f"<div style='border-top:1px solid {BDR};padding-top:0.8rem;"
             f"display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;'>"
-            f"<div style='background:{BG};border-radius:10px;padding:0.7rem 0.9rem;'>"
-            f"<div style='font-size:0.62rem;color:#555;text-transform:uppercase;"
-            f"letter-spacing:0.5px;margin-bottom:0.2rem;'>Bull Signal Score</div>"
-            f"<div style='font-size:1.1rem;font-weight:800;color:{BULL};'>{ts['ls']} pts</div></div>"
-            f"<div style='background:{BG};border-radius:10px;padding:0.7rem 0.9rem;'>"
-            f"<div style='font-size:0.62rem;color:#555;text-transform:uppercase;"
-            f"letter-spacing:0.5px;margin-bottom:0.2rem;'>Bear Signal Score</div>"
-            f"<div style='font-size:1.1rem;font-weight:800;color:{BEAR};'>{ts['ss']} pts</div></div>"
+            f"<div style='background:rgba(76,175,80,0.07);border:1px solid rgba(76,175,80,0.25);"
+            f"border-top:3px solid {BULL};border-radius:12px;padding:0.9rem 1.1rem;'>"
+            f"<div style='font-size:0.62rem;color:#aaa;text-transform:uppercase;"
+            f"letter-spacing:0.6px;font-weight:700;margin-bottom:0.2rem;'>&#9650; Bull Signal Score</div>"
+            f"<div style='font-size:1.6rem;font-weight:900;color:{BULL};line-height:1;'>{ts['ls']} pts</div>"
+            f"<div style='font-size:0.75rem;color:#bdbdbd;margin-top:0.5rem;line-height:1.55;'>"
+            f"Scored from <b style='color:#e0e0e0;'>8 price action criteria</b>: "
+            f"trend direction, price vs 20-MA, MA slope, distance to support, "
+            f"support zone strength, candle patterns (engulfing/hammer), volume confirmation, and RSI level."
+            f"</div>"
+            f"</div>"
+            f"<div style='background:rgba(244,67,54,0.07);border:1px solid rgba(244,67,54,0.25);"
+            f"border-top:3px solid {BEAR};border-radius:12px;padding:0.9rem 1.1rem;'>"
+            f"<div style='font-size:0.62rem;color:#aaa;text-transform:uppercase;"
+            f"letter-spacing:0.6px;font-weight:700;margin-bottom:0.2rem;'>&#9660; Bear Signal Score</div>"
+            f"<div style='font-size:1.6rem;font-weight:900;color:{BEAR};line-height:1;'>{ts['ss']} pts</div>"
+            f"<div style='font-size:0.75rem;color:#bdbdbd;margin-top:0.5rem;line-height:1.55;'>"
+            f"Same 8 criteria evaluated from the bearish side: downtrend structure, price below MA, "
+            f"proximity to resistance, bearish engulfing or shooting star candles, heavy selling volume, and RSI overbought."
+            f" A trade is only shown when Bull Score clearly beats Bear Score and hits the minimum threshold."
+            f"</div>"
+            f"</div>"
             f"</div>"
             f"<div style='font-size:0.72rem;color:#555;margin-top:0.8rem;'>"
             f"RSI {ts['rsi']:.0f} · ATR {ts['atr']:.2f} SAR · "

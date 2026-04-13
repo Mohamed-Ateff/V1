@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 from math import sqrt as _sqrt
 from favorites_tab import render_save_button
+from ui_helpers import insight_toggle
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -152,7 +153,20 @@ def signal_analysis_tab(df, info_icon):
         (overall_success / 100) * actual_avg_gain -
         (1 - overall_success / 100) * actual_avg_loss, 2
     )
-
+    insight_toggle(
+        "kpi_metrics",
+        "What do these 6 performance numbers mean?",
+        "<p><strong>Win Rate</strong> &mdash; Percentage of signals where price hit the profit target before hitting the stop loss. "
+        "Above 50% means the indicator was right more than wrong.</p>"
+        "<p><strong>Total Signals</strong> &mdash; How many times this indicator fired during the backtested period.</p>"
+        "<p><strong>Successful Signals</strong> &mdash; Signals that resulted in a win (target reached first).</p>"
+        "<p><strong>Failed Signals</strong> &mdash; Signals that were stopped out (stop loss hit first).</p>"
+        "<p><strong>Profit Factor</strong> &mdash; Total winning gain &divide; total losses. "
+        "A value above 1.5 means the strategy generates 1.5x more profit than it loses &mdash; a solid edge. Below 1.0 = net loser.</p>"
+        "<p><strong>Expectancy</strong> &mdash; Average return per signal = (Win Rate &times; Avg Gain) &minus; (Loss Rate &times; Avg Loss). "
+        "A positive expectancy means the strategy has a mathematical edge over time.</p>"
+    )
+    
     # ── Wilson lower-bound helper ─────────────────────────────────────────────
     def _wilson(n, pct):
         if n == 0:
@@ -163,65 +177,6 @@ def signal_analysis_tab(df, info_icon):
         centre = p + z * z / (2 * n)
         spread = z * ((p * (1 - p) / n + z * z / (4 * n * n)) ** 0.5)
         return (centre - spread) / denom * 100
-
-    # ══════════════════════════════════════════════════════════════════════════
-    # 0. FIRING RIGHT NOW  (indicators active on latest bar)
-    # ══════════════════════════════════════════════════════════════════════════
-    _buy_cols = [c for c in signals_df.columns if c.endswith("_Buy")]
-    _last_row = signals_df.iloc[-1]
-    _firing   = [c.replace("_Buy", "") for c in _buy_cols if _last_row.get(c, 0) == 1]
-
-    if _firing:
-        _pills = "".join(
-            f"<span style='background:{BULL}18;border:1.5px solid {BULL};"
-            f"border-radius:999px;padding:0.25rem 0.85rem;"
-            f"font-size:0.75rem;font-weight:800;color:{BULL};"
-            f"letter-spacing:0.5px;white-space:nowrap;'>{ind}</span>"
-            for ind in _firing
-        )
-        st.markdown(
-            f"<div style='background:{BULL}0d;border:1px solid {BULL}44;"
-            f"border-left:4px solid {BULL};border-radius:12px;"
-            f"padding:0.9rem 1.2rem;margin-bottom:1rem;"
-            f"display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;'>"
-            f"<div style='font-size:0.72rem;color:{BULL};text-transform:uppercase;"
-            f"letter-spacing:0.8px;font-weight:800;flex-shrink:0;'>&#9679; Firing Now</div>"
-            f"{_pills}"
-            f"<div style='margin-left:auto;font-size:0.68rem;color:{muted};'>"
-            f"{len(_firing)} of {len(_buy_cols)} indicators active on latest bar</div>"
-            f"</div>",
-            unsafe_allow_html=True,
-        )
-    else:
-        st.markdown(
-            f"<div style='background:{BG2};border:1px solid {border};"
-            f"border-left:4px solid #555;border-radius:12px;"
-            f"padding:0.75rem 1.2rem;margin-bottom:1rem;"
-            f"font-size:0.75rem;color:#555;'>"
-            f"&#9675; No indicators firing on the latest bar</div>",
-            unsafe_allow_html=True,
-        )
-
-    # ── Consensus signals banner (3+ indicator agreement) ────────────────────
-    if consensus_signals:
-        _strong = [c for c in consensus_signals if len(c.get("indicators", [])) >= 3][-5:]
-        if _strong:
-            _cpills = "".join(
-                f"<span style='background:{GOLD}15;border:1px solid {GOLD}44;"
-                f"border-radius:8px;padding:0.2rem 0.7rem;"
-                f"font-size:0.68rem;font-weight:700;color:{GOLD};margin-right:0.4rem;'>"
-                f"{str(c['date'])[:10]} — {len(c.get('indicators', []))} signals</span>"
-                for c in reversed(_strong)
-            )
-            st.markdown(
-                f"<div style='background:{GOLD}0a;border:1px solid {GOLD}33;"
-                f"border-radius:10px;padding:0.75rem 1.2rem;margin-bottom:1rem;"
-                f"font-size:0.72rem;color:{muted};'>"
-                f"<span style='color:{GOLD};font-weight:800;text-transform:uppercase;"
-                f"letter-spacing:0.6px;margin-right:0.6rem;'>&#9733; 3+ Consensus Days</span>"
-                f"{_cpills}</div>",
-                unsafe_allow_html=True,
-            )
 
     # ══════════════════════════════════════════════════════════════════════════
     # 1. KPI ROW  (6 tiles)

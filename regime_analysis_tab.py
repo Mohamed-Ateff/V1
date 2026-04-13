@@ -1,5 +1,6 @@
-﻿import streamlit as st
+import streamlit as st
 import plotly.graph_objects as go
+from ui_helpers import insight_toggle
 
 BULL = "#4caf50"
 BEAR = "#f44336"
@@ -171,6 +172,21 @@ def render_regime_analysis_tab(df, info_icon, create_regime_distribution_chart):
 
     # ── DISTRIBUTION ──────────────────────────────────────────────────────────
     st.markdown(_sec(f"Regime Distribution — {total_days} Days", rc), unsafe_allow_html=True)
+    insight_toggle(
+        "regime_dist",
+        "What are TREND, RANGE, and VOLATILE regimes?",
+        "<p><strong>TREND</strong> &mdash; The market is moving strongly in one direction. "
+        "Price is above (bullish) or below (bearish) its moving averages, and ADX is above 25. "
+        "Trend-following indicators (EMA, MACD) are most reliable in this regime.</p>"
+        "<p><strong>RANGE</strong> &mdash; The market is moving sideways between support and resistance. "
+        "ADX is below 20, price oscillates without a clear direction. "
+        "Mean-reversion indicators (RSI, Stochastic, Bollinger Bands) perform best here.</p>"
+        "<p><strong>VOLATILE</strong> &mdash; The market is making large, unpredictable swings in both directions. "
+        "High ATR relative to recent history. All trade signals carry higher risk "
+        "and tighter risk management (smaller positions, wider stops) is recommended.</p>"
+        "<p>The <strong>Regime Distribution</strong> bar shows how the stock spent time in each state over the past period. "
+        "A stock that was in TREND 70% of the time is a reliable trend-follower.</p>"
+    )
     for label, days, pct, color in [
         ("Trend",    trend_days, trend_pct,    "#26A69A"),
         ("Range",    range_days, range_pct,    "#4A9EFF"),
@@ -193,6 +209,18 @@ def render_regime_analysis_tab(df, info_icon, create_regime_distribution_chart):
 
     # ── TIMELINE ─────────────────────────────────────────────────────────────
     st.markdown(_sec("Regime Timeline — Last 120 Days", INFO), unsafe_allow_html=True)
+    insight_toggle(
+        "regime_timeline",
+        "How to read the Regime Timeline?",
+        "<p>Each colored block on the timeline represents consecutive days the stock spent in the same regime. "
+        "<strong style='color:#4caf50'>Green = TREND (bullish)</strong>, "
+        "<strong style='color:#f44336'>Red = TREND (bearish)</strong>, "
+        "<strong style='color:#ff9800'>Orange = RANGE</strong>, "
+        "<strong style='color:#9e9e9e'>Grey = VOLATILE</strong>.</p>"
+        "<p>Look for transitions: a shift from RANGE to TREND is often the start of a breakout. "
+        "A shift from TREND to VOLATILE may signal exhaustion. "
+        "Long runs of a single color indicate a persistent, reliable market condition.</p>"
+    )
     timeline_df = df.tail(120).copy()
     fig = go.Figure()
     for regime, color in REGIME_COLOR.items():
