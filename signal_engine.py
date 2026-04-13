@@ -945,7 +945,35 @@ def analyze_indicator_combinations(_signals_df, _df, profit_target=0.05, holding
 
             avg_hold = float(np.mean(hold_times)) if hold_times else 0
 
+            # ── Advanced metrics ───────────────────────────────────────────────
+            # Streak analysis
+            _cw = 0; _cl = 0; _max_cw = 0; _max_cl = 0
+            for _rec in signal_records:
+                if _rec['gain'] > 0:
+                    _cw += 1; _cl = 0
+                else:
+                    _cl += 1; _cw = 0
+                if _cw > _max_cw: _max_cw = _cw
+                if _cl > _max_cl: _max_cl = _cl
 
+            # Signal frequency per 100 bars
+            signal_freq = round(total / n * 100, 2)
+
+            # Monthly consistency: std-dev of per-month win rates (lower = more reliable)
+            _m_wins = {}; _m_tots = {}
+            for _rec in signal_records:
+                _mo = _rec['date'][:7]
+                _m_tots[_mo] = _m_tots.get(_mo, 0) + 1
+                if _rec['gain'] > 0:
+                    _m_wins[_mo] = _m_wins.get(_mo, 0) + 1
+            _m_rates = {m: (_m_wins.get(m, 0) / _m_tots[m] * 100) for m in _m_tots}
+            monthly_win_rates = dict(sorted(_m_rates.items()))
+            if len(_m_rates) > 1:
+                _mv = list(_m_rates.values())
+                _mm = sum(_mv) / len(_mv)
+                monthly_consistency = round((sum((_v - _mm)**2 for _v in _mv) / (len(_mv) - 1))**0.5, 1)
+            else:
+                monthly_consistency = 0.0
 
             combo_results[combo_name] = {
 
@@ -974,6 +1002,16 @@ def analyze_indicator_combinations(_signals_df, _df, profit_target=0.05, holding
                 'signals': signal_records,
 
                 'combo_size': combo_size,
+
+                'max_consecutive_wins': _max_cw,
+
+                'max_consecutive_losses': _max_cl,
+
+                'signal_frequency': signal_freq,
+
+                'monthly_consistency': monthly_consistency,
+
+                'monthly_win_rates': monthly_win_rates,
 
                 'regime_performance': {
 
