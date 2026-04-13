@@ -753,16 +753,47 @@ def signal_analysis_tab(df, info_icon):
 
             # ── Leaderboard ───────────────────────────────────────────────────
             with ctab1:
+                # Build dynamic combo math explanation
+                from math import comb as _comb
+                _n_inds = len(indicator_performance)
+                _sz_names_math = {2: "pairs", 3: "triples", 4: "quads", 5: "5-way", 6: "6-way"}
+                _combo_breakdown_parts = []
+                _theory_total = 0
+                for _sz in range(2, max_combo_depth + 1):
+                    _cnt = _comb(_n_inds, _sz)
+                    _theory_total += _cnt
+                    _nm = _sz_names_math.get(_sz, f"{_sz}-way")
+                    _combo_breakdown_parts.append(f"<strong style='color:#fff;'>{_cnt:,}</strong> {_nm}")
+                _breakdown_str = " + ".join(_combo_breakdown_parts)
+                _combo_math_html = (
+                    f"<div style='background:rgba(33,150,243,0.08);border:1px solid rgba(33,150,243,0.25);"
+                    f"border-radius:8px;padding:0.75rem 1rem;margin-bottom:0.85rem;'>"
+                    f"<div style='font-size:0.6rem;font-weight:800;color:#90caf9;text-transform:uppercase;"
+                    f"letter-spacing:0.7px;margin-bottom:0.4rem;'>How the math works -- your current settings</div>"
+                    f"<div style='font-size:0.78rem;color:#e0e0e0;margin-bottom:0.3rem;line-height:1.5;'>"
+                    f"You have <strong style='color:#fff;'>{_n_inds} indicators</strong> active and "
+                    f"Combo Depth set to <strong style='color:#fff;'>{max_combo_depth}</strong>. "
+                    f"The engine exhaustively tests every possible combination:</div>"
+                    f"<div style='font-size:0.74rem;color:#90caf9;font-weight:600;margin-bottom:0.4rem;line-height:1.8;'>"
+                    f"{_breakdown_str}</div>"
+                    f"<div style='font-size:0.72rem;color:#9e9e9e;margin-bottom:0.25rem;'>"
+                    f"Total theoretical: <strong style='color:#fff;'>{_theory_total:,} combinations</strong> tested.</div>"
+                    f"<div style='font-size:0.72rem;color:#9e9e9e;'>"
+                    f"Shown below: <strong style='color:#4caf50;'>{total_combos:,} combinations</strong> that had "
+                    f"enough signals to pass your minimum threshold. Combos with zero co-occurrences are excluded.</div>"
+                    f"</div>"
+                )
                 insight_toggle(
                     "combo_leaderboard",
-                    "What is the Leaderboard?",
-                    "<p><strong>Wilson Score</strong> is the default sort — it penalises combinations with very few signals "
+                    "What is the Leaderboard? (click to see the math)",
+                    _combo_math_html +
+                    "<p><strong>Wilson Score</strong> is the default sort -- it penalises combinations with very few signals "
                     "so you only see combinations with a real statistical edge, not just lucky flukes.</p>"
-                    "<p><strong>Win %</strong> — how often both indicators fired and the trade was profitable.</p>"
-                    "<p><strong>Expectancy</strong> — average profit per trade = (Win% x Avg Gain) minus (Loss% x Avg Loss). "
+                    "<p><strong>Win %</strong> -- how often both indicators fired at the same time and the trade was profitable.</p>"
+                    "<p><strong>Expectancy</strong> -- average profit per trade = (Win% x Avg Gain) minus (Loss% x Avg Loss). "
                     "Positive means the combination has a mathematical edge over time.</p>"
-                    "<p><strong>Profit Factor</strong> — total gains divided by total losses. Above 1.5 is strong.</p>"
-                    "<p><strong>Consistency (Std Dev)</strong> — how stable the win rate is month to month. "
+                    "<p><strong>Profit Factor</strong> -- total gains divided by total losses. Above 1.5 is strong.</p>"
+                    "<p><strong>Consistency (Std Dev)</strong> -- how stable the win rate is month to month. "
                     "Lower number = more reliable across different market conditions.</p>"
                     "<p>Click any column header in the table to re-sort instantly.</p>"
                 )
