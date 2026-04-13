@@ -1053,8 +1053,8 @@ def signal_analysis_tab(df, info_icon):
                         unsafe_allow_html=True,
                     )
 
-            # ── Deep Cards ────────────────────────────────────────────────────
-            with ctab3:
+            # ── Deep Cards (continues in same Combinations tab) ────────────────────────────
+            with ctab1:
                 st.markdown(
                     f"<div style='display:flex;align-items:center;gap:0.6rem;"
                     f"margin:1.8rem 0 1rem 0;'>"
