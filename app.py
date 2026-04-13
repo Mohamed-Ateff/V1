@@ -10,7 +10,7 @@ import numpy as np
 from plotly.subplots import make_subplots
 
 from auth import auth_wall, show_user_badge, load_favorites, upsert_favorite, delete_favorite, logout
-from favorites_tab import favorites_css, render_favorites_panel
+from favorites_tab import favorites_css, render_favorites_panel, render_saved_page
 from gemini_tab import gemini_tab
 from price_action_tab import price_action_analysis_tab
 
@@ -364,6 +364,10 @@ def main():
 
         st.session_state.show_macro = False
 
+    if 'show_saved_page' not in st.session_state:
+
+        st.session_state.show_saved_page = False
+
 
 
     # ?? Load favorites from DB once per session ???????????????????????????
@@ -504,7 +508,7 @@ def main():
     </script>
     """, height=0)
 
-    if not st.session_state.show_results and not st.session_state.show_market_results and not st.session_state.show_market_pulse and not st.session_state.show_macro:
+    if not st.session_state.show_results and not st.session_state.show_market_results and not st.session_state.show_market_pulse and not st.session_state.show_macro and not st.session_state.show_saved_page:
 
         # CONTROLS PAGE
 
@@ -2921,7 +2925,7 @@ def main():
                         with st.container(key="btn_saved"):
                             _fav_lbl = f"♡  Saved · {fav_count}" if has_favs else "♡  Saved"
                             if st.button(_fav_lbl, key="toolbar_fav", width="stretch"):
-                                st.session_state.show_favorites_panel = not st.session_state.get('show_favorites_panel', False)
+                                st.session_state.show_saved_page = True
                                 st.rerun()
                     with _b2:
                         with st.container(key="btn_user"):
@@ -3280,150 +3284,11 @@ def main():
                                       on_click=run_market_analysis_callback_all, key="ma_run_btn_all")
                             st.markdown("</div>", unsafe_allow_html=True)
 
+    elif st.session_state.show_saved_page:
 
+        apply_ui_theme()
 
-        # ═══════════════════════════════════════════════════════════════════════
-        # Favorites panel (renders when ★ button is toggled)
-        # ═══════════════════════════════════════════════════════════════════════
-
-        if st.session_state.get('show_favorites_panel', False):
-
-            favs = st.session_state.get('favorites', [])
-
-            with st.container(key="fav_panel_wrap"):
-
-                hc1, hc2 = st.columns([9, 1])
-
-                with hc1:
-
-                    count_badge = f"<span class='fav-hdr-count'>{len(favs)}</span>" if favs else ""
-
-                    st.markdown(
-
-                        f"<div class='fav-hdr'><span class='fav-hdr-icon'>?</span>"
-
-                        f"<span class='fav-hdr-title'>Saved Strategies</span>{count_badge}</div>",
-
-
-                        unsafe_allow_html=True)
-
-                with hc2:
-
-                    with st.container(key="fav_close_panel"):
-
-                        if st.button("?  Close", key="fav_close_btn", width="stretch"):
-
-                            st.session_state.show_favorites_panel = False
-
-                            st.rerun()
-
-
-
-                if not favs:
-
-                    st.markdown(
-
-                        "<div class='fav-empty'><div class='fav-empty-icon'>&#9825;</div>"
-
-                        "<div class='fav-empty-txt'>No saved strategies yet.<br>"
-
-                        "Run an analysis, open <b>Signal Analysis ? Indicator Combinations</b>, "
-
-                        "and tap <b>? Save Strategy</b> on any combination you like.</div></div>",
-
-                        unsafe_allow_html=True)
-
-                else:
-
-                    _r_colors = {'TREND': '#4A9EFF', 'RANGE': '#FFC107', 'VOLATILE': '#FF6B6B'}
-
-                    for _fi, _fav in enumerate(favs):
-
-                        _parts   = _fav.get('pair', '').split(' + ')
-
-                        _pill_a  = _parts[0] if _parts else ''
-
-                        _pill_b  = _parts[1] if len(_parts) > 1 else ''
-
-                        _regime  = _fav.get('best_regime') or ''
-
-                        _bc      = _r_colors.get(_regime, '#9e9e9e')
-
-                        _wr      = _fav.get('win_rate', 0)
-
-                        _wr_c    = '#26A69A' if _wr >= 55 else ('#FFC107' if _wr >= 45 else '#ef5350')
-
-                        _ag      = _fav.get('avg_gain', 0)
-
-                        _al      = _fav.get('avg_loss', 0)
-
-                        _ag_c    = '#26A69A' if _ag >= 1 else ('#FFC107' if _ag > 0 else '#ef5350')
-
-                        _al_c    = '#ef5350' if _al < 0 else '#FFC107'
-
-                        _sym     = _fav.get('symbol', '').replace('.SR', '')
-
-                        _card    = (
-
-                            "<div class='fav-card'>"
-
-                            # ?? top row: symbol · pills · regime · date
-
-                            "<div class='fav-card-top'>"
-
-                            f"<span class='fav-sym'>{_sym}</span>"
-
-                            "<span class='fav-sep'>|</span>"
-
-                            f"<span class='fav-pill'>{_pill_a}</span>"
-
-                            "<span class='fav-plus'>+</span>"
-
-                            f"<span class='fav-pill'>{_pill_b}</span>"
-
-                            + (f"<span class='fav-regime' style='color:{_bc};border-color:{_bc};'>{_regime}</span>" if _regime else '')
-
-                            + f"<span class='fav-date'>{_fav.get('saved_at','')}</span>"
-
-                            "</div>"
-
-                            # ?? bottom row: 4 stats
-
-                            "<div class='fav-card-bot'>"
-
-                            f"<div class='fav-si'><span class='fsl'>Win Rate</span><span class='fsv' style='color:{_wr_c}'>{_wr:.1f}%</span></div>"
-
-                            f"<div class='fav-si'><span class='fsl'>Avg Gain</span><span class='fsv' style='color:{_ag_c}'>+{_ag:.2f}%</span></div>"
-
-                            f"<div class='fav-si'><span class='fsl'>Avg Loss</span><span class='fsv' style='color:{_al_c}'>{_al:.2f}%</span></div>"
-
-                            f"<div class='fav-si'><span class='fsl'>Signals</span><span class='fsv'>{_fav.get('signals',0)}</span></div>"
-
-                            "</div>"
-
-                            "</div>"
-
-                        )
-
-                        _ec1, _ec2 = st.columns([12, 1])
-
-                        with _ec1:
-
-                            st.markdown(_card, unsafe_allow_html=True)
-
-                        with _ec2:
-
-                            if st.button("?", key=f"fav_del_{_fi}", width="stretch"):
-
-                                _user = st.session_state.get('auth_username', '')
-
-                                delete_favorite(_user, _fav.get('id', ''))
-
-                                st.session_state.favorites = [f for f in favs if f.get('id') != _fav.get('id')]
-
-                                st.rerun()
-
-
+        render_saved_page()
 
     elif st.session_state.show_market_results:
 
