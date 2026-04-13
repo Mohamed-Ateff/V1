@@ -298,6 +298,8 @@ def signal_analysis_tab(df, info_icon):
             "wilson": _wilson(total, win_rate),
         })
 
+    # Remove indicators with 100% win rate — statistically unreliable (too few signals or data artifact)
+    indicator_performance = [x for x in indicator_performance if x["win_rate"] < 100]
     indicator_performance.sort(key=lambda x: (x["expectancy"], x["total"]), reverse=True)
     card_accents = [BULL, INFO, NEUT, PURP, "#F472B6", GOLD]
 
@@ -481,6 +483,8 @@ def signal_analysis_tab(df, info_icon):
                     "regime_perf": rp, "best_regime": best_r,
                     "wilson": _wilson(n, wr),
                 })
+            # Remove combos with 100% win rate — statistically unreliable
+            pair_data = [x for x in pair_data if x["win_rate"] < 100]
             pair_data.sort(key=lambda x: x["wilson"], reverse=True)
             pair_data = pair_data[:10]
 
