@@ -1,4 +1,4 @@
-﻿import streamlit as st
+import streamlit as st
 import pandas as pd
 import numpy as np
 from math import sqrt as _sqrt
@@ -416,32 +416,6 @@ def signal_analysis_tab(df, info_icon):
                     + "</div></div>"
                 ), unsafe_allow_html=True)
 
-                # signal history table
-                sigs = ind.get("signals", [])
-                if sigs:
-                    _sdf = pd.DataFrame(sigs)
-                    _keep = [c for c in ["date","entry_price","exit_price",
-                                         "gain","days_held","regime","exit_reason"]
-                             if c in _sdf.columns]
-                    _sdf = _sdf[_keep].copy()
-                    _sdf["date"] = pd.to_datetime(_sdf["date"]).dt.strftime("%Y-%m-%d")
-                    _sdf = _sdf.sort_values("date", ascending=False).reset_index(drop=True)
-                    _sdf.index += 1
-                    _sdf.rename(columns={
-                        "date": "Date", "entry_price": "Entry", "exit_price": "Exit",
-                        "gain": "Gain %", "days_held": "Days",
-                        "regime": "Regime", "exit_reason": "Result",
-                    }, inplace=True)
-                    for col in ("Entry", "Exit"):
-                        if col in _sdf.columns:
-                            _sdf[col] = _sdf[col].round(2)
-                    if "Gain %" in _sdf.columns:
-                        _sdf["Gain %"] = _sdf["Gain %"].round(2)
-                    with st.expander(
-                        f"Signal history â€” {ind['name']} ({len(sigs)} trades)",
-                        expanded=False,
-                    ):
-                        st.dataframe(_sdf, use_container_width=True)
 
                 # indicator chart
                 if ind["chart_fn"] is not None:
@@ -771,6 +745,9 @@ def signal_analysis_tab(df, info_icon):
                 _ea_tag   = "Positive edge" if champ_ea > 0 else "Negative edge"
                 _con_tag  = "Stable" if champ_con < 8 else ("Moderate" if champ_con < 15 else "Variable")
                 _, _champ_wr_col = _wr_color(champ_wr)
+                _champ_br      = champ["best_regime"] or "N/A"
+                _champ_br_col  = regime_color_map.get(champ["best_regime"], GOLD)
+                _champ_br_pct  = champ["regime_perf"].get(champ["best_regime"], 0)
 
                 st.markdown(
                     # champion banner
@@ -778,14 +755,23 @@ def signal_analysis_tab(df, info_icon):
                     f"border-radius:14px;padding:1.5rem 1.6rem 1.3rem 1.6rem;"
                     f"margin-bottom:1.2rem;'>"
 
-                    # top row: crown badge + label + count
+                    # top row: crown badge + label + best regime pill
                     f"<div style='display:flex;align-items:center;gap:0.6rem;margin-bottom:1rem;'>"
                     f"<div style='font-size:1.5rem;line-height:1;'>&#127942;</div>"
-                    f"<div>"
+                    f"<div style='flex:1;'>"
                     f"<div style='font-size:0.72rem;color:#9e9e9e;font-weight:600;margin-bottom:0.35rem;'>Best Combination Overall</div>"
                     f"<div style='font-size:0.7rem;color:#9e9e9e;margin-top:0.1rem;'>"
                     f"#{1} of {total_combos:,} &nbsp;&middot;&nbsp; {champ['size']}-Way</div>"
                     f"</div>"
+                    f"<div style='text-align:right;flex-shrink:0;'>"
+                    f"<div style='font-size:0.6rem;color:#757575;text-transform:uppercase;"
+                    f"letter-spacing:0.5px;margin-bottom:0.22rem;'>Best Regime</div>"
+                    f"<div style='display:inline-flex;align-items:center;gap:0.4rem;"
+                    f"background:{_champ_br_col}18;border:1px solid {_champ_br_col}44;"
+                    f"border-radius:7px;padding:0.3rem 0.9rem;'>"
+                    f"<span style='font-size:0.82rem;font-weight:800;color:{_champ_br_col};'>{_champ_br}</span>"
+                    f"<span style='font-size:0.75rem;font-weight:600;color:{_champ_br_col};'>&mdash;&nbsp;{_champ_br_pct:.0f}%</span>"
+                    f"</div></div>"
                     f"</div>"
 
                     # indicator badges row
@@ -869,18 +855,6 @@ def signal_analysis_tab(df, info_icon):
                     f"</div>"
 
                     f"</div></div></div>"  # end stats grid, right col, 2-col grid
-                    f"</div>",
-                    unsafe_allow_html=True,
-                )
-                # best regime badge (built separately to avoid quote nesting)
-                _champ_br      = champ["best_regime"] or "N/A"
-                _champ_br_col  = regime_color_map.get(champ["best_regime"], GOLD)
-                _champ_br_pct  = champ["regime_perf"].get(champ["best_regime"], 0)
-                st.markdown(
-                    f"<div style='margin-top:-0.6rem;margin-bottom:1.2rem;font-size:0.75rem;color:{muted};"
-                    f"padding:0.5rem 1.8rem;'>"
-                    f"Best regime: <strong style='color:{_champ_br_col};font-size:0.8rem;'>"
-                    f"{_champ_br} &mdash; {_champ_br_pct:.0f}% win rate in that regime</strong>"
                     f"</div>",
                     unsafe_allow_html=True,
                 )

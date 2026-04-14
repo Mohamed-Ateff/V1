@@ -262,6 +262,12 @@ st.markdown("""
 
         width: 100% !important;
 
+        position: sticky !important;
+
+        top: 0 !important;
+
+        z-index: 999 !important;
+
     }
 
     div[role="tablist"] button {

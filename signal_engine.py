@@ -343,64 +343,6 @@ def detect_signals(_df):
 
 
 
-    # ── REGIME-AWARE SIGNAL FILTERING ─────────────────────────────────────
-
-    # Suppress signals from indicators that are unreliable in the current regime.
-
-    # This prevents false signals (e.g. RSI oversold buys in strong downtrends,
-
-    # or EMA crossover buys in choppy range-bound markets).
-
-    #
-
-    # TREND  → trust: EMA, SMA, PSAR, ICHI, WMA, MACD, ADX, DC, OBV, CMF
-
-    #          suppress: RSI, STOCH, BB, KC, CCI, WILLR (mean-reversion traps)
-
-    # RANGE  → trust: RSI, STOCH, BB, KC, CCI, WILLR, MFI, VWAP
-
-    #          suppress: EMA, SMA, PSAR, ICHI, WMA, MACD, ADX, DC (whipsaw)
-
-    # VOLATILE → trust: BB, KC, DC, OBV, MFI, CMF, VWAP (breakout & volume)
-
-    #          suppress: EMA, SMA, PSAR, RSI, STOCH, CCI, WILLR (noisy)
-
-    _suppress_map = {
-
-        "TREND":    {"RSI", "STOCH", "BB", "KC", "CCI", "WILLR"},
-
-        "RANGE":    {"EMA", "SMA", "PSAR", "ICHI", "WMA", "MACD", "ADX", "DC"},
-
-        "VOLATILE": {"EMA", "SMA", "PSAR", "RSI", "STOCH", "CCI", "WILLR"},
-
-    }
-
-    regime_col = signals_df['Regime']
-
-    for regime_val, suppressed_indicators in _suppress_map.items():
-
-        regime_mask = (regime_col == regime_val)
-
-        if not regime_mask.any():
-
-            continue
-
-        for ind in suppressed_indicators:
-
-            buy_col  = f"{ind}_Buy"
-
-            sell_col = f"{ind}_Sell"
-
-            if buy_col in signals_df.columns:
-
-                signals_df.loc[regime_mask, buy_col] = 0
-
-            if sell_col in signals_df.columns:
-
-                signals_df.loc[regime_mask, sell_col] = 0
-
-
-
     return signals_df
 
 
