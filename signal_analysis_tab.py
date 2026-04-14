@@ -541,15 +541,14 @@ def signal_analysis_tab(df, info_icon):
             def _badges(parts):
                 html = ""
                 for idx, p in enumerate(parts):
-                    color = _all_accs.get(p, GOLD)
                     name  = _all_names.get(p, p)
                     html += (
-                        f"<span style='background:{color}22;color:{color};font-size:0.76rem;"
-                        f"font-weight:800;padding:0.22rem 0.6rem;border-radius:20px;"
-                        f"border:1px solid {color}55;white-space:nowrap;'>{name}</span>"
+                        f"<span style='background:#252525;color:#d0d0d0;font-size:0.8rem;"
+                        f"font-weight:600;padding:0.2rem 0.65rem;border-radius:6px;"
+                        f"border:1px solid #383838;white-space:nowrap;'>{name}</span>"
                     )
                     if idx < len(parts) - 1:
-                        html += f"<span style='color:{muted};font-weight:700;padding:0 0.12rem;'>+</span>"
+                        html += "<span style='color:#555;padding:0 0.15rem;'>&middot;</span>"
                 return html
 
             def _wr_color(wr):
@@ -576,11 +575,11 @@ def signal_analysis_tab(df, info_icon):
             # ── Stat mini-cell used inside combo cards ─────────────────────────
             def _st(lbl, val, col):
                 return (
-                    f"<div style='background:{BG2};border:1px solid {border};"
-                    f"border-radius:7px;padding:0.6rem 0.3rem;text-align:center;'>"
-                    f"<div style='font-size:0.55rem;color:{muted};text-transform:uppercase;"
-                    f"letter-spacing:0.5px;margin-bottom:0.2rem;'>{lbl}</div>"
-                    f"<div style='font-size:0.92rem;font-weight:800;color:{col};line-height:1;'>{val}</div>"
+                    f"<div style='background:#1a1a1a;border:1px solid #2a2a2a;"
+                    f"border-radius:8px;padding:0.75rem 0.4rem;text-align:center;'>"
+                    f"<div style='font-size:0.68rem;color:#757575;text-transform:uppercase;"
+                    f"letter-spacing:0.5px;margin-bottom:0.3rem;font-weight:500;'>{lbl}</div>"
+                    f"<div style='font-size:1.05rem;font-weight:700;color:{col};line-height:1;'>{val}</div>"
                     f"</div>"
                 )
 
@@ -588,8 +587,9 @@ def signal_analysis_tab(df, info_icon):
             def _make_combo_card(row, rank_label, accent):
                 wr   = row["win_rate"]
                 lp   = 100 - wr
+                _, _wr_col = _wr_color(wr)
                 n_c  = row["total"]
-                br_c = regime_color_map.get(row["best_regime"], accent)
+                br_c = regime_color_map.get(row["best_regime"], "#9e9e9e")
                 _br_label = (
                     row["best_regime"] + f" ({row['regime_perf'].get(row['best_regime'], 0):.0f}%)"
                     if row["best_regime"] else "None"
@@ -623,9 +623,9 @@ def signal_analysis_tab(df, info_icon):
                 if mwr:
                     _sorted_mwr = sorted(mwr.items())[-18:]
                     mwr_bars = (
-                        f"<div style='background:{BG2};border:1px solid {border};border-radius:6px;"
+                        f"<div style='background:#141414;border:1px solid #252525;border-radius:6px;"
                         f"padding:0.5rem 0.6rem;margin-top:0.3rem;'>"
-                        f"<div style='font-size:0.55rem;color:{muted};font-weight:700;text-transform:uppercase;"
+                        f"<div style='font-size:0.65rem;color:#757575;font-weight:500;text-transform:uppercase;"
                         f"letter-spacing:0.6px;margin-bottom:0.4rem;'>Monthly Win Rate (last 18 mo.)</div>"
                         f"<div style='display:flex;align-items:flex-end;gap:2px;height:24px;'>"
                     )
@@ -639,25 +639,25 @@ def signal_analysis_tab(df, info_icon):
                     mwr_bars += "</div></div>"
 
                 st.markdown((
-                    f"<div style='background:{panel};border:1px solid {border};"
-                    f"border-top:3px solid {accent};border-radius:12px;"
+                    f"<div style='background:#1e1e1e;border:1px solid #2d2d2d;"
+                    f"border-left:3px solid {_wr_col};border-radius:12px;"
                     f"padding:1.1rem 1.25rem;margin-bottom:0.65rem;'>"
 
                     # Header row
                     f"<div style='display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:0.7rem;'>"
                     f"<div style='flex:1;min-width:0;'>"
-                    f"<div style='font-size:0.55rem;color:{muted};font-weight:700;text-transform:uppercase;"
-                    f"letter-spacing:0.8px;margin-bottom:0.3rem;'>{rank_label} | {row['size']}-Way Combination</div>"
+                    f"<div style='font-size:0.68rem;color:#757575;font-weight:500;text-transform:uppercase;"
+                    f"letter-spacing:0.8px;margin-bottom:0.35rem;'>{rank_label} &middot; {row['size']}-Way Combination</div>"
                     f"<div style='display:flex;flex-wrap:wrap;align-items:center;gap:0.25rem;margin-bottom:0.28rem;'>"
                     f"{_badges(row['indicators'])}</div>"
                     f"<div style='font-size:0.65rem;color:{muted};'>Best in: "
                     f"<span style='color:{br_c};font-weight:700;'>{_br_label}</span></div>"
                     f"</div>"
                     f"<div style='text-align:right;flex-shrink:0;margin-left:0.8rem;'>"
-                    f"<div style='font-size:2.4rem;font-weight:900;color:{accent};line-height:1;'>"
+                    f"<div style='font-size:2.4rem;font-weight:800;color:{_wr_col};line-height:1;'>"
                     f"{wr:.1f}<span style='font-size:1rem;'>%</span></div>"
-                    f"<div style='font-size:0.62rem;color:{muted};text-transform:uppercase;letter-spacing:0.4px;'>"
-                    f"Win Rate | {n_c} signals</div>"
+                    f"<div style='font-size:0.65rem;color:#757575;letter-spacing:0.3px;'>"
+                    f"win rate &middot; {n_c} signals</div>"
                     f"</div></div>"
 
                     # Win/loss bar
@@ -681,19 +681,19 @@ def signal_analysis_tab(df, info_icon):
                     + _st("Wilson Score",  f"{row['wilson']:.1f}",                   INFO)
                     + _st("Max W-Streak",  str(mc_w),                                BULL)
                     + _st("Max L-Streak",  str(mc_l),                                BEAR)
-                    + _st("Signals/100",   f"{sf:.1f}",                              PURP)
+                    + _st("Signals/100",   f"{sf:.1f}",                              INFO)
                     + "</div>"
 
                     # Bottom 2-col: regime bars | consistency + monthly chart
                     f"<div style='display:grid;grid-template-columns:1fr 1fr;gap:0.55rem;'>"
-                    f"<div style='background:{BG2};border:1px solid {border};border-radius:8px;padding:0.65rem 0.75rem;'>"
-                    f"<div style='font-size:0.57rem;color:{accent};font-weight:700;text-transform:uppercase;"
+                    f"<div style='background:#141414;border:1px solid #252525;border-radius:8px;padding:0.65rem 0.75rem;'>"
+                    f"<div style='font-size:0.68rem;color:#9e9e9e;font-weight:600;text-transform:uppercase;"
                     f"letter-spacing:0.7px;margin-bottom:0.45rem;'>Win Rate by Regime</div>"
                     + bars +
                     "</div>"
-                    f"<div style='background:{BG2};border:1px solid {border};border-radius:8px;padding:0.65rem 0.75rem;'>"
+                    f"<div style='background:#141414;border:1px solid #252525;border-radius:8px;padding:0.65rem 0.75rem;'>"
                     f"<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:0.28rem;'>"
-                    f"<span style='font-size:0.57rem;color:{accent};font-weight:700;text-transform:uppercase;letter-spacing:0.7px;'>Consistency</span>"
+                    f"<span style='font-size:0.68rem;color:#9e9e9e;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;'>Consistency</span>"
                     f"<span style='font-size:0.67rem;font-weight:800;color:{con_color};'>{con_label}</span></div>"
                     f"<div style='font-size:0.62rem;color:{muted};margin-bottom:0.22rem;'>"
                     f"Std dev <strong style='color:{text_col};'>{con:.1f}%</strong> - lower is more reliable</div>"
@@ -786,29 +786,20 @@ def signal_analysis_tab(df, info_icon):
                 _pf_tag   = "Very Strong" if champ_pf >= 2 else ("Strong" if champ_pf >= 1.5 else ("Decent" if champ_pf >= 1 else "Losing"))
                 _ea_tag   = "Positive edge" if champ_ea > 0 else "Negative edge"
                 _con_tag  = "Stable" if champ_con < 8 else ("Moderate" if champ_con < 15 else "Variable")
+                _, _champ_wr_col = _wr_color(champ_wr)
 
                 st.markdown(
-                    # outer glow wrapper
-                    f"<div style='"
-                    f"background:linear-gradient(135deg,rgba(255,215,0,0.07) 0%,rgba(255,215,0,0.03) 50%,rgba(76,175,80,0.05) 100%);"
-                    f"border:2px solid rgba(255,215,0,0.55);"
-                    f"border-radius:16px;"
-                    f"padding:1.6rem 1.8rem 1.4rem 1.8rem;"
-                    f"margin-bottom:1.2rem;"
-                    f"box-shadow:0 0 32px rgba(255,215,0,0.12),0 4px 24px rgba(0,0,0,0.5);"
-                    f"position:relative;overflow:hidden;"
-                    f"'>"
-
-                    # subtle shimmer strip at top
-                    f"<div style='position:absolute;top:0;left:0;right:0;height:3px;"
-                    f"background:linear-gradient(90deg,transparent,{GOLD},transparent);opacity:0.7;'></div>"
+                    # champion banner
+                    f"<div style='background:#1a1a1a;border:1px solid #2d2d2d;"
+                    f"border-radius:14px;padding:1.5rem 1.6rem 1.3rem 1.6rem;"
+                    f"margin-bottom:1.2rem;'>"
 
                     # top row: crown badge + label + count
                     f"<div style='display:flex;align-items:center;gap:0.6rem;margin-bottom:1rem;'>"
                     f"<div style='font-size:1.5rem;line-height:1;'>&#127942;</div>"
                     f"<div>"
-                    f"<div style='font-size:0.65rem;font-weight:900;text-transform:uppercase;"
-                    f"letter-spacing:1.5px;color:{GOLD};line-height:1;'>Best Combination Overall</div>"
+                    f"<div style='font-size:0.65rem;font-weight:700;text-transform:uppercase;"
+                    f"letter-spacing:1px;color:#9e9e9e;line-height:1;'>Best Combination Overall</div>"
                     f"<div style='font-size:0.6rem;color:{muted};margin-top:0.2rem;font-weight:500;'>"
                     f"#1 out of {total_combos:,} combinations tested &mdash; {champ['size']}-Way signal</div>"
                     f"</div>"
@@ -822,15 +813,15 @@ def signal_analysis_tab(df, info_icon):
                     f"<div style='display:grid;grid-template-columns:auto 1fr;gap:1.5rem;align-items:center;margin-bottom:1rem;'>"
 
                     # left: giant win rate
-                    f"<div style='text-align:center;padding:0.9rem 1.4rem;"
-                    f"background:rgba(255,215,0,0.06);border:1px solid rgba(255,215,0,0.3);"
-                    f"border-radius:12px;min-width:130px;'>"
-                    f"<div style='font-size:0.6rem;font-weight:700;text-transform:uppercase;"
-                    f"letter-spacing:1px;color:{GOLD};margin-bottom:0.3rem;'>Win Rate</div>"
-                    f"<div style='font-size:3.2rem;font-weight:900;color:{GOLD};line-height:1;"
-                    f"letter-spacing:-2px;'>{champ_wr:.1f}<span style='font-size:1.5rem;'>%</span></div>"
-                    f"<div style='font-size:0.62rem;color:{muted};margin-top:0.25rem;'>"
-                    f"{champ['wins']}W &nbsp;/&nbsp; {champ['losses']}L</div>"
+                    f"<div style='text-align:center;padding:0.9rem 1.2rem;"
+                    f"background:#212121;border:1px solid #2a2a2a;"
+                    f"border-radius:10px;min-width:120px;'>"
+                    f"<div style='font-size:0.62rem;font-weight:500;text-transform:uppercase;"
+                    f"letter-spacing:0.8px;color:#757575;margin-bottom:0.3rem;'>Win Rate</div>"
+                    f"<div style='font-size:3rem;font-weight:900;color:{_champ_wr_col};line-height:1;"
+                    f"letter-spacing:-2px;'>{champ_wr:.1f}<span style='font-size:1.4rem;'>%</span></div>"
+                    f"<div style='font-size:0.62rem;color:#757575;margin-top:0.25rem;'>"
+                    f"{champ['wins']}W / {champ['losses']}L</div>"
                     f"</div>"
 
                     # right: win/loss bar + 5 stat pills
@@ -846,56 +837,51 @@ def signal_analysis_tab(df, info_icon):
                     f"<div style='display:grid;grid-template-columns:repeat(5,1fr);gap:0.4rem;'>"
 
                     # ── Box 1: Signals ──
-                    f"<div style='background:rgba(33,150,243,0.07);border:1px solid rgba(33,150,243,0.2);"
-                    f"border-top:3px solid {INFO};border-radius:10px;"
-                    f"padding:0.65rem 0.4rem;text-align:center;'>"
-                    f"<div style='font-size:0.52rem;color:{muted};text-transform:uppercase;"
-                    f"letter-spacing:0.6px;font-weight:700;margin-bottom:0.25rem;'>Signals</div>"
-                    f"<div style='font-size:1.3rem;font-weight:900;color:{INFO};line-height:1;'>{champ['total']}</div>"
-                    f"<div style='font-size:0.5rem;color:{muted};margin-top:0.2rem;'>"
-                    f"{champ['wins']}W &nbsp;/&nbsp; {champ['losses']}L</div>"
+                    f"<div style='background:#1a1a1a;border:1px solid #2a2a2a;border-radius:8px;"
+                    f"padding:0.6rem 0.35rem;text-align:center;'>"
+                    f"<div style='font-size:0.6rem;color:#757575;text-transform:uppercase;"
+                    f"letter-spacing:0.5px;margin-bottom:0.25rem;'>Signals</div>"
+                    f"<div style='font-size:1.3rem;font-weight:800;color:#90caf9;line-height:1;'>{champ['total']}</div>"
+                    f"<div style='font-size:0.55rem;color:#616161;margin-top:0.2rem;'>"
+                    f"{champ['wins']}W / {champ['losses']}L</div>"
                     f"</div>"
 
                     # ── Box 2: Expectancy ──
-                    f"<div style='background:{ea_col}0F;border:1px solid {ea_col}30;"
-                    f"border-top:3px solid {ea_col};border-radius:10px;"
-                    f"padding:0.65rem 0.4rem;text-align:center;'>"
-                    f"<div style='font-size:0.52rem;color:{muted};text-transform:uppercase;"
-                    f"letter-spacing:0.6px;font-weight:700;margin-bottom:0.25rem;'>Expectancy</div>"
-                    f"<div style='font-size:1.3rem;font-weight:900;color:{ea_col};line-height:1;'>{champ_ea:+.2f}%</div>"
-                    f"<div style='font-size:0.5rem;color:{ea_col};margin-top:0.2rem;font-weight:600;'>"
+                    f"<div style='background:#1a1a1a;border:1px solid #2a2a2a;border-radius:8px;"
+                    f"padding:0.6rem 0.35rem;text-align:center;'>"
+                    f"<div style='font-size:0.6rem;color:#757575;text-transform:uppercase;"
+                    f"letter-spacing:0.5px;margin-bottom:0.25rem;'>Expectancy</div>"
+                    f"<div style='font-size:1.3rem;font-weight:800;color:{ea_col};line-height:1;'>{champ_ea:+.2f}%</div>"
+                    f"<div style='font-size:0.55rem;color:{ea_col};margin-top:0.2rem;'>"
                     f"{_ea_tag}</div>"
                     f"</div>"
 
                     # ── Box 3: Profit Factor ──
-                    f"<div style='background:{pf_col}0F;border:1px solid {pf_col}30;"
-                    f"border-top:3px solid {pf_col};border-radius:10px;"
-                    f"padding:0.65rem 0.4rem;text-align:center;'>"
-                    f"<div style='font-size:0.52rem;color:{muted};text-transform:uppercase;"
-                    f"letter-spacing:0.6px;font-weight:700;margin-bottom:0.25rem;'>Profit Factor</div>"
-                    f"<div style='font-size:1.3rem;font-weight:900;color:{pf_col};line-height:1;'>{champ_pf:.2f}</div>"
-                    f"<div style='font-size:0.5rem;color:{pf_col};margin-top:0.2rem;font-weight:600;'>"
+                    f"<div style='background:#1a1a1a;border:1px solid #2a2a2a;border-radius:8px;"
+                    f"padding:0.6rem 0.35rem;text-align:center;'>"
+                    f"<div style='font-size:0.6rem;color:#757575;text-transform:uppercase;"
+                    f"letter-spacing:0.5px;margin-bottom:0.25rem;'>Profit Factor</div>"
+                    f"<div style='font-size:1.3rem;font-weight:800;color:{pf_col};line-height:1;'>{champ_pf:.2f}</div>"
+                    f"<div style='font-size:0.55rem;color:{pf_col};margin-top:0.2rem;'>"
                     f"{_pf_tag}</div>"
                     f"</div>"
 
                     # ── Box 4: Combo Size ──
-                    f"<div style='background:rgba(156,39,176,0.07);border:1px solid rgba(156,39,176,0.2);"
-                    f"border-top:3px solid {PURP};border-radius:10px;"
-                    f"padding:0.65rem 0.4rem;text-align:center;'>"
-                    f"<div style='font-size:0.52rem;color:{muted};text-transform:uppercase;"
-                    f"letter-spacing:0.6px;font-weight:700;margin-bottom:0.25rem;'>Combo Size</div>"
-                    f"<div style='font-size:1.3rem;font-weight:900;color:{PURP};line-height:1;'>{champ['size']}-Way</div>"
-                    f"<div style='font-size:0.5rem;color:{muted};margin-top:0.2rem;'>indicators</div>"
+                    f"<div style='background:#1a1a1a;border:1px solid #2a2a2a;border-radius:8px;"
+                    f"padding:0.6rem 0.35rem;text-align:center;'>"
+                    f"<div style='font-size:0.6rem;color:#757575;text-transform:uppercase;"
+                    f"letter-spacing:0.5px;margin-bottom:0.25rem;'>Combo Size</div>"
+                    f"<div style='font-size:1.3rem;font-weight:800;color:#e0e0e0;line-height:1;'>{champ['size']}-Way</div>"
+                    f"<div style='font-size:0.55rem;color:#616161;margin-top:0.2rem;'>indicators</div>"
                     f"</div>"
 
                     # ── Box 5: Consistency ──
-                    f"<div style='background:{con_col}0F;border:1px solid {con_col}30;"
-                    f"border-top:3px solid {con_col};border-radius:10px;"
-                    f"padding:0.65rem 0.4rem;text-align:center;'>"
-                    f"<div style='font-size:0.52rem;color:{muted};text-transform:uppercase;"
-                    f"letter-spacing:0.6px;font-weight:700;margin-bottom:0.25rem;'>Consistency</div>"
-                    f"<div style='font-size:1.3rem;font-weight:900;color:{con_col};line-height:1;'>{champ_con:.1f}%</div>"
-                    f"<div style='font-size:0.5rem;color:{con_col};margin-top:0.2rem;font-weight:600;'>"
+                    f"<div style='background:#1a1a1a;border:1px solid #2a2a2a;border-radius:8px;"
+                    f"padding:0.6rem 0.35rem;text-align:center;'>"
+                    f"<div style='font-size:0.6rem;color:#757575;text-transform:uppercase;"
+                    f"letter-spacing:0.5px;margin-bottom:0.25rem;'>Consistency</div>"
+                    f"<div style='font-size:1.3rem;font-weight:800;color:{con_col};line-height:1;'>{champ_con:.1f}%</div>"
+                    f"<div style='font-size:0.55rem;color:{con_col};margin-top:0.2rem;'>"
                     f"{_con_tag}</div>"
                     f"</div>"
 
@@ -927,15 +913,16 @@ def signal_analysis_tab(df, info_icon):
                     for _sti, _str in enumerate(_strip_items):
                         _idx  = _row_start + _sti
                         _stac = combo_accent_cycle[_idx % len(combo_accent_cycle)]
+                        _, _swr_col = _wr_color(_str['win_rate'])
                         _sh += (
-                            f"<div style='background:{BG2};border:1px solid {border};"
-                            f"border-top:3px solid {_stac};border-radius:9px;padding:0.65rem 0.4rem;text-align:center;'>"
-                            f"<div style='font-size:0.55rem;color:{muted};font-weight:700;margin-bottom:0.15rem;'>#{_idx+1} &nbsp;|&nbsp; {_str['size']}-Way</div>"
-                            f"<div style='font-size:0.65rem;font-weight:800;color:{_stac};line-height:1.35;margin-bottom:0.2rem;'>"
+                            f"<div style='background:#1e1e1e;border:1px solid #2d2d2d;"
+                            f"border-radius:8px;padding:0.6rem 0.4rem;text-align:center;'>"
+                            f"<div style='font-size:0.62rem;color:#757575;margin-bottom:0.2rem;'>#{_idx+1} &nbsp;&middot;&nbsp; {_str['size']}-Way</div>"
+                            f"<div style='font-size:0.72rem;font-weight:600;color:#c0c0c0;line-height:1.4;margin-bottom:0.25rem;'>"
                             + " + ".join(_all_names.get(p, p) for p in _str["indicators"])
                             + f"</div>"
-                            f"<div style='font-size:1.15rem;font-weight:900;color:{text_col};line-height:1;'>{_str['win_rate']:.0f}%</div>"
-                            f"<div style='font-size:0.6rem;color:{muted};margin-top:0.1rem;'>{_str['total']} sig &nbsp;&bull;&nbsp; exp {_str['expectancy']:+.1f}%</div>"
+                            f"<div style='font-size:1.2rem;font-weight:800;color:{_swr_col};line-height:1;'>{_str['win_rate']:.0f}%</div>"
+                            f"<div style='font-size:0.6rem;color:#757575;margin-top:0.15rem;'>{_str['total']} signals &nbsp;&middot;&nbsp; exp {_str['expectancy']:+.1f}%</div>"
                             f"</div>"
                         )
                     _sh += "</div>"
@@ -1017,16 +1004,17 @@ def signal_analysis_tab(df, info_icon):
                         )
                         for _ri, _rr in enumerate(_rcs):
                             _rwr = _rr["regime_perf"].get(_rgn, 0)
+                            _, _rc_wr_col = _wr_color(_rwr)
                             _rhtml += (
-                                f"<div style='background:{BG2};border:1px solid {border};"
-                                f"border-top:2px solid {_rgc};border-radius:8px;"
-                                f"padding:0.5rem 0.32rem;text-align:center;'>"
-                                f"<div style='font-size:0.47rem;color:{muted};font-weight:700;margin-bottom:0.1rem;'>#{_ri+1}</div>"
-                                f"<div style='font-size:0.55rem;font-weight:800;color:{_rgc};line-height:1.3;'>"
+                                f"<div style='background:#1e1e1e;border:1px solid #2d2d2d;"
+                                f"border-left:3px solid {_rgc};border-radius:8px;"
+                                f"padding:0.65rem 0.45rem;text-align:center;'>"
+                                f"<div style='font-size:0.62rem;color:#757575;margin-bottom:0.2rem;'>#{_ri+1}</div>"
+                                f"<div style='font-size:0.72rem;font-weight:600;color:#c0c0c0;line-height:1.4;margin-bottom:0.25rem;'>"
                                 + " + ".join(_all_names.get(p, p) for p in _rr["indicators"])
                                 + f"</div>"
-                                f"<div style='font-size:0.88rem;font-weight:900;color:{text_col};'>{_rwr:.0f}%</div>"
-                                f"<div style='font-size:0.5rem;color:{muted};'>in {_rgn} | {_rr['total']} total</div>"
+                                f"<div style='font-size:1.15rem;font-weight:800;color:{_rc_wr_col};line-height:1;'>{_rwr:.0f}%</div>"
+                                f"<div style='font-size:0.6rem;color:#757575;margin-top:0.15rem;'>{_rgn} &middot; {_rr['total']} signals</div>"
                                 f"</div>"
                             )
                         _rhtml += "</div>"
@@ -1131,16 +1119,16 @@ def signal_analysis_tab(df, info_icon):
                             f"gap:0.28rem;margin-bottom:0.65rem;'>"
                         )
                         for _xi, _xr in enumerate(_sc[:_ns3]):
-                            _xac = combo_accent_cycle[_xi % len(combo_accent_cycle)]
+                            _, _xs_wr_col = _wr_color(_xr['win_rate'])
                             _ss3 += (
-                                f"<div style='background:{BG2};border:1px solid {border};"
-                                f"border-top:2px solid {_xac};border-radius:7px;padding:0.45rem 0.3rem;text-align:center;'>"
-                                f"<div style='font-size:0.47rem;color:{muted};font-weight:700;margin-bottom:0.1rem;'>#{_xi+1}</div>"
-                                f"<div style='font-size:0.55rem;font-weight:800;color:{_xac};line-height:1.3;'>"
+                                f"<div style='background:#1e1e1e;border:1px solid #2d2d2d;"
+                                f"border-radius:7px;padding:0.6rem 0.35rem;text-align:center;'>"
+                                f"<div style='font-size:0.62rem;color:#757575;margin-bottom:0.15rem;'>#{_xi+1}</div>"
+                                f"<div style='font-size:0.72rem;font-weight:600;color:#c0c0c0;line-height:1.35;margin-bottom:0.2rem;'>"
                                 + " + ".join(_all_names.get(p, p) for p in _xr["indicators"])
                                 + f"</div>"
-                                f"<div style='font-size:0.88rem;font-weight:900;color:{text_col};'>{_xr['win_rate']:.0f}%</div>"
-                                f"<div style='font-size:0.5rem;color:{muted};'>{_xr['total']} sig</div>"
+                                f"<div style='font-size:1.1rem;font-weight:800;color:{_xs_wr_col};'>{_xr['win_rate']:.0f}%</div>"
+                                f"<div style='font-size:0.6rem;color:#757575;'>{_xr['total']} signals</div>"
                                 f"</div>"
                             )
                         _ss3 += "</div>"
