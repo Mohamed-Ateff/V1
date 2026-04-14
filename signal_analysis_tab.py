@@ -700,22 +700,6 @@ def signal_analysis_tab(df, info_icon):
                     + mwr_bars +
                     "</div></div></div>"
                 ), unsafe_allow_html=True)
-
-                # Trade history expander
-                _sigs = combo_results.get(row["key"], {}).get("signals", [])
-                if _sigs:
-                    _cdf = pd.DataFrame(_sigs)
-                    _ccols = [c for c in ["date","entry_price","exit_price","gain","days_held","regime","result"] if c in _cdf.columns]
-                    _cdf = _cdf[_ccols].sort_values("date", ascending=False).reset_index(drop=True)
-                    _cdf.index += 1
-                    if "result" in _cdf.columns:
-                        _cdf["result"] = _cdf["result"].map({
-                            "profit": "Profit", "stop_loss": "Stop Loss",
-                            "timeout_profit": "Timeout+", "timeout_loss": "Timeout-", "timeout": "Timeout",
-                        }).fillna(_cdf["result"])
-                    _cdf.columns = [c.replace("_", " ").title() for c in _cdf.columns]
-                    with st.expander(f"Trade history -- {row['label']} ({len(_sigs)} trades)", expanded=False):
-                        st.dataframe(_cdf, use_container_width=True)
                 st.markdown("<div style='margin-bottom:0.3rem;'></div>", unsafe_allow_html=True)
 
             # ─────────────────────────────────────────────────────────────────
@@ -1094,8 +1078,6 @@ def signal_analysis_tab(df, info_icon):
                     "<li><strong>Max W-Streak / L-Streak</strong> -- longest consecutive winning or losing run.</li>"
                     "<li><strong>Signals/100</strong> -- how frequently this combination fires (per 100 price bars).</li>"
                     "<li><strong>Consistency (Std Dev)</strong> -- how stable the monthly win rate is. Lower = more reliable all year.</li>"
-                    "<li><strong>Monthly bars</strong> -- each bar = one month. Taller green = high win rate that month.</li>"
-                    "<li><strong>Trade history</strong> -- expand to see every individual trade with entry, exit, gain, and regime.</li>"
                     "</ul>"
                 )
                 _sz_names = {
