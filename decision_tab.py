@@ -38,18 +38,23 @@ BDR   = "#303030"
 
 def _sec(title, color=INFO):
     return (
-        f"<div style='font-size:1rem;color:#ffffff;font-weight:700;"
-        f"margin:2rem 0 1rem 0;border-bottom:2px solid {color}33;"
-        f"padding-bottom:0.5rem;'>{title}</div>"
+        f"<div style='display:flex;align-items:center;gap:0.6rem;"
+        f"margin:2.2rem 0 1rem;padding:0;'>"
+        f"<div style='width:3px;height:18px;border-radius:2px;background:{color};"
+        f"box-shadow:0 0 8px {color}44;'></div>"
+        f"<span style='font-size:0.92rem;font-weight:700;color:#e0e0e0;"
+        f"text-transform:uppercase;letter-spacing:0.8px;'>{title}</span></div>"
     )
 
 
-def _glowbar(pct, color=BULL, height="8px"):
+def _glowbar(pct, color=BULL, height="5px"):
     pct = max(0, min(100, pct))
     return (
-        f"<div style='background:{BDR};border-radius:999px;height:{height};overflow:hidden;'>"
-        f"<div style='width:{pct}%;height:100%;"
-        f"background:linear-gradient(90deg,{color}99,{color});border-radius:999px;'></div></div>"
+        f"<div style='background:#1a1a1a;border-radius:999px;height:{height};overflow:hidden;'>"
+        f"<div style='width:{pct}%;height:100%;border-radius:999px;"
+        f"background:linear-gradient(90deg,{color}cc,{color});"
+        f"box-shadow:0 0 8px {color}55;"
+        f"transition:width 0.4s ease;'></div></div>"
     )
 
 
@@ -197,34 +202,33 @@ def _render_signal_summaries(df, current_price):
 
     def _mini_card_html(card):
         c   = card["color"]
-        sbg = c + "18"
         stats = card.get("stats", [])
         stats_rows = "".join([
             f"<div style='display:flex;justify-content:space-between;align-items:center;"
-            f"padding:0.3rem 0;border-bottom:1px solid {BDR};'>"
-            f"<span style='font-size:0.63rem;color:#666;text-transform:uppercase;"
-            f"letter-spacing:0.6px;font-weight:600;'>{sn}</span>"
-            f"<span style='font-size:0.82rem;font-weight:800;color:{sc};'>{sv}</span>"
+            f"padding:0.45rem 0;'>"
+            f"<span style='font-size:0.68rem;color:#9e9e9e;font-weight:500;'>{sn}</span>"
+            f"<span style='font-size:0.78rem;font-weight:700;color:{sc};'>{sv}</span>"
             f"</div>"
             for sn, sv, sc in stats
         ])
         return (
-            f"<div style='background:{BG2};border:1px solid {BDR};"
-            f"border-top:3px solid {c};border-radius:14px;"
-            f"padding:1.1rem 1.2rem;'>"
-            f"<div style='font-size:0.62rem;color:#666;text-transform:uppercase;"
-            f"letter-spacing:1px;font-weight:700;margin-bottom:0.55rem;'>{card['label']}</div>"
-            f"<div style='display:inline-block;background:{sbg};"
-            f"border:1.5px solid {c};border-radius:8px;"
-            f"padding:0.2rem 0.7rem;margin-bottom:0.55rem;'>"
-            f"<span style='font-size:1.2rem;font-weight:900;color:{c};"
-            f"letter-spacing:0.5px;'>{card['signal']}</span>"
-            f"</div>"
-            f"<div style='font-size:0.7rem;color:#777;margin-bottom:0.55rem;"
-            f"line-height:1.4;'>{card['sub']}</div>"
-            + _glowbar(card["bar"], c, "4px") +
-            f"<div style='margin-top:0.6rem;'>{stats_rows}</div>"
-            f"</div>"
+            f"<div style='background:#1b1b1b;border:1px solid #272727;"
+            f"border-radius:12px;overflow:hidden;"
+            f"box-shadow:0 2px 12px rgba(0,0,0,0.2);'>"
+            f"<div style='padding:0.8rem 1.1rem;border-bottom:1px solid #272727;"
+            f"background:linear-gradient(135deg,rgba({','.join(str(int(c[i:i+2],16)) for i in (1,3,5))},0.07),transparent);'>"
+            f"<div style='display:flex;justify-content:space-between;align-items:center;'>"
+            f"<span style='font-size:0.78rem;color:#bdbdbd;font-weight:700;"
+            f"text-transform:uppercase;letter-spacing:0.4px;'>{card['label']}</span>"
+            f"<span style='font-size:1rem;font-weight:900;color:{c};"
+            f"text-shadow:0 0 10px {c}33;'>{card['signal']}</span>"
+            f"</div></div>"
+            f"<div style='padding:0.85rem 1.1rem;'>"
+            f"<div style='font-size:0.74rem;color:#888;margin-bottom:0.65rem;"
+            f"line-height:1.5;'>{card['sub']}</div>"
+            + _glowbar(card["bar"], c) +
+            f"<div style='margin-top:0.75rem;border-top:1px solid #272727;padding-top:0.55rem;'>{stats_rows}</div>"
+            f"</div></div>"
         )
 
     sub_cards = []
@@ -282,8 +286,8 @@ def _render_signal_summaries(df, current_price):
                 st.markdown(_mini_card_html(card), unsafe_allow_html=True)
             else:
                 st.markdown(
-                    f"<div style='background:{BG2};border:1px solid {BDR};"
-                    f"border-radius:14px;padding:1.1rem 1.2rem;opacity:0.25;"
+                    f"<div style='background:#1b1b1b;border:1px solid #272727;"
+                    f"border-radius:12px;padding:1.1rem 1.2rem;opacity:0.2;"
                     f"text-align:center;color:#555;font-size:0.75rem;'>—</div>",
                     unsafe_allow_html=True,
                 )
@@ -865,6 +869,8 @@ def _fallback_horizon(days, d):
 # ─────────────────────────────────────────────────────────────────────────────
 
 def render_decision_tab(df, symbol_input, stock_name, current_price):
+    # Inject Inter font
+    st.markdown("""<style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');.stApp *{font-family:'Inter',system-ui,-apple-system,sans-serif!important;}</style>""", unsafe_allow_html=True)
 
     d    = _score_engine(df, current_price)
 
@@ -897,40 +903,69 @@ def render_decision_tab(df, symbol_input, stock_name, current_price):
     score_pct    = max(2, min(100, abs(d["pct"])))
 
     # ══════════════════════════════════════════════════════════════════════════
-    #  1. HERO CARD
+    #  1. HERO CARD — Clean minimal design
     # ══════════════════════════════════════════════════════════════════════════
     st.markdown(
-        f"<div style='background:linear-gradient(135deg,{BG2} 0%,{BG} 100%);"
-        f"border:1px solid {BDR};border-left:5px solid {vc};"
-        f"border-radius:16px;padding:1.6rem 2rem;margin-bottom:1.2rem;'>"
-        # Top row: Verdict + Confidence
-        f"<div style='display:flex;justify-content:space-between;align-items:flex-start;"
-        f"flex-wrap:wrap;gap:1rem;margin-bottom:1rem;'>"
+        f"<div style='background:#1b1b1b;border:1px solid #272727;"
+        f"border-radius:14px;overflow:hidden;margin-bottom:1.4rem;"
+        f"box-shadow:0 4px 24px rgba(0,0,0,0.3);'>"
+
+        # Header strip — verdict front and center
+        f"<div style='padding:1.4rem 1.8rem;display:flex;justify-content:space-between;"
+        f"align-items:center;border-bottom:1px solid #272727;"
+        f"background:linear-gradient(135deg,rgba({','.join(str(int(vc[i:i+2],16)) for i in (1,3,5))},0.08),transparent);'>"
+        f"<div style='display:flex;align-items:center;gap:0.9rem;'>"
+        f"<div style='width:42px;height:42px;border-radius:12px;"
+        f"background:rgba({','.join(str(int(vc[i:i+2],16)) for i in (1,3,5))},0.12);"
+        f"display:flex;align-items:center;justify-content:center;"
+        f"font-size:1.3rem;color:{vc};'>{dir_icon}</div>"
         f"<div>"
-        f"<div style='font-size:0.6rem;color:#9e9e9e;text-transform:uppercase;"
-        f"letter-spacing:1.2px;font-weight:700;margin-bottom:0.3rem;'>Decision Intelligence</div>"
-        f"<div style='font-size:3.5rem;font-weight:900;color:{vc};"
-        f"line-height:1;letter-spacing:-1px;'>{dir_icon} {display_v}</div>"
-        f"<div style='font-size:0.82rem;color:#9e9e9e;margin-top:0.4rem;'>{vsub}</div>"
+        f"<div style='font-size:1.8rem;font-weight:900;color:{vc};letter-spacing:-1px;"
+        f"line-height:1;text-shadow:0 0 20px {vc}33;'>{display_v}</div>"
+        f"<div style='font-size:0.72rem;color:#888;margin-top:0.2rem;font-weight:500;'>{vsub}</div>"
+        f"</div>"
         f"</div>"
         f"<div style='text-align:right;'>"
-        f"<div style='font-size:0.6rem;color:#9e9e9e;text-transform:uppercase;"
-        f"letter-spacing:1.2px;font-weight:700;margin-bottom:0.3rem;'>Signal Strength</div>"
-        f"<div style='font-size:3rem;font-weight:900;color:{conf_c};"
-        f"line-height:1;letter-spacing:-1px;'>{sig_strength}%</div>"
-        f"<div style='font-size:0.72rem;color:#aaaaaa;margin-top:0.2rem;'>"
-        f"{d['bull_n']} bullish &nbsp;&middot;&nbsp; {d['bear_n']} bearish &nbsp;&middot;&nbsp; {total_sigs} total groups</div>"
+        f"<div style='font-size:1.4rem;font-weight:800;color:{conf_c};line-height:1;'>{sig_strength}%</div>"
+        f"<div style='font-size:0.62rem;color:#666;margin-top:0.15rem;font-weight:600;"
+        f"text-transform:uppercase;letter-spacing:0.5px;'>Strength</div>"
         f"</div>"
         f"</div>"
-        # Score bar
-        f"<div style='margin-bottom:0.8rem;'>"
+
+        # Body
+        f"<div style='padding:1.3rem 1.8rem;'>"
+
+        # Stats row
+        f"<div style='display:grid;grid-template-columns:repeat(4,1fr);gap:0.7rem;margin-bottom:1.2rem;'>"
+        f"<div style='text-align:center;padding:0.75rem 0.5rem;background:#161616;"
+        f"border:1px solid #272727;border-radius:10px;'>"
+        f"<div style='font-size:1.2rem;font-weight:800;color:#4caf50;'>{d['bull_n']}</div>"
+        f"<div style='font-size:0.62rem;color:#666;margin-top:0.2rem;font-weight:600;"
+        f"text-transform:uppercase;letter-spacing:0.5px;'>Bullish</div></div>"
+        f"<div style='text-align:center;padding:0.75rem 0.5rem;background:#161616;"
+        f"border:1px solid #272727;border-radius:10px;'>"
+        f"<div style='font-size:1.2rem;font-weight:800;color:#f44336;'>{d['bear_n']}</div>"
+        f"<div style='font-size:0.62rem;color:#666;margin-top:0.2rem;font-weight:600;"
+        f"text-transform:uppercase;letter-spacing:0.5px;'>Bearish</div></div>"
+        f"<div style='text-align:center;padding:0.75rem 0.5rem;background:#161616;"
+        f"border:1px solid #272727;border-radius:10px;'>"
+        f"<div style='font-size:1.2rem;font-weight:800;color:#e0e0e0;'>{total_sigs}</div>"
+        f"<div style='font-size:0.62rem;color:#666;margin-top:0.2rem;font-weight:600;"
+        f"text-transform:uppercase;letter-spacing:0.5px;'>Total</div></div>"
+        f"<div style='text-align:center;padding:0.75rem 0.5rem;background:#161616;"
+        f"border:1px solid #272727;border-radius:10px;'>"
+        f"<div style='font-size:1.2rem;font-weight:800;color:{vc};'>{d['pct']:+.0f}%</div>"
+        f"<div style='font-size:0.62rem;color:#666;margin-top:0.2rem;font-weight:600;"
+        f"text-transform:uppercase;letter-spacing:0.5px;'>Score</div></div>"
+        f"</div>"
+
+        # Progress bar
         f"<div style='display:flex;justify-content:space-between;font-size:0.7rem;"
-        f"color:#888;margin-bottom:0.35rem;font-weight:600;'>"
-        f"<span>Composite Signal Score</span>"
-        f"<span style='color:{vc};font-weight:800;'>{d['pct']:+.0f}%</span></div>"
-        + _glowbar(score_pct, vc, '10px') +
-        f"</div>"
-        f"</div>",
+        f"color:#888;margin-bottom:0.4rem;font-weight:600;'>"
+        f"<span>Conviction</span>"
+        f"<span style='color:{vc};font-weight:800;'>{score_pct}%</span></div>"
+        + _glowbar(score_pct, vc) +
+        f"</div></div>",
         unsafe_allow_html=True,
     )
     insight_toggle(
@@ -1006,11 +1041,15 @@ def render_decision_tab(df, symbol_input, stock_name, current_price):
     if _d1_filter_warn:
         _d1_col = BEAR if not _d1_filter_ok else NEUT
         st.markdown(
-            f"<div style='background:{_d1_col}18;border:1px solid {_d1_col}55;"
-            f"border-left:4px solid {_d1_col};border-radius:10px;"
-            f"padding:0.75rem 1.1rem;margin-bottom:1rem;"
-            f"font-size:0.8rem;color:#ccc;line-height:1.5;'>"
-            f"{_d1_filter_warn}</div>",
+            f"<div style='background:#1b1b1b;border:1px solid #272727;"
+            f"border-radius:10px;overflow:hidden;margin-bottom:1rem;"
+            f"box-shadow:0 1px 8px rgba(0,0,0,0.15);'>"
+            f"<div style='padding:0.8rem 1.2rem;font-size:0.78rem;color:#b0b0b0;"
+            f"line-height:1.6;display:flex;align-items:center;gap:0.7rem;'>"
+            f"<span style='display:inline-block;width:3px;height:1.4rem;"
+            f"border-radius:2px;background:{_d1_col};flex-shrink:0;"
+            f"box-shadow:0 0 6px {_d1_col}44;'></span>"
+            f"{_d1_filter_warn}</div></div>",
             unsafe_allow_html=True,
         )
 
@@ -1060,115 +1099,59 @@ def render_decision_tab(df, symbol_input, stock_name, current_price):
     # ── Render each signal box ────────────────────────────────────────────────
     if not _tab_signals:
         st.markdown(
-            f"<div style='background:{BG2};border:1px solid {BDR};"
-            f"border-radius:14px;padding:1.6rem 2rem;'>"
-            f"<div style='font-size:0.8rem;color:#555;text-align:center;'>"
-            f"&#8212;&nbsp; No active BUY signals &nbsp;&#8212;<br>"
-            f"<span style='font-size:0.7rem;'>Stand aside until conditions improve.</span>"
-            f"</div></div>",
+            f"<div style='background:#1b1b1b;border:1px solid #272727;"
+            f"border-radius:12px;padding:2.5rem 1.8rem;text-align:center;'>"
+            f"<div style='font-size:1.5rem;margin-bottom:0.5rem;opacity:0.3;'>&#128683;</div>"
+            f"<div style='font-size:0.85rem;color:#666;font-weight:600;'>No active BUY signals</div>"
+            f"<div style='font-size:0.72rem;color:#4a4a4a;margin-top:0.35rem;'>"
+            f"Stand aside until conditions improve</div></div>",
             unsafe_allow_html=True,
         )
     else:
         from _levels import price_ladder_html as _dec_plh
 
-        # Unique accent per tab so each card is visually distinct
-        _TAB_ACCENTS = {
-            "Patterns & Price Action": "#4A9EFF",   # blue
-            "Patterns":                "#9c27b0",   # purple
-            "Volume Profile":          "#ff9800",   # amber
-            "Smart Money Concepts":    "#00bcd4",   # cyan
-            "AI Analysis":             "#4caf50",   # green
-        }
-
-        for _tlabel, _sig in _tab_signals:
-            _accent = _TAB_ACCENTS.get(_tlabel, BULL)
+        for _idx, (_tlabel, _sig) in enumerate(_tab_signals):
             _conf   = _sig.get("conf", 50)
             _cc     = BULL if _conf >= 65 else (NEUT if _conf >= 45 else BEAR)
-            _conf_explain = (
-                f"This module found {_conf}% of its internal checks pointing bullish. "
-                "That puts it in the Strong zone (≥65%) — meaning the evidence from this specific "
-                "analysis area is highly consistent. It's one of several modules contributing to the overall Decision."
-                if _conf >= 65 else (
-                f"This module found {_conf}% of its internal checks pointing bullish. "
-                "That's the Moderate zone (45–64%) — there are bullish signals present but also "
-                "some conflicting data. It contributes to the Decision but shouldn't be acted on alone."
-                if _conf >= 45 else
-                f"This module found only {_conf}% of its checks pointing bullish (Weak zone, below 45%). "
-                "The evidence here leans bearish or is mixed. This signal is included for context "
-                "but carries less weight — wait for confirmation from other modules before acting."
-            ))
+            _str_label = 'Strong' if _conf >= 65 else ('Moderate' if _conf >= 45 else 'Weak')
 
-            # ── Confidence ring (pure CSS) ───────────────────────────────────
-            _deg    = round(_conf / 100 * 360)
-            _ring   = (
-                f"conic-gradient({_cc} 0deg {_deg}deg, #2a2a2a {_deg}deg 360deg)"
-            )
+            # Spacing between cards
+            if _idx > 0:
+                st.markdown("<div style='height:1rem;'></div>", unsafe_allow_html=True)
 
-            # ── Header card: tab name pill + confidence ring ─────────────────
+            # ── Signal card with depth ────────────────────────────────────────
             st.markdown(
-                f"<div style='"
-                f"background:{BG2};"
-                f"border:1px solid {_accent}44;"
-                f"border-top:3px solid {_accent};"
-                f"border-radius:16px;"
-                f"padding:1.2rem 1.6rem 1rem;"
-                f"margin-bottom:0.6rem;"
-                f"display:flex;align-items:center;justify-content:space-between;"
-                f"gap:1.5rem;'>"
+                f"<div style='background:#1b1b1b;border:1px solid #272727;"
+                f"border-radius:12px;overflow:hidden;"
+                f"box-shadow:0 2px 16px rgba(0,0,0,0.25);'>"
 
-                # left: label pill + BUY badge
-                f"<div style='display:flex;align-items:center;gap:1rem;'>"
-                f"<div style='"
-                f"background:{BULL}18;"
-                f"border:1.5px solid {BULL};"
-                f"border-radius:999px;"
-                f"padding:0.3rem 1rem;"
-                f"font-size:0.72rem;font-weight:800;color:{BULL};"
-                f"letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;'>"
-                f"{_tlabel}"
+                # Header — tab name + prominent BUY verdict
+                f"<div style='padding:1rem 1.4rem;border-bottom:1px solid #272727;"
+                f"display:flex;justify-content:space-between;align-items:center;"
+                f"background:linear-gradient(135deg,rgba(76,175,80,0.07),transparent);'>"
+                f"<div style='display:flex;align-items:center;gap:0.8rem;'>"
+                f"<span style='font-size:0.85rem;font-weight:700;color:#bdbdbd;'>{_tlabel}</span>"
+                f"<span style='font-size:1.1rem;font-weight:900;color:#4caf50;"
+                f"text-shadow:0 0 12px rgba(76,175,80,0.3);'>&#9650; BUY</span>"
                 f"</div>"
-                f"<div style='"
-                f"font-size:1.6rem;font-weight:900;color:{BULL};"
-                f"letter-spacing:-0.5px;line-height:1;'>"
-                f"&#9650; BUY"
+                f"<div style='display:flex;align-items:center;gap:0.5rem;'>"
+                f"<span style='font-size:1.05rem;font-weight:800;color:{_cc};'>{_conf}%</span>"
+                f"<span style='font-size:0.68rem;font-weight:600;padding:0.2rem 0.55rem;"
+                f"border-radius:6px;background:rgba({','.join(str(int(_cc[i:i+2],16)) for i in (1,3,5))},0.12);"
+                f"color:{_cc};'>{_str_label}</span>"
                 f"</div>"
                 f"</div>"
 
-                # right: confidence ring
-                f"<div style='display:flex;align-items:center;gap:0.9rem;flex-shrink:0;'>"
-                f"<div style='"
-                f"width:54px;height:54px;border-radius:50%;"
-                f"background:{_ring};"
-                f"display:flex;align-items:center;justify-content:center;"
-                f"box-shadow:0 0 12px {_accent}44;'>"
-                f"<div style='"
-                f"width:38px;height:38px;border-radius:50%;"
-                f"background:{BG2};"
-                f"display:flex;align-items:center;justify-content:center;"
-                f"font-size:0.82rem;font-weight:900;color:{_cc};'>"
-                f"{_conf}%"
-                f"</div>"
-                f"</div>"
-                f"<div>"
-                f"<div style='font-size:0.62rem;color:#9e9e9e;text-transform:uppercase;"
-                f"letter-spacing:0.6px;font-weight:700;'>Confidence</div>"
-                f"<div style='font-size:0.75rem;font-weight:800;color:{_cc};"
-                f"letter-spacing:0.3px;'>"
-                f"{'Strong' if _conf >= 65 else ('Moderate' if _conf >= 45 else 'Weak')}"
-                f"</div>"
-                f"</div>"
+                # Body — progress bar
+                f"<div style='padding:1rem 1.4rem;'>"
+                + _glowbar(_conf, _cc) +
                 f"</div>"
 
                 f"</div>",
                 unsafe_allow_html=True,
             )
-            insight_toggle(
-                f"conf_{_tlabel.replace(' ','_')}",
-                f"Why is confidence {_conf}% — {_tlabel}?",
-                f"<p>{_conf_explain}</p>",
-            )
 
-            # ── Price Ladder ─────────────────────────────────────────────────
+            # ── Price Ladder inside ──────────────────────────────────────────
             try:
                 st.markdown(
                     _dec_plh(
@@ -1184,10 +1167,4 @@ def render_decision_tab(df, symbol_input, stock_name, current_price):
                 )
             except Exception:
                 pass
-
-            # ── Divider between cards ────────────────────────────────────────
-            st.markdown(
-                f"<div style='border-top:1px solid {BDR};margin:1.2rem 0 1.4rem;'></div>",
-                unsafe_allow_html=True,
-            )
 

@@ -17,18 +17,22 @@ BDR   = "#303030"
 
 def _sec(title, color=INFO):
     return (
-        f"<div style='font-size:1rem;color:#ffffff;font-weight:700;"
-        f"margin:2rem 0 1rem 0;border-bottom:2px solid {color}33;"
-        f"padding-bottom:0.5rem;'>{title}</div>"
+        f"<div style='display:flex;align-items:center;gap:0.6rem;"
+        f"margin:2.2rem 0 1rem;padding:0;'>"
+        f"<div style='width:3px;height:18px;border-radius:2px;background:{color};"
+        f"box-shadow:0 0 8px {color}44;'></div>"
+        f"<span style='font-size:0.92rem;font-weight:700;color:#e0e0e0;"
+        f"text-transform:uppercase;letter-spacing:0.8px;'>{title}</span></div>"
     )
 
 
 def _glowbar(pct, color=BULL, height="8px"):
     pct = max(0, min(100, pct))
     return (
-        f"<div style='background:{BDR};border-radius:999px;height:{height};overflow:hidden;'>"
+        f"<div style='background:#1a1a1a;border-radius:999px;height:{height};overflow:hidden;'>"
         f"<div style='width:{pct}%;height:100%;"
-        f"background:linear-gradient(90deg,{color}99,{color});border-radius:999px;'></div></div>"
+        f"background:linear-gradient(90deg,{color}cc,{color});border-radius:999px;"
+        f"box-shadow:0 0 8px {color}55;'></div></div>"
     )
 
 
@@ -331,17 +335,17 @@ def _build_vp_chart(df, vp, sig, current_price, tail=90):
 
     fig.update_layout(
         height=520, margin=dict(t=10, b=10, l=8, r=12),
-        paper_bgcolor=BG, plot_bgcolor=BG,
-        font=dict(color="#e0e0e0", family="Inter, Arial, sans-serif", size=12),
+        paper_bgcolor="#1b1b1b", plot_bgcolor="#1b1b1b",
+        font=dict(color="#888", family="Inter, Arial, sans-serif", size=12),
         hovermode="y unified",
-        legend=dict(bgcolor="rgba(0,0,0,0)", bordercolor=BDR, borderwidth=1,
-                    font=dict(size=9, color="#9e9e9e"), x=0.01, y=0.99,
+        legend=dict(bgcolor="#1b1b1b", bordercolor="#272727", borderwidth=1,
+                    font=dict(size=9, color="#888"), x=0.01, y=0.99,
                     orientation="h", yanchor="top"),
         xaxis_rangeslider_visible=False,
     )
     for ci in [1, 2]:
-        fig.update_xaxes(gridcolor=BDR, showgrid=True, zeroline=False, row=1, col=ci)
-        fig.update_yaxes(gridcolor=BDR, showgrid=True, zeroline=False, row=1, col=ci)
+        fig.update_xaxes(gridcolor="#272727", showgrid=True, zeroline=False, row=1, col=ci)
+        fig.update_yaxes(gridcolor="#272727", showgrid=True, zeroline=False, row=1, col=ci)
     fig.update_xaxes(showticklabels=False, row=1, col=2)
     for ann in (fig.layout.annotations or []):
         if hasattr(ann, "font"):
@@ -390,34 +394,38 @@ def volume_profile_tab(df, current_price):
 
     # ══ 1. HERO ═══════════════════════════════════════════════════════════════
     st.markdown(
-        f"<div style='background:{BG2};border:1px solid {BDR};"
-        f"border-left:5px solid {sig_left};border-radius:14px;"
-        f"padding:1.6rem 2rem;margin-bottom:1.2rem;'>"
+        f"<div style='background:#1b1b1b;border:1px solid #272727;"
+        f"border-radius:14px;overflow:hidden;margin-bottom:1.2rem;"
+        f"box-shadow:0 4px 24px rgba(0,0,0,0.3);'>"
+        f"<div style='padding:1.6rem 2rem;"
+        f"background:linear-gradient(135deg,rgba({','.join(str(int(sig_col[i:i+2],16)) for i in (1,3,5)) if sig_col.startswith('#') and len(sig_col)==7 else '85,85,85'},0.07),transparent);'>"
         f"<div style='margin-bottom:1.4rem;'>"
-        f"<div style='font-size:0.70rem;color:#9e9e9e;text-transform:uppercase;"
-        f"letter-spacing:1.1px;margin-bottom:0.4rem;font-weight:600;'>"
+        f"<div style='font-size:0.62rem;color:#606060;text-transform:uppercase;"
+        f"letter-spacing:1.2px;margin-bottom:0.5rem;font-weight:700;'>"
         f"Volume Profile Signal</div>"
-        f"<div style='font-size:3rem;font-weight:900;color:{sig_col};"
-        f"line-height:1;letter-spacing:-0.5px;'>{sig_icon}</div>"
-        f"<div style='font-size:0.88rem;color:#9e9e9e;margin-top:0.5rem;'>"
+        f"<div style='font-size:2.4rem;font-weight:900;color:{sig_col};"
+        f"line-height:1;letter-spacing:-1px;text-shadow:0 0 20px {sig_col}33;'>{sig_icon}</div>"
+        f"<div style='font-size:0.82rem;color:#888;margin-top:0.6rem;'>"
         f"{sig['zone']}</div>"
         f"</div>"
         f"<div style='margin-bottom:1rem;'>"
         f"<div style='display:flex;justify-content:space-between;margin-bottom:0.3rem;'>"
-        f"<span style='font-size:0.67rem;color:#9e9e9e;text-transform:uppercase;"
-        f"letter-spacing:0.6px;'>Confluence Score</span>"
+        f"<span style='font-size:0.62rem;color:#606060;text-transform:uppercase;"
+        f"letter-spacing:0.8px;font-weight:700;'>Confluence Score</span>"
         f"<span style='font-size:0.82rem;font-weight:800;color:{score_c};'>{sig['score']}/100</span>"
         f"</div>"
-        + _glowbar(sig["score"], score_c, "6px") +
+        + _glowbar(sig["score"], score_c, "5px") +
+        f"</div>"
         f"</div>"
         f"<div style='display:grid;grid-template-columns:repeat(4,1fr);"
-        f"border-top:1px solid {BDR};padding-top:1.1rem;gap:0.75rem;'>"
+        f"border-top:1px solid #272727;padding:1.1rem 2rem;gap:0.75rem;'>"
         + "".join([
-            f"<div>"
-            f"<div style='font-size:0.67rem;color:#9e9e9e;text-transform:uppercase;"
-            f"letter-spacing:0.6px;margin-bottom:0.35rem;'>{ln}</div>"
-            f"<div style='font-size:1.25rem;font-weight:800;color:{lc};'>${lv:.2f}</div>"
-            f"<div style='font-size:0.72rem;color:#9e9e9e;margin-top:0.2rem;'>{ls}</div>"
+            f"<div style='background:#161616;border:1px solid #272727;border-radius:8px;"
+            f"padding:0.7rem 0.8rem;'>"
+            f"<div style='font-size:0.62rem;color:#606060;text-transform:uppercase;"
+            f"letter-spacing:0.8px;margin-bottom:0.35rem;font-weight:700;'>{ln}</div>"
+            f"<div style='font-size:1.3rem;font-weight:800;color:{lc};'>${lv:.2f}</div>"
+            f"<div style='font-size:0.68rem;color:#555;margin-top:0.2rem;'>{ls}</div>"
             f"</div>"
             for ln, lv, lc, ls in [
                 ("VAL — Demand Floor",    val,  BULL,      f"{(val  / current_price - 1)*100:+.2f}% from price"),
@@ -478,49 +486,49 @@ def volume_profile_tab(df, current_price):
         with col:
             if price is None:
                 st.markdown(
-                    f"<div style='background:{BG2};border:1px solid {BDR};"
-                    f"border-top:3px solid #333;border-radius:12px;"
-                    f"padding:0.9rem 0.7rem;text-align:center;'>"
-                    f"<div style='font-size:0.72rem;color:#555;text-transform:uppercase;"
-                    f"letter-spacing:0.6px;margin-bottom:0.4rem;'>{label}</div>"
-                    f"<div style='font-size:1.15rem;font-weight:800;color:#444;'>—</div>"
-                    f"<div style='font-size:0.62rem;color:#444;margin-top:0.2rem;'>{desc}</div>"
+                    f"<div style='background:#1b1b1b;border:1px solid #272727;"
+                    f"border-radius:10px;padding:0.9rem 0.7rem;text-align:center;'>"
+                    f"<div style='font-size:0.62rem;color:#606060;text-transform:uppercase;"
+                    f"letter-spacing:0.8px;margin-bottom:0.4rem;font-weight:700;'>{label}</div>"
+                    f"<div style='font-size:1.2rem;font-weight:800;color:#444;'>—</div>"
+                    f"<div style='font-size:0.60rem;color:#444;margin-top:0.2rem;'>{desc}</div>"
                     f"</div>",
                     unsafe_allow_html=True,
                 )
             else:
                 dist = f"{(price / current_price - 1)*100:+.2f}%"
                 st.markdown(
-                    f"<div style='background:{BG2};border:1px solid {BDR};"
-                    f"border-top:3px solid {color};border-radius:12px;"
-                    f"padding:0.9rem 0.7rem;text-align:center;'>"
-                    f"<div style='font-size:0.72rem;color:#9e9e9e;text-transform:uppercase;"
-                    f"letter-spacing:0.6px;margin-bottom:0.4rem;'>{label}</div>"
-                    f"<div style='font-size:1.15rem;font-weight:800;color:{color};'>${price:.2f}</div>"
-                    f"<div style='font-size:0.75rem;color:#757575;margin-top:0.2rem;'>{dist}</div>"
-                    f"<div style='font-size:0.62rem;color:#555;margin-top:0.1rem;'>{desc}</div>"
+                    f"<div style='background:#1b1b1b;border:1px solid #272727;"
+                    f"border-radius:10px;padding:0.9rem 0.7rem;text-align:center;'>"
+                    f"<div style='font-size:0.62rem;color:#606060;text-transform:uppercase;"
+                    f"letter-spacing:0.8px;margin-bottom:0.4rem;font-weight:700;'>{label}</div>"
+                    f"<div style='font-size:1.2rem;font-weight:800;color:{color};'>${price:.2f}</div>"
+                    f"<div style='font-size:0.72rem;color:#555;margin-top:0.2rem;'>{dist}</div>"
+                    f"<div style='font-size:0.60rem;color:#444;margin-top:0.1rem;'>{desc}</div>"
                     f"</div>",
                     unsafe_allow_html=True,
                 )
 
     if lvns_above and abs(lvns_above[0] - current_price) / max(current_price, 1) < 0.03:
         st.markdown(
-            f"<div style='background:{BG2};border:1px solid {BULL}44;"
-            f"border-left:3px solid {BULL};border-radius:10px;"
-            f"padding:0.65rem 1rem;margin-top:0.6rem;"
-            f"font-size:0.78rem;color:#9e9e9e;'>"
+            f"<div style='background:#1b1b1b;border:1px solid #272727;"
+            f"border-radius:10px;overflow:hidden;margin-top:0.6rem;'>"
+            f"<div style='padding:0.65rem 1rem;"
+            f"background:linear-gradient(135deg,rgba(76,175,80,0.06),transparent);"
+            f"font-size:0.78rem;color:#888;'>"
             f"<span style='color:{BULL};font-weight:700;'>LVN just above ({lvns_above[0]:.2f}): </span>"
-            f"Thin volume zone — price can accelerate upward quickly through this level.</div>",
+            f"Thin volume zone — price can accelerate upward quickly through this level.</div></div>",
             unsafe_allow_html=True,
         )
     if lvns_below and abs(lvns_below[0] - current_price) / max(current_price, 1) < 0.03:
         st.markdown(
-            f"<div style='background:{BG2};border:1px solid {INFO}44;"
-            f"border-left:3px solid {INFO};border-radius:10px;"
-            f"padding:0.65rem 1rem;margin-top:0.6rem;"
-            f"font-size:0.78rem;color:#9e9e9e;'>"
+            f"<div style='background:#1b1b1b;border:1px solid #272727;"
+            f"border-radius:10px;overflow:hidden;margin-top:0.6rem;'>"
+            f"<div style='padding:0.65rem 1rem;"
+            f"background:linear-gradient(135deg,rgba(33,150,243,0.06),transparent);"
+            f"font-size:0.78rem;color:#888;'>"
             f"<span style='color:{INFO};font-weight:700;'>Support zone ({lvns_below[0]:.2f}): </span>"
-            f"Low-volume node below — monitor this level as a key support reference.</div>",
+            f"Low-volume node below — monitor this level as a key support reference.</div></div>",
             unsafe_allow_html=True,
         )
 
@@ -542,7 +550,7 @@ def volume_profile_tab(df, current_price):
 
     st.markdown(
         f"<div style='display:flex;gap:1.5rem;flex-wrap:wrap;"
-        f"padding:0.5rem 0.8rem;background:{BG};border:1px solid {BDR};"
+        f"padding:0.5rem 0.8rem;background:#1b1b1b;border:1px solid #272727;"
         f"border-radius:8px;margin-bottom:0.5rem;'>"
         + "".join([
             f"<span style='font-size:0.63rem;color:{lc};font-weight:700;'>▬ {lt}</span>"
@@ -561,8 +569,8 @@ def volume_profile_tab(df, current_price):
     )
 
     st.markdown(
-        f"<div style='font-size:0.72rem;color:#9e9e9e;margin-top:1.5rem;"
-        f"padding:0.75rem 1rem;background:{BG};border-radius:8px;border:1px solid {BDR};'>"
+        f"<div style='font-size:0.72rem;color:#555;margin-top:1.5rem;"
+        f"padding:0.75rem 1rem;background:#1b1b1b;border-radius:8px;border:1px solid #272727;'>"
         f"Volume Profile is computed from the full selected date range. "
         f"POC, VAH, and VAL shift as new data is added. Not financial advice."
         f"</div>",

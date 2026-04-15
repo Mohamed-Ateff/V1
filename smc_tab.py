@@ -25,27 +25,31 @@ BDR   = "#303030"
 # ── Tiny UI helpers ───────────────────────────────────────────────────────────
 def _sec(title, color=INFO):
     return (
-        f"<div style='font-size:1rem;color:#fff;font-weight:700;"
-        f"margin:2rem 0 0.9rem 0;border-bottom:2px solid {color}33;"
-        f"padding-bottom:0.5rem;'>{title}</div>"
+        f"<div style='display:flex;align-items:center;gap:0.6rem;"
+        f"margin:2.2rem 0 1rem;padding:0;'>"
+        f"<div style='width:3px;height:18px;border-radius:2px;background:{color};"
+        f"box-shadow:0 0 8px {color}44;'></div>"
+        f"<span style='font-size:0.92rem;font-weight:700;color:#e0e0e0;"
+        f"text-transform:uppercase;letter-spacing:0.8px;'>{title}</span></div>"
     )
 
 
 def _glowbar(pct, color=BULL, height="7px"):
     pct = max(0, min(100, float(pct)))
     return (
-        f"<div style='background:{BDR};border-radius:999px;height:{height};overflow:hidden;'>"
+        f"<div style='background:#1a1a1a;border-radius:999px;height:{height};overflow:hidden;'>"
         f"<div style='width:{pct}%;height:100%;"
-        f"background:linear-gradient(90deg,{color}88,{color});border-radius:999px;'></div></div>"
+        f"background:linear-gradient(90deg,{color}cc,{color});border-radius:999px;"
+        f"box-shadow:0 0 8px {color}55;'></div></div>"
     )
 
 
 def _kv_row(label, value, vcolor="#ffffff"):
     return (
         f"<div style='display:flex;justify-content:space-between;align-items:center;"
-        f"padding:0.32rem 0;border-bottom:1px solid {BDR};'>"
-        f"<span style='font-size:0.65rem;color:#666;text-transform:uppercase;"
-        f"letter-spacing:0.7px;font-weight:600;'>{label}</span>"
+        f"padding:0.32rem 0;border-bottom:1px solid #272727;'>"
+        f"<span style='font-size:0.62rem;color:#606060;text-transform:uppercase;"
+        f"letter-spacing:0.8px;font-weight:700;'>{label}</span>"
         f"<span style='font-size:0.82rem;font-weight:800;color:{vcolor};'>{value}</span>"
         f"</div>"
     )
@@ -53,8 +57,8 @@ def _kv_row(label, value, vcolor="#ffffff"):
 
 def _badge(text, color):
     return (
-        f"<span style='background:{color}18;border:1.5px solid {color};"
-        f"border-radius:7px;padding:0.18rem 0.6rem;"
+        f"<span style='background:rgba({','.join(str(int(color[i:i+2],16)) for i in (1,3,5)) if color.startswith('#') and len(color)==7 else '85,85,85'},0.12);"
+        f"border-radius:6px;padding:0.18rem 0.6rem;"
         f"font-size:0.78rem;font-weight:800;color:{color};letter-spacing:0.4px;'>{text}</span>"
     )
 
@@ -573,12 +577,12 @@ def _build_chart(df, swing_highs, swing_lows, buy_side, sell_side,
 
     fig.update_layout(
         xaxis_rangeslider_visible=False,
-        paper_bgcolor=BG, plot_bgcolor=BG,
+        paper_bgcolor="#1b1b1b", plot_bgcolor="#1b1b1b",
         margin=dict(l=10, r=100, t=30, b=10),
         height=520,
-        font=dict(family="Inter, sans-serif", color="#9e9e9e", size=11),
-        xaxis=dict(gridcolor=BDR, showgrid=True, zeroline=False, linecolor=BDR),
-        yaxis=dict(gridcolor=BDR, showgrid=True, zeroline=False, linecolor=BDR),
+        font=dict(family="Inter, sans-serif", color="#888", size=11),
+        xaxis=dict(gridcolor="#272727", showgrid=True, zeroline=False, linecolor="#272727"),
+        yaxis=dict(gridcolor="#272727", showgrid=True, zeroline=False, linecolor="#272727"),
         showlegend=False,
     )
     return fig
@@ -643,9 +647,9 @@ def smc_tab(df, current_price):
 
     def _stat_tile(label, value, color):
         return (
-            f"<div style='background:{BG};border:1px solid {BDR};border-radius:10px;"
+            f"<div style='background:#161616;border:1px solid #272727;border-radius:10px;"
             f"padding:0.55rem 0.9rem;text-align:center;'>"
-            f"<div style='font-size:0.57rem;color:#555;text-transform:uppercase;"
+            f"<div style='font-size:0.57rem;color:#606060;text-transform:uppercase;"
             f"letter-spacing:0.8px;font-weight:700;margin-bottom:0.2rem;'>{label}</div>"
             f"<div style='font-size:0.92rem;font-weight:900;color:{color};'>{value}</div>"
             f"</div>"
@@ -660,22 +664,25 @@ def smc_tab(df, current_price):
     )
 
     st.markdown(
-        f"<div style='background:{BG2};"
-        f"border:1px solid {BDR};border-left:5px solid {bias_color};border-radius:14px;"
-        f"padding:2rem 2.2rem;margin-bottom:1.2rem;'>"
+        f"<div style='background:#1b1b1b;"
+        f"border:1px solid #272727;border-radius:14px;"
+        f"overflow:hidden;margin-bottom:1.2rem;"
+        f"box-shadow:0 4px 24px rgba(0,0,0,0.3);'>"
+        f"<div style='padding:2rem 2.2rem;"
+        f"background:linear-gradient(135deg,rgba({','.join(str(int(bias_color[i:i+2],16)) for i in (1,3,5)) if bias_color.startswith('#') and len(bias_color)==7 else '85,85,85'},0.07),transparent);'>"
         # ── top row
         f"<div style='display:flex;align-items:flex-start;justify-content:space-between;"
         f"margin-bottom:1.6rem;gap:2rem;'>"
         # left block
         f"<div style='flex:1;'>"
-        f"<div style='font-size:0.57rem;color:#555;text-transform:uppercase;"
+        f"<div style='font-size:0.57rem;color:#606060;text-transform:uppercase;"
         f"letter-spacing:1.5px;font-weight:700;margin-bottom:0.4rem;'>Smart Money Concepts</div>"
-        f"<div style='font-size:0.85rem;color:#999;margin-bottom:1.2rem;'>Institutional Structure · Order Flow · Liquidity</div>"
+        f"<div style='font-size:0.85rem;color:#888;margin-bottom:1.2rem;'>Institutional Structure · Order Flow · Liquidity</div>"
         f"<div style='display:flex;align-items:center;gap:1.2rem;'>"
         f"<div style='background:{bias_glow};border:2px solid {bias_color};"
         f"border-radius:14px;padding:0.55rem 1.6rem;'>"
-        f"<div style='font-size:2.8rem;font-weight:900;color:{bias_color};"
-        f"letter-spacing:2px;line-height:1;'>{bias}</div>"
+        f"<div style='font-size:2.4rem;font-weight:900;color:{bias_color};"
+        f"letter-spacing:2px;line-height:1;text-shadow:0 0 20px {bias_color}33;'>{bias}</div>"
         f"</div>"
         f"<div>"
         f"<div style='font-size:0.7rem;color:#888;font-weight:600;margin-bottom:0.15rem;'>Market Bias</div>"
@@ -685,17 +692,19 @@ def smc_tab(df, current_price):
         f"</div>"
         f"</div>"
         # right: confidence dial
-        f"<div style='text-align:center;background:{BG};border:1px solid {BDR};"
+        f"<div style='text-align:center;background:#161616;border:1px solid #272727;"
         f"border-radius:16px;padding:1.2rem 1.8rem;min-width:110px;flex-shrink:0;'>"
-        f"<div style='font-size:0.57rem;color:#555;text-transform:uppercase;"
+        f"<div style='font-size:0.57rem;color:#606060;text-transform:uppercase;"
         f"letter-spacing:1px;font-weight:700;margin-bottom:0.5rem;'>Confidence</div>"
         f"<div style='font-size:2.6rem;font-weight:900;color:{conf_color};"
-        f"line-height:1;margin-bottom:0.4rem;'>{conf}%</div>"
+        f"line-height:1;margin-bottom:0.4rem;text-shadow:0 0 20px {conf_color}33;'>{conf}%</div>"
         + _glowbar(conf, conf_color, "5px") +
         f"</div>"
         f"</div>"
+        f"</div>"
         # ── bottom stat tiles
-        f"<div style='display:grid;grid-template-columns:repeat(5,1fr);gap:0.6rem;'>"
+        f"<div style='display:grid;grid-template-columns:repeat(5,1fr);gap:0.6rem;"
+        f"padding:0.9rem 2.2rem 1.2rem;border-top:1px solid #272727;'>"
         f"{tiles_html}"
         f"</div>"
         f"</div>",
@@ -739,17 +748,18 @@ def smc_tab(df, current_price):
         with col:
             rows_html = "".join([_kv_row(k, v, c) for k, v, c in rows])
             st.markdown(
-                f"<div style='background:{BG2};border:1px solid {BDR};"
-                f"border-top:3px solid {accent};border-radius:14px;"
-                f"padding:1rem 1.1rem;height:100%;'>"
-                f"<div style='font-size:0.56rem;color:#555;text-transform:uppercase;"
+                f"<div style='background:#1b1b1b;border:1px solid #272727;"
+                f"border-radius:12px;overflow:hidden;height:100%;'>"
+                f"<div style='padding:0.85rem 1.1rem;"
+                f"background:linear-gradient(135deg,rgba({','.join(str(int(accent[i:i+2],16)) for i in (1,3,5)) if accent.startswith('#') and len(accent)==7 else '85,85,85'},0.06),transparent);'>"
+                f"<div style='font-size:0.56rem;color:#606060;text-transform:uppercase;"
                 f"letter-spacing:1px;font-weight:700;margin-bottom:0.5rem;'>{label}</div>"
                 + _badge(badge_text, badge_col) +
                 f"<div style='margin-top:0.65rem;'>{rows_html}</div>"
                 + (f"<div style='font-size:0.66rem;color:#555;margin-top:0.5rem;"
-                   f"line-height:1.4;border-top:1px solid {BDR};padding-top:0.4rem;'>{footer}</div>"
+                   f"line-height:1.4;border-top:1px solid #272727;padding-top:0.4rem;'>{footer}</div>"
                    if footer else "")
-                + f"</div>",
+                + f"</div></div>",
                 unsafe_allow_html=True,
             )
 

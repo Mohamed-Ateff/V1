@@ -14,18 +14,22 @@ BDR  = "#303030"
 
 def _sec(title, color=INFO):
     return (
-        f"<div style='font-size:1rem;color:#ffffff;font-weight:700;"
-        f"margin:2rem 0 1rem 0;border-bottom:2px solid {color}33;"
-        f"padding-bottom:0.5rem;'>{title}</div>"
+        f"<div style='display:flex;align-items:center;gap:0.6rem;"
+        f"margin:2.2rem 0 1rem;padding:0;'>"
+        f"<div style='width:3px;height:18px;border-radius:2px;background:{color};"
+        f"box-shadow:0 0 8px {color}44;'></div>"
+        f"<span style='font-size:0.92rem;font-weight:700;color:#e0e0e0;"
+        f"text-transform:uppercase;letter-spacing:0.8px;'>{title}</span></div>"
     )
 
 
-def _glowbar(pct, color=BULL, height="8px"):
+def _glowbar(pct, color=BULL, height="5px"):
     pct = max(0, min(100, float(pct)))
     return (
-        f"<div style='background:{BDR};border-radius:999px;height:{height};overflow:hidden;'>"
+        f"<div style='background:#1a1a1a;border-radius:999px;height:{height};overflow:hidden;'>"
         f"<div style='width:{pct}%;height:100%;"
-        f"background:linear-gradient(90deg,{color}99,{color});border-radius:999px;'></div></div>"
+        f"background:linear-gradient(90deg,{color}cc,{color});border-radius:999px;"
+        f"box-shadow:0 0 8px {color}55;'></div></div>"
     )
 
 REGIME_COLOR = {"TREND": "#26A69A", "RANGE": "#4A9EFF", "VOLATILE": "#FF6B6B"}
@@ -83,18 +87,18 @@ def _stat_tile(label, value, sub, val_color, bg, border, muted, bar_pct=None, ba
     bar_html = ""
     if bar_pct is not None:
         bar_html = (
-            f"<div style='margin-top:0.55rem;height:4px;background:rgba(255,255,255,0.06);"
+            f"<div style='margin-top:0.55rem;height:4px;background:#1a1a1a;"
             f"border-radius:2px;overflow:hidden;'>"
             f"<div style='width:{bar_pct:.0f}%;height:100%;background:{bar_color or val_color};"
-            f"border-radius:2px;'></div></div>"
+            f"border-radius:2px;box-shadow:0 0 6px {bar_color or val_color}44;'></div></div>"
         )
     return (
-        f"<div style='background:{bg};border:1px solid {border};"
-        f"border-radius:12px;padding:1.1rem 1.3rem;'>"
-        f"<div style='font-size:0.67rem;color:{muted};text-transform:uppercase;"
-        f"letter-spacing:0.8px;margin-bottom:0.45rem;font-weight:600;'>{label}</div>"
-        f"<div style='font-size:1.25rem;font-weight:800;color:{val_color};line-height:1;'>{value}</div>"
-        f"<div style='font-size:0.73rem;color:{muted};margin-top:0.3rem;'>{sub}</div>"
+        f"<div style='background:#1b1b1b;border:1px solid #272727;"
+        f"border-radius:10px;padding:1rem 1.2rem;'>"
+        f"<div style='font-size:0.62rem;color:#606060;text-transform:uppercase;"
+        f"letter-spacing:0.8px;margin-bottom:0.45rem;font-weight:700;'>{label}</div>"
+        f"<div style='font-size:1.3rem;font-weight:800;color:{val_color};line-height:1;'>{value}</div>"
+        f"<div style='font-size:0.72rem;color:#666;margin-top:0.3rem;'>{sub}</div>"
         f"{bar_html}"
         f"</div>"
     )
@@ -143,27 +147,37 @@ def render_regime_analysis_tab(df, info_icon, create_regime_distribution_chart):
 
     # ── HERO CARD ─────────────────────────────────────────────────────────────
     st.markdown(f"""
-    <div style="background:{bg_card};border:1px solid {border};border-left:5px solid {rc};
-                border-radius:16px;padding:1.8rem 2rem 1.5rem;margin-bottom:1.2rem;">
-        <div style="display:flex;align-items:flex-start;justify-content:space-between;
-                    gap:1rem;flex-wrap:wrap;">
-            <div>
-                <div style="font-size:0.70rem;color:{muted};text-transform:uppercase;
-                            letter-spacing:1.1px;margin-bottom:0.5rem;font-weight:600;">
-                    Current Market Regime</div>
-                <div style="font-size:2.8rem;font-weight:900;color:{rc};line-height:1;
-                            letter-spacing:-0.5px;">{current_regime}</div>
-                <div style="font-size:0.88rem;color:{muted};margin-top:0.55rem;
-                            max-width:460px;line-height:1.5;">{desc}</div>
-            </div>
-            <div style="text-align:right;flex-shrink:0;">
-                <div style="font-size:0.70rem;color:{muted};text-transform:uppercase;
-                            letter-spacing:1px;margin-bottom:0.35rem;font-weight:600;">
-                    Current Price</div>
-                <div style="font-size:2.0rem;font-weight:800;color:{text};line-height:1;">
-                    {current_price:.2f} SAR</div>
-                <div style="font-size:0.75rem;color:{muted};margin-top:0.3rem;">
-                    Active for <span style="color:{rc};font-weight:700;">{streak} days</span>
+    <div style="background:#1b1b1b;border:1px solid #272727;
+                border-radius:14px;overflow:hidden;margin-bottom:1.4rem;
+                box-shadow:0 4px 24px rgba(0,0,0,0.3);">
+        <div style="padding:1.6rem 2rem 1.4rem;
+                    background:linear-gradient(135deg,rgba({','.join(str(int(rc[i:i+2],16)) for i in (1,3,5))},0.08),transparent);">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;
+                        gap:1.2rem;flex-wrap:wrap;">
+                <div>
+                    <div style="font-size:0.62rem;color:#606060;text-transform:uppercase;
+                                letter-spacing:1.2px;margin-bottom:0.55rem;font-weight:700;">
+                        Current Market Regime</div>
+                    <div style="display:flex;align-items:center;gap:0.9rem;">
+                        <div style="width:48px;height:48px;border-radius:12px;
+                                    background:rgba({','.join(str(int(rc[i:i+2],16)) for i in (1,3,5))},0.12);
+                                    display:flex;align-items:center;justify-content:center;
+                                    font-size:1.3rem;color:{rc};font-weight:900;">&#9673;</div>
+                        <div style="font-size:2.4rem;font-weight:900;color:{rc};line-height:1;
+                                    letter-spacing:-1px;text-shadow:0 0 20px {rc}33;">{current_regime}</div>
+                    </div>
+                    <div style="font-size:0.82rem;color:#888;margin-top:0.6rem;
+                                max-width:460px;line-height:1.6;">{desc}</div>
+                </div>
+                <div style="text-align:right;flex-shrink:0;">
+                    <div style="font-size:0.62rem;color:#606060;text-transform:uppercase;
+                                letter-spacing:1px;margin-bottom:0.4rem;font-weight:700;">
+                        Current Price</div>
+                    <div style="font-size:2rem;font-weight:800;color:#e0e0e0;line-height:1;">
+                        {current_price:.2f} SAR</div>
+                    <div style="font-size:0.75rem;color:#666;margin-top:0.35rem;">
+                        Active for <span style="color:{rc};font-weight:700;">{streak} days</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -193,16 +207,26 @@ def render_regime_analysis_tab(df, info_icon, create_regime_distribution_chart):
         ("Volatile", vol_days,   volatile_pct, "#FF6B6B"),
     ]:
         st.markdown(
-            f"<div style='background:{BG2};border:1px solid {BDR};"
-            f"border-top:3px solid {color};border-radius:12px;"
-            f"padding:1rem 1.3rem;margin-bottom:0.6rem;'>"
-            f"<div style='display:flex;justify-content:space-between;"
-            f"align-items:baseline;margin-bottom:0.6rem;'>"
-            f"<span style='font-size:0.90rem;font-weight:700;color:{color};'>{label}</span>"
-            f"<span style='font-size:0.80rem;color:#9e9e9e;'>{days} days &nbsp;·&nbsp;"
-            f"<span style='color:{color};font-weight:700;'>{pct}%</span></span>"
+            f"<div style='background:#1b1b1b;border:1px solid #272727;"
+            f"border-radius:12px;overflow:hidden;"
+            f"margin-bottom:0.7rem;box-shadow:0 2px 12px rgba(0,0,0,0.15);'>"
+
+            # header strip
+            f"<div style='padding:0.85rem 1.3rem;border-bottom:1px solid #272727;"
+            f"background:linear-gradient(135deg,rgba({','.join(str(int(color[i:i+2],16)) for i in (1,3,5))},0.07),transparent);"
+            f"display:flex;justify-content:space-between;align-items:center;'>"
+            f"<span style='font-size:0.88rem;font-weight:700;color:{color};'>{label}</span>"
+            f"<div style='display:flex;align-items:center;gap:0.5rem;'>"
+            f"<span style='font-size:0.75rem;color:#666;'>{days} days</span>"
+            f"<span style='font-size:1rem;font-weight:800;color:{color};'>{pct}%</span>"
             f"</div>"
-            + _glowbar(pct, color, "6px") +
+            f"</div>"
+
+            # progress bar body
+            f"<div style='padding:0.75rem 1.3rem;'>"
+            + _glowbar(pct, color, "5px") +
+            f"</div>"
+
             f"</div>",
             unsafe_allow_html=True,
         )
@@ -237,16 +261,16 @@ def render_regime_analysis_tab(df, info_icon, create_regime_distribution_chart):
     fig.update_layout(
         barmode="stack",
         height=110,
-        plot_bgcolor=bg_plot,
-        paper_bgcolor=bg_plot,
-        font=dict(color=muted, family="Inter, Arial, sans-serif", size=11),
-        xaxis=dict(gridcolor=border, showline=False, zeroline=False,
-                   tickfont=dict(color=muted), tickformat="%b %y"),
+        plot_bgcolor="#1b1b1b",
+        paper_bgcolor="#1b1b1b",
+        font=dict(color="#666", family="Inter, Arial, sans-serif", size=11),
+        xaxis=dict(gridcolor="#272727", showline=False, zeroline=False,
+                   tickfont=dict(color="#666"), tickformat="%b %y"),
         yaxis=dict(visible=False),
         margin=dict(t=8, b=28, l=6, r=6),
         showlegend=True,
         legend=dict(orientation="h", yanchor="bottom", y=1.02,
-                    xanchor="right", x=1, font=dict(color=muted),
+                    xanchor="right", x=1, font=dict(color="#888"),
                     bgcolor="rgba(0,0,0,0)"),
         bargap=0,
     )

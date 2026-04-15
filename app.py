@@ -428,38 +428,39 @@ st.markdown("""
 
     }
 
-    /* ── Main tab-list: hide Streamlit default chrome, icons injected by JS ── */
+    /* ── Main tab-list: cohesive dark design ── */
     [data-testid="stTabs"] [data-baseweb="tab-list"] {
-        background: #111518 !important;
-        border-radius: 0 !important;
-        padding: 0 0.5rem !important;
+        background: #1b1b1b !important;
+        border-radius: 12px !important;
+        padding: 0.2rem 0.25rem !important;
         gap: 0 !important;
-        border: none !important;
-        border-bottom: 1px solid #1f2428 !important;
+        border: 1px solid #272727 !important;
         margin-bottom: 1.5rem !important;
-        min-height: 54px !important;
+        min-height: auto !important;
+        box-shadow: 0 2px 16px rgba(0,0,0,0.25) !important;
     }
     [data-testid="stTabs"] [data-baseweb="tab"] {
         background: transparent !important;
-        color: #4a5568 !important;
-        border-radius: 10px !important;
+        color: #555 !important;
+        border-radius: 8px !important;
         font-size: 0.82rem !important;
-        font-weight: 500 !important;
+        font-weight: 600 !important;
         letter-spacing: 0.25px !important;
-        padding: 0.45rem 1.15rem !important;
+        padding: 0.55rem 1.2rem !important;
         border: none !important;
-        margin: 0.45rem 0.15rem !important;
-        transition: color 0.18s ease, background 0.18s ease !important;
+        margin: 0.2rem 0.1rem !important;
+        transition: all 0.2s ease !important;
     }
     [data-testid="stTabs"] [data-baseweb="tab"]:hover {
-        color: #a0aec0 !important;
-        background: rgba(255,255,255,0.04) !important;
+        color: #999 !important;
+        background: rgba(255,255,255,0.03) !important;
     }
     [data-testid="stTabs"] [aria-selected="true"] {
-        background: linear-gradient(135deg,rgba(38,166,154,0.18),rgba(33,150,243,0.10)) !important;
-        color: #e2e8f0 !important;
-        border: 1px solid rgba(38,166,154,0.35) !important;
-        font-weight: 650 !important;
+        background: linear-gradient(135deg,rgba(38,166,154,0.12),rgba(33,150,243,0.06)) !important;
+        color: #e0e0e0 !important;
+        border: 1px solid rgba(38,166,154,0.25) !important;
+        font-weight: 700 !important;
+        box-shadow: 0 0 12px rgba(38,166,154,0.08) !important;
     }
     [data-testid="stTabs"] [data-baseweb="tab-border"],
     [data-testid="stTabs"] [data-baseweb="tab-highlight"] {
@@ -2869,17 +2870,6 @@ def main():
             min-width: 0 !important;
         }}
 
-        /* ── Brand header ───────────────────────────────────────────────────── */
-        .lp-brand {{
-            font-size: 1.2rem; font-weight: 800; color: #e8e8e8;
-            letter-spacing: -0.5px; line-height: 1;
-        }}
-        .lp-brand span {{ color: #26A69A; }}
-        .lp-tagline {{
-            font-size: 0.56rem; color: #2e4040; font-weight: 700;
-            text-transform: uppercase; letter-spacing: 1.2px; margin-top: 5px;
-        }}
-
         /* ── Action buttons ─────────────────────────────────────────────────── */
         .st-key-btn_saved .stButton > button {{
             background: rgba(38,166,154,0.07) !important;
@@ -3288,11 +3278,6 @@ def main():
                     _period_names = {"1d":"Today","1w":"This Week","1m":"1 Month","3m":"3 Months","6m":"6 Months","1y":"1 Year"}
                     _perf_subtitle = _period_names.get(_ap, "Today")
 
-                    # Brand header
-                    st.markdown(
-                        f"<div class='lp-brand'>Tadawul<span>AI</span></div>"
-                        f"<div class='lp-tagline'>Market Intelligence</div>",
-                        unsafe_allow_html=True)
 
                     # Active period highlight (injected dynamically so only selected pill is teal)
                     st.markdown(
@@ -3404,6 +3389,116 @@ def main():
                         f'<div class="mstat-bcell"><div class="mstat-bv" style="color:#ef5350">{losers}</div><div class="mstat-bl">▼ Down</div></div>'
                         f'<div class="mstat-bcell"><div class="mstat-bv" style="color:#3a4550">{unchanged}</div><div class="mstat-bl">━ Flat</div></div>'
                         f'</div>'
+                        f'</div>'
+                        f'</div>',
+                        unsafe_allow_html=True)
+
+                    # ── Tomorrow Forecast ──────────────────────────────────
+                    _breadth_ratio = gainers / max(losers, 1)
+                    _adv_pct = gainers / max(gainers + losers + unchanged, 1) * 100
+                    _dec_pct = losers / max(gainers + losers + unchanged, 1) * 100
+
+                    # Momentum score (−100 to +100)
+                    _mom_score = 0
+                    # Breadth component (max ±35)
+                    if _breadth_ratio > 2.0:
+                        _mom_score += 35
+                    elif _breadth_ratio > 1.3:
+                        _mom_score += 20
+                    elif _breadth_ratio > 0.9:
+                        _mom_score += 5
+                    elif _breadth_ratio > 0.5:
+                        _mom_score -= 20
+                    else:
+                        _mom_score -= 35
+
+                    # TASI change component (max ±35)
+                    if tasi_change > 1.0:
+                        _mom_score += 35
+                    elif tasi_change > 0.3:
+                        _mom_score += 20
+                    elif tasi_change > -0.3:
+                        _mom_score += 0
+                    elif tasi_change > -1.0:
+                        _mom_score -= 20
+                    else:
+                        _mom_score -= 35
+
+                    # Avg change component (max ±30)
+                    if avg_change > 1.0:
+                        _mom_score += 30
+                    elif avg_change > 0.3:
+                        _mom_score += 15
+                    elif avg_change > -0.3:
+                        _mom_score += 0
+                    elif avg_change > -1.0:
+                        _mom_score -= 15
+                    else:
+                        _mom_score -= 30
+
+                    _mom_score = max(-100, min(100, _mom_score))
+
+                    if _mom_score >= 50:
+                        _fc_label, _fc_color, _fc_icon = 'LIKELY UP', '#26A69A', '▲'
+                    elif _mom_score >= 15:
+                        _fc_label, _fc_color, _fc_icon = 'LEAN BULLISH', '#66bb6a', '↗'
+                    elif _mom_score >= -15:
+                        _fc_label, _fc_color, _fc_icon = 'NEUTRAL', '#ffc107', '→'
+                    elif _mom_score >= -50:
+                        _fc_label, _fc_color, _fc_icon = 'LEAN BEARISH', '#ff7043', '↘'
+                    else:
+                        _fc_label, _fc_color, _fc_icon = 'LIKELY DOWN', '#ef5350', '▼'
+
+                    _fc_bar_w = abs(_mom_score)
+                    _fc_bar_side = 'right' if _mom_score >= 0 else 'left'
+                    st.markdown(
+                        f'<div class="mstat-card">'
+                        f'<div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">'
+                        f'<div class="mstat-label" style="margin:0;">Tomorrow Forecast</div>'
+                        f'<span style="font-size:0.52rem;font-weight:700;color:#26A69A;background:rgba(38,166,154,0.13);'
+                        f'border:1px solid rgba(38,166,154,0.3);border-radius:99px;padding:1px 7px;letter-spacing:0.3px;">NEW</span>'
+                        f'<span style="margin-left:auto;display:flex;align-items:baseline;gap:3px;">'
+                        f'<span style="font-size:1.1rem;font-weight:900;color:{_fc_color};">{_mom_score:+d}</span>'
+                        f'<span style="font-size:0.6rem;font-weight:600;color:#505050;">/100</span>'
+                        f'<span title="Momentum Score (-100 to +100). Combines three signals: Breadth ratio (how many stocks are up vs down), TASI index movement, and average stock performance. Above +50 = likely up day, below -50 = likely down day." '
+                        f'style="display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;'
+                        f'border-radius:50%;background:rgba(255,255,255,0.06);font-size:0.45rem;color:#888;cursor:help;'
+                        f'font-weight:800;margin-left:2px;">?</span>'
+                        f'</span>'
+                        f'</div>'
+                        f'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">'
+                        f'<span style="font-size:1.4rem;line-height:1;color:{_fc_color};">{_fc_icon}</span>'
+                        f'<span style="font-size:1rem;font-weight:800;color:{_fc_color};letter-spacing:-0.3px;">{_fc_label}</span>'
+                        f'</div>'
+                        f'<div style="position:relative;height:6px;background:rgba(255,255,255,0.06);border-radius:3px;margin-bottom:10px;">'
+                        f'<div style="position:absolute;top:0;{_fc_bar_side}:50%;height:100%;'
+                        f'width:{_fc_bar_w/2:.1f}%;background:{_fc_color};border-radius:3px;'
+                        f'box-shadow:0 0 8px {_fc_color}44;"></div>'
+                        f'<div style="position:absolute;top:-2px;left:calc(50% - 1px);width:2px;height:10px;'
+                        f'background:rgba(255,255,255,0.25);border-radius:1px;"></div>'
+                        f'</div>'
+                        f'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">'
+                        f'<div style="text-align:center;padding:5px;background:rgba(255,255,255,0.025);border-radius:6px;position:relative;">'
+                        f'<div style="font-size:0.62rem;color:#505050;text-transform:uppercase;letter-spacing:0.5px;">'
+                        f'Breadth <span title="Ratio of advancing stocks to declining stocks. Above 1.0 = more stocks rising than falling." '
+                        f'style="display:inline-flex;align-items:center;justify-content:center;width:12px;height:12px;'
+                        f'border-radius:50%;background:rgba(255,255,255,0.06);font-size:0.45rem;color:#888;cursor:help;'
+                        f'font-weight:800;vertical-align:middle;">?</span></div>'
+                        f'<div style="font-size:0.82rem;font-weight:700;color:{"#26A69A" if _breadth_ratio > 1 else "#ef5350"};">{_breadth_ratio:.2f}</div></div>'
+                        f'<div style="text-align:center;padding:5px;background:rgba(255,255,255,0.025);border-radius:6px;">'
+                        f'<div style="font-size:0.62rem;color:#505050;text-transform:uppercase;letter-spacing:0.5px;">'
+                        f'Advancers <span title="Percentage of stocks that closed higher today." '
+                        f'style="display:inline-flex;align-items:center;justify-content:center;width:12px;height:12px;'
+                        f'border-radius:50%;background:rgba(255,255,255,0.06);font-size:0.45rem;color:#888;cursor:help;'
+                        f'font-weight:800;vertical-align:middle;">?</span></div>'
+                        f'<div style="font-size:0.82rem;font-weight:700;color:#26A69A;">{_adv_pct:.0f}%</div></div>'
+                        f'<div style="text-align:center;padding:5px;background:rgba(255,255,255,0.025);border-radius:6px;">'
+                        f'<div style="font-size:0.62rem;color:#505050;text-transform:uppercase;letter-spacing:0.5px;">'
+                        f'Decliners <span title="Percentage of stocks that closed lower today." '
+                        f'style="display:inline-flex;align-items:center;justify-content:center;width:12px;height:12px;'
+                        f'border-radius:50%;background:rgba(255,255,255,0.06);font-size:0.45rem;color:#888;cursor:help;'
+                        f'font-weight:800;vertical-align:middle;">?</span></div>'
+                        f'<div style="font-size:0.82rem;font-weight:700;color:#ef5350;">{_dec_pct:.0f}%</div></div>'
                         f'</div>'
                         f'</div>',
                         unsafe_allow_html=True)
@@ -3646,29 +3741,35 @@ def main():
                                 f"{len(ma_tickers_all)} Tadawul stocks ready to scan</div>",
                                 unsafe_allow_html=True)
 
-                            st.markdown("<div class='cp-input-label'>Period</div>", unsafe_allow_html=True)
-                            _scr_period_lbl = st.selectbox(
-                                "Period", ["3 Months", "6 Months", "1 Year", "2 Years"], index=1,
-                                key="scr_period_sel", label_visibility="collapsed")
+                            _fmd1, _fmd2 = st.columns(2)
+                            with _fmd1:
+                                st.markdown("<div class='cp-input-label'>From</div>", unsafe_allow_html=True)
+                                _fm_start = st.date_input("From",
+                                    value=(datetime.now() - timedelta(days=180)).date(),
+                                    min_value=datetime(2002, 1, 1).date(),
+                                    key="scr_fm_start",
+                                    label_visibility="collapsed")
+                            with _fmd2:
+                                st.markdown("<div class='cp-input-label'>To</div>", unsafe_allow_html=True)
+                                _fm_end = st.date_input("To",
+                                    value=datetime.now().date(),
+                                    min_value=datetime(2002, 1, 1).date(),
+                                    key="scr_fm_end",
+                                    label_visibility="collapsed")
                             st.markdown(
                                 "<div style='color:#3a4550;font-size:0.68rem;margin:0.3rem 0 0.8rem;'>"
                                 "Full market scan — takes 1-2 minutes.</div>",
                                 unsafe_allow_html=True)
 
                             def run_market_analysis_callback_all():
-                                _pv = {
-                                    "3 Months": "3mo",
-                                    "6 Months": "6mo",
-                                    "1 Year":   "1y",
-                                    "2 Years":  "2y",
-                                }.get(st.session_state.get("scr_period_sel", "6 Months"), "6mo")
+                                _sd = st.session_state.get("scr_fm_start", (datetime.now() - timedelta(days=180)).date())
+                                _ed = st.session_state.get("scr_fm_end", datetime.now().date())
                                 with st.spinner(f"Scanning {len(ma_tickers_all)} stocks…"):
                                     res = run_market_analysis(
-                                        tuple(ma_tickers_all), period=_pv, min_score=1)
+                                        tuple(ma_tickers_all), min_score=1, start=_sd, end=_ed)
                                     st.session_state.ma_results          = res
                                     st.session_state.ma_scanned_count    = len(ma_tickers_all)
-                                    st.session_state.ma_scan_params      = {
-                                        "period": st.session_state.get("scr_period_sel", "6 Months")}
+                                    st.session_state.ma_scan_params      = {'start': str(_sd), 'end': str(_ed)}
                                     st.session_state.show_market_results = True
 
                             st.markdown("<div class='cp-run-wrap'>", unsafe_allow_html=True)
@@ -3933,16 +4034,12 @@ def main():
         # ── instrument cards (all 8) — no emoji, label only ──
         _INST_LABELS = {
             'brent':  'BRENT OIL',
-            'gas':    'NAT GAS',
             'aramco': 'ARAMCO',
-            'vix':    'VIX FEAR',
             'usd':    'USD',
             'gold':   'GOLD',
-            'sp500':  'S&P 500',
-            'em':     'EM ETF',
         }
         _inst_html = ""
-        for _ikey in ['brent', 'gas', 'aramco', 'vix', 'usd', 'gold', 'sp500', 'em']:
+        for _ikey in ['brent', 'aramco', 'usd', 'gold']:
             _d = (_msnap or {}).get(_ikey)
             if not _d:
                 continue
@@ -5158,37 +5255,44 @@ def main():
 
 
 
-        # ?? tile helpers ???????????????????????????????????????????????????
+        # -- tile helpers ------------------------------------------------
 
-        def _tile(label, value, sub, accent, val_color=None, sub_color=None, val_size="1.15rem"):
+        def _tile(label, value, sub, accent, val_color=None, sub_color=None, val_size="1.15rem", tooltip=None):
 
             if val_color is None:
 
-                val_color = text_color
+                val_color = "#e0e0e0"
 
             if sub_color is None:
 
-                sub_color = muted_color
+                sub_color = "#888"
+
+            tip_html = (
+                f"<span title='{tooltip}' style='display:inline-flex;align-items:center;"
+                f"justify-content:center;width:14px;height:14px;border-radius:50%;"
+                f"background:#272727;color:#606060;font-size:0.48rem;font-weight:700;"
+                f"margin-left:0.4rem;cursor:help;vertical-align:middle;'>?</span>"
+            ) if tooltip else ""
 
             return (
 
-                f"<div class='cp-theme-tile' style='background:{card_bg}; border:1px solid {card_border};"
+                f"<div style='background:#161616; border:1px solid #272727;"
 
-                f" border-top:2px solid {accent}; border-radius:8px; padding:1rem 1.1rem;'>"
+                f" border-radius:10px; padding:1rem 1.1rem; overflow:hidden;'>"
 
-                f"<div style='font-size:0.68rem; color:{muted_color}; text-transform:uppercase;"
+                f"<div style='font-size:0.62rem; color:#606060; text-transform:uppercase;"
 
-                f" letter-spacing:0.8px; font-weight:600; margin-bottom:0.5rem;'>{label}</div>"
+                f" letter-spacing:1px; font-weight:700; margin-bottom:0.5rem;'>{label}{tip_html}</div>"
 
-                f"<div style='font-size:{val_size}; font-weight:700; color:{val_color}; line-height:1.1;'>{value}</div>"
+                f"<div style='font-size:{val_size}; font-weight:800; color:{val_color}; line-height:1.1;"
 
-                f"<div style='font-size:0.72rem; color:{sub_color}; margin-top:0.35rem; font-weight:600;'>{sub}</div>"
+                f" text-shadow:0 0 18px {accent}33;'>{value}</div>"
+
+                f"<div style='font-size:0.68rem; color:{sub_color}; margin-top:0.35rem; font-weight:600;'>{sub}</div>"
 
                 f"</div>"
 
             )
-
-
 
         def _arrow(val):
 
@@ -5212,7 +5316,7 @@ def main():
 
 
 
-        price_sub   = f"{_arrow(period_change)} {period_change:+.2f}%  ·  start {first['Close']:.2f} SAR"
+        price_sub   = f"{_arrow(period_change)} {period_change:+.2f}% since start"
 
         high_sub    = f"{_arrow(high_diff)} {high_diff:+.1f}% from current"
 
@@ -5302,7 +5406,9 @@ def main():
 
                     sub_color=_chg_color(vol_diff_pct),
 
-                    val_size="1.5rem")
+                    val_size="1.5rem",
+
+                    tooltip="Average number of shares traded per day over the analysis period")
 
         )
 
@@ -5324,7 +5430,9 @@ def main():
 
                     f"{volatility:.1f}% of period low",
 
-                    "#4A9EFF")
+                    "#4A9EFF",
+
+                    tooltip="Difference between the highest and lowest price during the analysis period")
 
             + _tile("Annualized Volatility",
 
@@ -5336,7 +5444,9 @@ def main():
 
                     val_color=annual_vol_color,
 
-                    sub_color=ann_sub_col)
+                    sub_color=ann_sub_col,
+
+                    tooltip="Standard deviation of daily returns scaled to one year — measures price uncertainty")
 
         )
 
@@ -5346,21 +5456,28 @@ def main():
 
         _regime_pill = (
 
-            f"<span style='font-size:0.68rem; color:{muted_color}; text-transform:uppercase;"
+            "<span style='font-size:0.62rem; color:#606060; text-transform:uppercase;"
 
-            " letter-spacing:0.8px; font-weight:600; margin-right:0.5rem;'>Regime</span>"
+            " letter-spacing:1px; font-weight:700; margin-right:0.5rem;'>Regime</span>"
 
             "<span style='font-size:0.78rem; font-weight:700; color:#fff; background:" + regime_color + ";"
 
-            " padding:0.25rem 0.85rem; border-radius:20px; letter-spacing:0.5px;'>" + latest['REGIME'] + "</span>"
+            " padding:0.25rem 0.85rem; border-radius:20px; letter-spacing:0.5px;"
+
+            " box-shadow:0 0 12px " + regime_color + "44;'>" + latest['REGIME'] + "</span>"
 
         )
 
+
         hero_html = (
 
-            f"<div class='cp-theme-card' style='background:{hero_bg}; border:1px solid {card_border}; border-radius:12px;"
+            "<div style='background:#1b1b1b; border:1px solid #272727; border-radius:14px;"
 
-            " padding:1.6rem 1.8rem; margin-bottom:1.4rem;'>"
+            " overflow:hidden; margin-bottom:1.4rem; box-shadow:0 4px 24px rgba(0,0,0,0.3);'>"
+
+
+
+            "<div style='padding:1.6rem 1.8rem;'>"
 
 
 
@@ -5370,9 +5487,9 @@ def main():
 
             "<div>"
 
-            f"<div style='font-size:1.3rem; font-weight:700; color:{text_color}; line-height:1.2;'>" + stock_name + "</div>"
+            "<div style='font-size:1.5rem; font-weight:800; color:#e0e0e0; line-height:1.2;'>" + stock_name + "</div>"
 
-            f"<div style='font-size:0.8rem; color:{muted_color}; margin-top:0.28rem; font-weight:500;'>"
+            "<div style='font-size:0.78rem; color:#606060; margin-top:0.28rem; font-weight:600;'>"
 
             + symbol_input + "&nbsp;&nbsp;&#183;&nbsp;&nbsp;" + _period_label +
 
@@ -5386,7 +5503,7 @@ def main():
 
 
 
-            f"<div style='border-top:1px solid {card_border}; margin-bottom:0.9rem;'></div>"
+            "<div style='border-top:1px solid #272727; margin-bottom:0.9rem;'></div>"
 
 
 
@@ -5408,9 +5525,12 @@ def main():
 
             "</div>"
 
+            "</div>"
+
         )
 
         st.markdown(hero_html, unsafe_allow_html=True)
+
 
         
 

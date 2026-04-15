@@ -25,18 +25,22 @@ BDR   = "#303030"
 # ── UI helpers ────────────────────────────────────────────────────────────────
 def _sec(title, color=INFO):
     return (
-        f"<div style='font-size:1rem;color:#fff;font-weight:700;"
-        f"margin:2rem 0 0.9rem 0;border-bottom:2px solid {color}33;"
-        f"padding-bottom:0.5rem;'>{title}</div>"
+        f"<div style='display:flex;align-items:center;gap:0.6rem;"
+        f"margin:2.2rem 0 1rem;padding:0;'>"
+        f"<div style='width:3px;height:18px;border-radius:2px;background:{color};"
+        f"box-shadow:0 0 8px {color}44;'></div>"
+        f"<span style='font-size:0.92rem;font-weight:700;color:#e0e0e0;"
+        f"text-transform:uppercase;letter-spacing:0.8px;'>{title}</span></div>"
     )
 
 
 def _glowbar(pct, color=BULL, height="7px"):
     pct = max(0, min(100, float(pct)))
     return (
-        f"<div style='background:{BDR};border-radius:999px;height:{height};overflow:hidden;'>"
+        f"<div style='background:#1a1a1a;border-radius:999px;height:{height};overflow:hidden;'>"
         f"<div style='width:{pct}%;height:100%;"
-        f"background:linear-gradient(90deg,{color}88,{color});border-radius:999px;'>"
+        f"background:linear-gradient(90deg,{color}cc,{color});border-radius:999px;"
+        f"box-shadow:0 0 8px {color}55;'>"
         f"</div></div>"
     )
 
@@ -45,8 +49,9 @@ def _row(lbl, val, col="#fff", big=False):
     fs = "1.1rem" if big else "0.85rem"
     return (
         f"<div style='display:flex;justify-content:space-between;align-items:center;"
-        f"padding:0.42rem 0;border-bottom:1px solid {BDR};'>"
-        f"<span style='font-size:0.68rem;color:#666;'>{lbl}</span>"
+        f"padding:0.42rem 0;border-bottom:1px solid #272727;'>"
+        f"<span style='font-size:0.62rem;color:#606060;text-transform:uppercase;"
+        f"letter-spacing:0.5px;font-weight:700;'>{lbl}</span>"
         f"<span style='font-size:{fs};font-weight:900;color:{col};'>{val}</span>"
         f"</div>"
     )
@@ -352,33 +357,36 @@ def trade_validator_tab(df, latest, current_price):
     #  HERO — Verdict card
     # ══════════════════════════════════════════════════════════════════════════
     st.markdown(
-        f"<div style='background:linear-gradient(135deg,{BG2} 0%,{BG} 100%);"
-        f"border:1px solid {BDR};border-left:6px solid {act_col};"
-        f"border-radius:16px;padding:1.8rem 2rem;margin-bottom:1.2rem;'>"
+        f"<div style='background:#1b1b1b;"
+        f"border:1px solid #272727;"
+        f"border-radius:16px;overflow:hidden;margin-bottom:1.2rem;"
+        f"box-shadow:0 4px 24px rgba(0,0,0,0.3);'>"
+        f"<div style='padding:1.8rem 2rem;"
+        f"background:linear-gradient(135deg,rgba({','.join(str(int(act_col[i:i+2],16)) for i in (1,3,5)) if act_col.startswith('#') and len(act_col)==7 else '85,85,85'},0.07),transparent);'>"
         f"<div style='display:flex;justify-content:space-between;align-items:flex-start;"
         f"flex-wrap:wrap;gap:1.5rem;margin-bottom:1rem;'>"
         f"<div>"
-        f"<div style='font-size:0.58rem;color:#9e9e9e;text-transform:uppercase;"
+        f"<div style='font-size:0.58rem;color:#606060;text-transform:uppercase;"
         f"letter-spacing:1.5px;font-weight:700;margin-bottom:0.35rem;'>Trade Verdict</div>"
-        f"<div style='font-size:3.8rem;font-weight:900;color:{act_col};"
-        f"line-height:1;letter-spacing:-1px;'>{act_icon}&nbsp;{act_txt}</div>"
-        f"<div style='font-size:0.82rem;color:#9e9e9e;margin-top:0.5rem;"
+        f"<div style='font-size:2.8rem;font-weight:900;color:{act_col};"
+        f"line-height:1;letter-spacing:-1px;text-shadow:0 0 20px {act_col}33;'>{act_icon}&nbsp;{act_txt}</div>"
+        f"<div style='font-size:0.82rem;color:#888;margin-top:0.5rem;"
         f"font-weight:600;'>{act_label}</div>"
         f"</div>"
         f"<div style='text-align:right;display:flex;gap:2rem;'>"
         f"<div>"
-        f"<div style='font-size:0.58rem;color:#9e9e9e;text-transform:uppercase;"
+        f"<div style='font-size:0.58rem;color:#606060;text-transform:uppercase;"
         f"letter-spacing:1.2px;font-weight:700;margin-bottom:0.25rem;'>Decision Conf.</div>"
-        f"<div style='font-size:2.8rem;font-weight:900;color:{conf_col};"
-        f"line-height:1;'>{d['confidence']}%</div>"
+        f"<div style='font-size:2.4rem;font-weight:900;color:{conf_col};"
+        f"line-height:1;text-shadow:0 0 20px {conf_col}33;'>{d['confidence']}%</div>"
         f"<div style='font-size:0.68rem;color:#555;margin-top:0.15rem;'>"
         f"{d['bull_n']} bull - {d['bear_n']} bear signals</div>"
         f"</div>"
         f"<div>"
-        f"<div style='font-size:0.58rem;color:#9e9e9e;text-transform:uppercase;"
+        f"<div style='font-size:0.58rem;color:#606060;text-transform:uppercase;"
         f"letter-spacing:1.2px;font-weight:700;margin-bottom:0.25rem;'>Engine Confluence</div>"
-        f"<div style='font-size:2.8rem;font-weight:900;color:{cs_col};"
-        f"line-height:1;'>{confluence_score:.0f}%</div>"
+        f"<div style='font-size:2.4rem;font-weight:900;color:{cs_col};"
+        f"line-height:1;text-shadow:0 0 20px {cs_col}33;'>{confluence_score:.0f}%</div>"
         f"<div style='font-size:0.68rem;color:#555;margin-top:0.15rem;'>"
         f"<span style='color:{BULL};'>{agree_count}</span> agree &middot; "
         f"<span style='color:{BEAR};'>{conflict_count}</span> conflict &middot; "
@@ -391,6 +399,7 @@ def trade_validator_tab(df, latest, current_price):
         f"<span>Decision score: {d['total_pts']:+d} pts / +/-{d['total_max']}</span>"
         f"<span style='color:{act_col};font-weight:700;'>{d['pct']:+.0f}%</span></div>"
         + _glowbar(score_pct, act_col, '8px') +
+        f"</div>"
         f"</div>"
         + f"</div>",
         unsafe_allow_html=True,
@@ -432,11 +441,11 @@ def trade_validator_tab(df, latest, current_price):
             "Trend": INFO, "Momentum": BULL, "Oscillator": NEUT,
             "Volume": "#26c6da", "Pattern": PURP, "ML": GOLD,
         }
-        cat_col = cat_lut.get(f["cat"], "#9e9e9e")
+        cat_col = cat_lut.get(f["cat"], "#888")
         return (
             f"<div style='display:flex;align-items:center;gap:0.7rem;"
             f"padding:0.55rem 0.8rem;margin-bottom:0.3rem;"
-            f"background:{color}09;border-radius:10px;border:1px solid {color}22;'>"
+            f"background:{color}09;border-radius:10px;border:1px solid #272727;'>"
             f"<div style='width:2.2rem;height:2.2rem;border-radius:50%;flex-shrink:0;"
             f"background:{color}22;border:2px solid {color}55;"
             f"display:flex;align-items:center;justify-content:center;'>"
@@ -444,9 +453,9 @@ def trade_validator_tab(df, latest, current_price):
             f"<div style='flex:1;min-width:0;'>"
             f"<div style='font-size:0.74rem;color:#ddd;font-weight:700;"
             f"line-height:1.3;margin-bottom:0.22rem;'>{f['name']}</div>"
-            f"<div style='background:{BDR};border-radius:999px;height:3px;overflow:hidden;'>"
+            f"<div style='background:#1a1a1a;border-radius:999px;height:3px;overflow:hidden;'>"
             f"<div style='width:{bar_w}%;height:100%;background:{color};"
-            f"border-radius:999px;'></div></div></div>"
+            f"border-radius:999px;box-shadow:0 0 6px {color}44;'></div></div></div>"
             f"<div style='text-align:right;flex-shrink:0;'>"
             f"<div style='display:inline-block;background:{cat_col}18;"
             f"border:1px solid {cat_col}44;border-radius:4px;padding:0.1rem 0.45rem;"
@@ -462,18 +471,20 @@ def trade_validator_tab(df, latest, current_price):
         if top_bull:
             rows_html = "".join(_factor_impact_row(f, BULL) for f in top_bull)
             st.markdown(
-                f"<div style='background:{BG2};border:1px solid {BDR};"
-                f"border-top:3px solid {BULL};border-radius:14px;padding:1rem 1.1rem;'>"
+                f"<div style='background:#1b1b1b;border:1px solid #272727;"
+                f"border-radius:12px;overflow:hidden;'>"
+                f"<div style='padding:1rem 1.1rem;"
+                f"background:linear-gradient(135deg,rgba(76,175,80,0.06),transparent);'>"
                 f"<div style='font-size:0.57rem;color:{BULL};text-transform:uppercase;"
                 f"letter-spacing:1.2px;font-weight:700;margin-bottom:0.65rem;'>"
                 f"&#9650; Bullish Evidence &mdash; {len(top_bull)} factors</div>"
-                f"{rows_html}</div>",
+                f"{rows_html}</div></div>",
                 unsafe_allow_html=True,
             )
         else:
             st.markdown(
-                f"<div style='background:{BG2};border:1px solid {BDR};"
-                f"border-radius:14px;padding:1rem;text-align:center;"
+                f"<div style='background:#1b1b1b;border:1px solid #272727;"
+                f"border-radius:12px;padding:1rem;text-align:center;"
                 f"font-size:0.75rem;color:#555;'>No bullish factors detected</div>",
                 unsafe_allow_html=True,
             )
@@ -482,18 +493,20 @@ def trade_validator_tab(df, latest, current_price):
         if top_bear:
             rows_html = "".join(_factor_impact_row(f, BEAR) for f in top_bear)
             st.markdown(
-                f"<div style='background:{BG2};border:1px solid {BDR};"
-                f"border-top:3px solid {BEAR};border-radius:14px;padding:1rem 1.1rem;'>"
+                f"<div style='background:#1b1b1b;border:1px solid #272727;"
+                f"border-radius:12px;overflow:hidden;'>"
+                f"<div style='padding:1rem 1.1rem;"
+                f"background:linear-gradient(135deg,rgba(244,67,54,0.06),transparent);'>"
                 f"<div style='font-size:0.57rem;color:{BEAR};text-transform:uppercase;"
                 f"letter-spacing:1.2px;font-weight:700;margin-bottom:0.65rem;'>"
                 f"&#9660; Risk Evidence &mdash; {len(top_bear)} factors</div>"
-                f"{rows_html}</div>",
+                f"{rows_html}</div></div>",
                 unsafe_allow_html=True,
             )
         else:
             st.markdown(
-                f"<div style='background:{BG2};border:1px solid {BDR};"
-                f"border-radius:14px;padding:1rem;text-align:center;"
+                f"<div style='background:#1b1b1b;border:1px solid #272727;"
+                f"border-radius:12px;padding:1rem;text-align:center;"
                 f"font-size:0.75rem;color:#555;'>No bearish risk factors detected</div>",
                 unsafe_allow_html=True,
             )
@@ -523,16 +536,18 @@ def trade_validator_tab(df, latest, current_price):
     conf_bw  = round(conf_w  / max(total_w, 1) * 100)
 
     st.markdown(
-        f"<div style='background:{BG2};border:1px solid {BDR};"
-        f"border-radius:14px;padding:1.2rem 1.5rem;margin-bottom:1rem;'>"
+        f"<div style='background:#1b1b1b;border:1px solid #272727;"
+        f"border-radius:14px;overflow:hidden;margin-bottom:1rem;'>"
+        f"<div style='padding:1.2rem 1.5rem;'>"
         f"<div style='display:flex;align-items:center;gap:2rem;flex-wrap:wrap;"
         f"margin-bottom:0.85rem;'>"
 
         # Consensus score
         f"<div>"
-        f"<div style='font-size:0.52rem;color:#9e9e9e;text-transform:uppercase;"
+        f"<div style='font-size:0.52rem;color:#606060;text-transform:uppercase;"
         f"letter-spacing:1px;font-weight:700;margin-bottom:0.15rem;'>Weighted Score</div>"
-        f"<div style='font-size:2.8rem;font-weight:900;color:{cs_col};line-height:1;'>"
+        f"<div style='font-size:2.4rem;font-weight:900;color:{cs_col};line-height:1;"
+        f"text-shadow:0 0 20px {cs_col}33;'>"
         f"{confluence_score:.0f}%</div>"
         f"<div style='font-size:0.62rem;color:#555;margin-top:0.1rem;'>"
         f"{agree_count}/{n_engines} engines support the verdict</div>"
@@ -558,10 +573,11 @@ def trade_validator_tab(df, latest, current_price):
         f"<div style='flex:1;min-width:180px;'>"
         f"<div style='font-size:0.55rem;color:#555;margin-bottom:0.35rem;'>"
         f"Agreement weight: {agree_w}% &nbsp;·&nbsp; Conflict weight: {conf_w}%</div>"
-        f"<div style='display:flex;border-radius:999px;overflow:hidden;height:14px;'>"
+        f"<div style='display:flex;border-radius:999px;overflow:hidden;height:14px;"
+        f"background:#1a1a1a;'>"
         f"<div style='background:{BULL};width:{agree_bw}%;transition:width 0.3s;'></div>"
         f"<div style='background:{BEAR};width:{conf_bw}%;'></div>"
-        f"<div style='background:{BDR};flex:1;'></div>"
+        f"<div style='flex:1;'></div>"
         f"</div>"
         f"<div style='display:flex;justify-content:space-between;"
         f"font-size:0.52rem;color:#444;margin-top:0.2rem;'>"
@@ -569,7 +585,7 @@ def trade_validator_tab(df, latest, current_price):
         f"<span style='color:{BEAR};'>&#9660; {conf_bw}% conflicts</span>"
         f"</div></div>"
         f"</div>"
-        f"</div>",
+        f"</div></div>",
         unsafe_allow_html=True,
     )
 
@@ -588,9 +604,10 @@ def trade_validator_tab(df, latest, current_price):
         str_lbl, str_col = str_map.get(strength, ('—', '#444'))
 
         st.markdown(
-            f"<div style='background:{BG2};border:1px solid {BDR};"
-            f"border-left:4px solid {v_color};border-radius:12px;"
-            f"padding:0.9rem 1.2rem;margin-bottom:0.5rem;'>"
+            f"<div style='background:#1b1b1b;border:1px solid #272727;"
+            f"border-radius:12px;overflow:hidden;margin-bottom:0.5rem;'>"
+            f"<div style='padding:0.9rem 1.2rem;"
+            f"background:linear-gradient(135deg,rgba({','.join(str(int(v_color[i:i+2],16)) for i in (1,3,5)) if v_color.startswith('#') and len(v_color)==7 else '85,85,85'},0.06),transparent);'>"
 
             f"<div style='display:flex;align-items:center;gap:0.9rem;'>"
 
@@ -602,17 +619,17 @@ def trade_validator_tab(df, latest, current_price):
 
             # Engine info
             f"<div style='flex:1;min-width:0;'>"
-            f"<div style='font-size:0.86rem;font-weight:800;color:#fff;"
+            f"<div style='font-size:0.86rem;font-weight:800;color:#e0e0e0;"
             f"margin-bottom:0.15rem;'>{v['label']}</div>"
-            f"<div style='font-size:0.64rem;color:#666;white-space:nowrap;"
+            f"<div style='font-size:0.64rem;color:#555;white-space:nowrap;"
             f"overflow:hidden;text-overflow:ellipsis;margin-bottom:0.3rem;'>"
             f"{v.get('detail','—')}</div>"
             # Weight progress bar
             f"<div style='display:flex;align-items:center;gap:0.45rem;'>"
             f"<div style='font-size:0.5rem;color:#444;flex-shrink:0;'>Engine weight</div>"
-            f"<div style='flex:1;background:{BDR};border-radius:999px;height:3px;'>"
+            f"<div style='flex:1;background:#1a1a1a;border-radius:999px;height:3px;'>"
             f"<div style='width:{v['weight']}%;height:100%;background:{v_color};"
-            f"border-radius:999px;'></div></div>"
+            f"border-radius:999px;box-shadow:0 0 6px {v_color}44;'></div></div>"
             f"<div style='font-size:0.5rem;color:#444;flex-shrink:0;'>{v['weight']}%</div>"
             f"</div>"
             f"</div>"
@@ -624,20 +641,20 @@ def trade_validator_tab(df, latest, current_price):
             f"{v.get('signal','—')}</div>"
             f"<div style='display:flex;gap:0.35rem;justify-content:flex-end;"
             f"align-items:center;flex-wrap:wrap;'>"
-            f"<div style='background:{v_color}18;border:1.5px solid {v_color};"
+            f"<div style='background:{v_color}18;"
             f"border-radius:7px;padding:0.13rem 0.75rem;"
             f"font-size:0.72rem;font-weight:900;color:{v_color};'>{v_lbl}</div>"
             f"<div style='font-size:0.6rem;color:{str_col};font-weight:700;'>{str_lbl}</div>"
             f"</div>"
             f"</div>"
             f"</div>"
-            f"</div>",
+            f"</div></div>",
             unsafe_allow_html=True,
         )
 
     st.markdown(
-        f"<div style='margin-top:1.5rem;padding:0.6rem 1rem;background:{BG2};"
-        f"border:1px solid {BDR};border-radius:10px;font-size:0.6rem;color:#444;'>"
+        f"<div style='margin-top:1.5rem;padding:0.6rem 1rem;background:#1b1b1b;"
+        f"border:1px solid #272727;border-radius:10px;font-size:0.6rem;color:#444;'>"
         f"For informational purposes only. Statistical patterns — not guaranteed outcomes. "
         f"Levels are ATR-derived estimates, not precise entry/exit points."
         f"</div>",

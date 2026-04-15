@@ -26,13 +26,12 @@ BDR   = "#303030"
 def _kv(label, val, color=INFO, sub="", big=False):
     vsize = "1.75rem" if big else "1.5rem"
     return (
-        f"<div style='background:{BG2};border:1px solid {BDR};"
-        f"border-top:3px solid {color};border-radius:12px;"
-        f"padding:1rem 1rem;text-align:center;'>"
-        f"<div style='font-size:0.8rem;color:#9e9e9e;text-transform:uppercase;"
-        f"letter-spacing:0.6px;font-weight:600;margin-bottom:0.3rem;'>{label}</div>"
+        f"<div style='background:#1b1b1b;border:1px solid #272727;"
+        f"border-radius:10px;padding:1rem 1rem;text-align:center;'>"
+        f"<div style='font-size:0.62rem;color:#606060;text-transform:uppercase;"
+        f"letter-spacing:0.8px;font-weight:700;margin-bottom:0.3rem;'>{label}</div>"
         f"<div style='font-size:{vsize};font-weight:800;color:{color};line-height:1.15;'>{val}</div>"
-        + (f"<div style='font-size:0.78rem;color:#9e9e9e;margin-top:0.22rem;'>{sub}</div>" if sub else "")
+        + (f"<div style='font-size:0.72rem;color:#555;margin-top:0.22rem;'>{sub}</div>" if sub else "")
         + "</div>"
     )
 
@@ -40,38 +39,40 @@ def _kv(label, val, color=INFO, sub="", big=False):
 def _glowbar(pct, color=INFO, height="9px"):
     pct = max(0, min(100, pct))
     return (
-        f"<div style='background:{BDR};border-radius:6px;height:{height};width:100%;'>"
-        f"<div style='background:linear-gradient(90deg,{color}99,{color});"
+        f"<div style='background:#1a1a1a;border-radius:6px;height:{height};width:100%;'>"
+        f"<div style='background:linear-gradient(90deg,{color}cc,{color});"
         f"width:{pct}%;height:100%;border-radius:6px;"
-        f"box-shadow:0 0 8px {color}66;'></div></div>"
+        f"box-shadow:0 0 8px {color}55;'></div></div>"
     )
 
 
 def _sec(title, color=INFO, icon=""):
     return (
-        f"<div style='font-size:1rem;color:#ffffff;"
-        f"font-weight:700;margin:2rem 0 1rem 0;"
-        f"border-bottom:2px solid {color}33;padding-bottom:0.5rem;'>"
-        f"{title}</div>"
+        f"<div style='display:flex;align-items:center;gap:0.6rem;"
+        f"margin:2.2rem 0 1rem;padding:0;'>"
+        f"<div style='width:3px;height:18px;border-radius:2px;background:{color};"
+        f"box-shadow:0 0 8px {color}44;'></div>"
+        f"<span style='font-size:0.92rem;font-weight:700;color:#e0e0e0;"
+        f"text-transform:uppercase;letter-spacing:0.8px;'>{title}</span></div>"
     )
 
 
 def _badge(text, color=INFO):
     return (
-        f"<span style='background:{color}22;border:1px solid {color}55;color:{color};"
-        f"border-radius:6px;padding:0.2rem 0.65rem;font-size:0.82rem;font-weight:700;"
-        f"letter-spacing:0.5px;margin-right:0.4rem;white-space:nowrap;'>{text}</span>"
+        f"<span style='background:rgba({color[1:3]},{color[3:5]},{color[5:7]},0.12)" if len(color)==7 and color.startswith('#') else f"<span style='background:{color}18"
+        f";border-radius:6px;padding:0.2rem 0.65rem;font-size:0.82rem;font-weight:700;"
+        f"color:{color};letter-spacing:0.5px;margin-right:0.4rem;white-space:nowrap;'>{text}</span>"
     )
 
 
 def _sig_row(icon, title, detail, color):
     return (
         f"<div style='display:flex;gap:0.85rem;align-items:flex-start;"
-        f"padding:0.85rem 0;border-bottom:1px solid {BDR};'>"
+        f"padding:0.85rem 0;border-bottom:1px solid #272727;'>"
         f"<span style='color:{color};font-size:1.15rem;flex-shrink:0;margin-top:0.05rem;'>{icon}</span>"
-        f"<div><div style='font-size:0.97rem;color:#ffffff;font-weight:700;line-height:1.4;'>"
+        f"<div><div style='font-size:0.97rem;color:#e0e0e0;font-weight:700;line-height:1.4;'>"
         f"{title}</div>"
-        f"<div style='font-size:0.84rem;color:#9e9e9e;margin-top:0.18rem;'>{detail}</div>"
+        f"<div style='font-size:0.84rem;color:#888;margin-top:0.18rem;'>{detail}</div>"
         f"</div></div>"
     )
 
@@ -446,17 +447,17 @@ def _build_chart(df, current_price, supports, resistances, fibs, forecast_prices
     # ── Styling ───────────────────────────────────────────────────────────────
     fig.update_layout(
         height=500, margin=dict(l=6, r=6, t=22, b=8),
-        paper_bgcolor=BG2, plot_bgcolor=BG,
-        font=dict(color="#757575", size=10),
+        paper_bgcolor="#1b1b1b", plot_bgcolor="#1b1b1b",
+        font=dict(color="#888", size=10),
         hovermode="x unified",
-        legend=dict(bgcolor=BG2, bordercolor=BDR, borderwidth=1,
+        legend=dict(bgcolor="#1b1b1b", bordercolor="#272727", borderwidth=1,
                     font=dict(size=9), x=0.01, y=0.99,
                     orientation="h", yanchor="top"),
         xaxis_rangeslider_visible=False,
     )
     for i in range(1, 3):
-        fig.update_xaxes(gridcolor=BDR, showgrid=True, zeroline=False, row=i, col=1)
-        fig.update_yaxes(gridcolor=BDR, showgrid=True, zeroline=False, row=i, col=1)
+        fig.update_xaxes(gridcolor="#272727", showgrid=True, zeroline=False, row=i, col=1)
+        fig.update_yaxes(gridcolor="#272727", showgrid=True, zeroline=False, row=i, col=1)
     return fig
 
 
@@ -1154,14 +1155,14 @@ def _build_mc_chart(mc, df):
     )
 
     fig.update_layout(
-        height=320, paper_bgcolor=BG2, plot_bgcolor=BG,
-        font=dict(color='#757575', size=10),
+        height=320, paper_bgcolor="#1b1b1b", plot_bgcolor="#1b1b1b",
+        font=dict(color='#888', size=10),
         margin=dict(l=10, r=10, t=12, b=10),
         hovermode='x unified',
-        legend=dict(bgcolor=BG2, bordercolor=BDR, borderwidth=1,
+        legend=dict(bgcolor="#1b1b1b", bordercolor="#272727", borderwidth=1,
                     font=dict(size=9), orientation='h', y=-0.18, x=0),
-        xaxis=dict(gridcolor=BDR, showgrid=True, zeroline=False),
-        yaxis=dict(gridcolor=BDR, showgrid=True, zeroline=False),
+        xaxis=dict(gridcolor="#272727", showgrid=True, zeroline=False),
+        yaxis=dict(gridcolor="#272727", showgrid=True, zeroline=False),
     )
     return fig
 
@@ -1452,7 +1453,7 @@ def gemini_tab(df, symbol_input, stock_name, latest,
     def _ctx_tile(lbl, val, col):
         return (
             f"<div style='text-align:center;padding:0.35rem 0.2rem;'>"
-            f"<div style='font-size:0.48rem;color:#555;text-transform:uppercase;"
+            f"<div style='font-size:0.48rem;color:#606060;text-transform:uppercase;"
             f"letter-spacing:0.5px;font-weight:700;margin-bottom:0.15rem;'>{lbl}</div>"
             f"<div style='font-size:0.82rem;font-weight:800;color:{col};'>{val}</div>"
             f"</div>"
@@ -1460,19 +1461,19 @@ def gemini_tab(df, symbol_input, stock_name, latest,
 
     def _stat_tile_g(lbl, big_val, sub, t_col, bar_val=None):
         bar_html = (
-            f"<div style='background:{BDR};border-radius:999px;height:3px;"
+            f"<div style='background:#1a1a1a;border-radius:999px;height:3px;"
             f"overflow:hidden;margin:0.3rem 0;'>"
             f"<div style='width:{int(min(bar_val,100))}%;height:100%;background:{t_col};"
-            f"border-radius:999px;'></div></div>"
+            f"border-radius:999px;box-shadow:0 0 6px {t_col}44;'></div></div>"
         ) if bar_val is not None else ""
         return (
-            f"<div style='background:{BG};border-radius:12px;padding:0.85rem 0.9rem;"
-            f"border:1px solid {BDR};border-top:3px solid {t_col};'>"
-            f"<div style='font-size:0.49rem;color:#9e9e9e;text-transform:uppercase;"
-            f"letter-spacing:0.7px;font-weight:700;margin-bottom:0.2rem;'>{lbl}</div>"
+            f"<div style='background:#161616;border-radius:10px;padding:0.85rem 0.9rem;"
+            f"border:1px solid #272727;'>"
+            f"<div style='font-size:0.49rem;color:#606060;text-transform:uppercase;"
+            f"letter-spacing:0.8px;font-weight:700;margin-bottom:0.2rem;'>{lbl}</div>"
             f"<div style='font-size:1.8rem;font-weight:900;color:{t_col};line-height:1;'>{big_val}</div>"
             f"{bar_html}"
-            f"<div style='font-size:0.62rem;color:#666;margin-top:0.25rem;'>{sub}</div>"
+            f"<div style='font-size:0.62rem;color:#555;margin-top:0.25rem;'>{sub}</div>"
             f"</div>"
         )
 
@@ -1481,31 +1482,35 @@ def gemini_tab(df, symbol_input, stock_name, latest,
                 if _ana_best is not None else f"{_ana_n} analog setups")
 
     st.markdown(
-        f"<div style='background:linear-gradient(135deg,{BG2} 0%,{BG} 100%);"
-        f"border:1px solid {BDR};border-left:6px solid {hero_col};"
-        f"border-radius:16px;padding:1.6rem 2rem;margin-bottom:1.2rem;'>"
+        f"<div style='background:#1b1b1b;"
+        f"border:1px solid #272727;"
+        f"border-radius:16px;overflow:hidden;margin-bottom:1.2rem;"
+        f"box-shadow:0 4px 24px rgba(0,0,0,0.3);'>"
+        f"<div style='padding:1.6rem 2rem;"
+        f"background:linear-gradient(135deg,rgba({','.join(str(int(hero_col[i:i+2],16)) for i in (1,3,5)) if hero_col.startswith('#') and len(hero_col)==7 else '85,85,85'},0.07),transparent);'>"
 
         # ── Row 1: direction verdict + AI score + signal edge
         f"<div style='display:flex;justify-content:space-between;align-items:flex-start;"
         f"flex-wrap:wrap;gap:1.5rem;margin-bottom:1rem;'>"
         f"<div>"
-        f"<div style='font-size:0.55rem;color:#9e9e9e;text-transform:uppercase;"
+        f"<div style='font-size:0.55rem;color:#606060;text-transform:uppercase;"
         f"letter-spacing:2px;font-weight:700;margin-bottom:0.25rem;'>Deep AI Analysis</div>"
-        f"<div style='font-size:3rem;font-weight:900;color:{hero_col};"
-        f"line-height:1;letter-spacing:-1.5px;'>{hero_dir}</div>"
-        f"<div style='font-size:0.8rem;color:#9e9e9e;margin-top:0.3rem;'>{hero_sub}</div>"
+        f"<div style='font-size:2.4rem;font-weight:900;color:{hero_col};"
+        f"line-height:1;letter-spacing:-1.5px;text-shadow:0 0 20px {hero_col}33;'>{hero_dir}</div>"
+        f"<div style='font-size:0.8rem;color:#888;margin-top:0.3rem;'>{hero_sub}</div>"
         f"</div>"
         f"<div style='display:flex;gap:2.5rem;text-align:right;flex-shrink:0;'>"
         f"<div>"
-        f"<div style='font-size:0.5rem;color:#9e9e9e;text-transform:uppercase;"
+        f"<div style='font-size:0.5rem;color:#606060;text-transform:uppercase;"
         f"letter-spacing:1px;font-weight:700;margin-bottom:0.15rem;'>AI Score</div>"
-        f"<div style='font-size:2.6rem;font-weight:900;color:{score_col};line-height:1;'>"
+        f"<div style='font-size:2.6rem;font-weight:900;color:{score_col};line-height:1;"
+        f"text-shadow:0 0 20px {score_col}33;'>"
         f"{score}<span style='font-size:0.85rem;color:#555;'>/100</span></div>"
         f"<div style='font-size:0.6rem;color:#555;'>"
         f"{len(bull_inds)}&#9650; &middot; {len(bear_inds)}&#9660; &middot; {len(neut_inds)} neutral</div>"
         f"</div>"
         f"<div>"
-        f"<div style='font-size:0.5rem;color:#9e9e9e;text-transform:uppercase;"
+        f"<div style='font-size:0.5rem;color:#606060;text-transform:uppercase;"
         f"letter-spacing:1px;font-weight:700;margin-bottom:0.15rem;'>Signal Edge</div>"
         f"<div style='font-size:2.6rem;font-weight:900;color:{hero_col};line-height:1;'>"
         f"{'HIGH' if bp >= rp + 5 else ('MOD' if bp >= rp + 2 else ('LOW' if bp >= rp else 'NONE'))}"
@@ -1522,7 +1527,7 @@ def gemini_tab(df, symbol_input, stock_name, latest,
 
         # ── 4-stat grid
         f"<div style='display:grid;grid-template-columns:repeat(4,1fr);"
-        f"gap:0.6rem;padding-top:0.85rem;border-top:1px solid {BDR};margin-bottom:1rem;'>"
+        f"gap:0.6rem;padding-top:0.85rem;border-top:1px solid #272727;margin-bottom:1rem;'>"
         + _stat_tile_g("AI Score (12 indicators)", str(score), _score_txt, score_col, score)
         + _stat_tile_g("ML Ensemble (avg 5/10/20d)", ml_str, _ml_sub, ml_d_col, avg_ml or 50)
         + _stat_tile_g(f"Pattern Win Rate ({_ana_hor}d)", wr_str, _wr_sub, wr_d_col, avg_wr or 50)
@@ -1532,7 +1537,7 @@ def gemini_tab(df, symbol_input, stock_name, latest,
 
         # ── Context strip (6 tiles)
         f"<div style='display:grid;grid-template-columns:repeat(6,1fr);"
-        f"gap:0.5rem;padding-top:0.75rem;border-top:1px solid {BDR};'>"
+        f"gap:0.5rem;padding-top:0.75rem;border-top:1px solid #272727;'>"
         + _ctx_tile("Regime",   current_regime or "—",                                _reg_col)
         + _ctx_tile("ADX",      f"{adx_current:.0f} &middot; {_adx_lbl}" if adx_current else "—", _adx_col)
         + _ctx_tile("RSI",      f"{_rsi:.0f} &middot; {_rsi_lbl}",                   _rsi_col)
@@ -1541,6 +1546,7 @@ def gemini_tab(df, symbol_input, stock_name, latest,
         + _ctx_tile("52W Pos",  f"{_52w_pos:.0f}th pct",                             _52w_col)
         + f"</div>"
 
+        f"</div>"
         f"</div>",
         unsafe_allow_html=True,
     )
@@ -1558,7 +1564,7 @@ def gemini_tab(df, symbol_input, stock_name, latest,
     # ── METHODOLOGY NOTE ──────────────────────────────────────────────────────
     st.markdown(
         f"<div style='margin-top:1rem;padding:0.8rem 1rem;"
-        f"background:{BG2};border:1px solid {BDR};border-radius:10px;"
+        f"background:#1b1b1b;border:1px solid #272727;border-radius:10px;"
         f"font-size:0.62rem;color:#555;'>"
         f"<b style='color:#757575;'>Methodology:</b> "
         f"Trade direction determined by {len(factor_scores)}-factor scoring engine, "

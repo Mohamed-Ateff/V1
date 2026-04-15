@@ -49,39 +49,39 @@ def signal_analysis_tab(df, info_icon):
     muted     = theme_palette.get("muted",     "#9e9e9e")
 
     # â”€â”€ CSS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    st.markdown(f"""
+    st.markdown("""
     <style>
-    .sa-kpi-grid {{
+    .sa-kpi-grid {
         display: grid;
         grid-template-columns: repeat(6, minmax(0, 1fr));
         gap: 0.65rem;
         margin-bottom: 1.2rem;
-    }}
-    .sa-kpi-card {{
-        background: {panel_alt};
-        border: 1px solid {border};
+    }
+    .sa-kpi-card {
+        background: #1b1b1b;
+        border: 1px solid #272727;
         border-radius: 10px;
         padding: 0.8rem 0.85rem;
-    }}
-    .sa-kpi-label {{
+    }
+    .sa-kpi-label {
         font-size: 0.62rem;
-        color: {muted};
+        color: #606060;
         text-transform: uppercase;
-        letter-spacing: 0.7px;
+        letter-spacing: 1px;
         font-weight: 700;
         margin-bottom: 0.35rem;
-    }}
-    .sa-kpi-value {{
+    }
+    .sa-kpi-value {
         font-size: 1.55rem;
         font-weight: 900;
         line-height: 1;
-    }}
-    .sa-kpi-sub {{
+    }
+    .sa-kpi-sub {
         font-size: 0.68rem;
-        color: {muted};
+        color: #888;
         margin-top: 0.25rem;
         font-weight: 600;
-    }}
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -89,8 +89,8 @@ def signal_analysis_tab(df, info_icon):
     c1, c2, c3, c4 = st.columns([2, 2, 2, 2])
     with c1:
         st.markdown(
-            f"<div style='font-size:0.65rem;color:{muted};text-transform:uppercase;"
-            f"letter-spacing:0.7px;font-weight:700;margin-bottom:0.3rem;'>Risk</div>",
+            "<div style='font-size:0.65rem;color:#606060;text-transform:uppercase;"
+            "letter-spacing:1px;font-weight:700;margin-bottom:0.3rem;'>Risk</div>",
             unsafe_allow_html=True,
         )
         risk_val = st.number_input(
@@ -99,8 +99,8 @@ def signal_analysis_tab(df, info_icon):
         )
     with c2:
         st.markdown(
-            f"<div style='font-size:0.65rem;color:{muted};text-transform:uppercase;"
-            f"letter-spacing:0.7px;font-weight:700;margin-bottom:0.3rem;'>Reward</div>",
+            "<div style='font-size:0.65rem;color:#606060;text-transform:uppercase;"
+            "letter-spacing:1px;font-weight:700;margin-bottom:0.3rem;'>Reward</div>",
             unsafe_allow_html=True,
         )
         reward_val = st.number_input(
@@ -109,8 +109,8 @@ def signal_analysis_tab(df, info_icon):
         )
     with c3:
         st.markdown(
-            f"<div style='font-size:0.65rem;color:{muted};text-transform:uppercase;"
-            f"letter-spacing:0.7px;font-weight:700;margin-bottom:0.3rem;'>Holding Period</div>",
+            "<div style='font-size:0.65rem;color:#606060;text-transform:uppercase;"
+            "letter-spacing:1px;font-weight:700;margin-bottom:0.3rem;'>Holding Period</div>",
             unsafe_allow_html=True,
         )
         _period_map   = {"Short (5d)": 5, "Medium (63d)": 63, "Long (252d)": 252}
@@ -121,8 +121,8 @@ def signal_analysis_tab(df, info_icon):
         holding_period = _period_map[_period_label]
     with c4:
         st.markdown(
-            f"<div style='font-size:0.65rem;color:{muted};text-transform:uppercase;"
-            f"letter-spacing:0.7px;font-weight:700;margin-bottom:0.3rem;'>Combo Depth</div>",
+            "<div style='font-size:0.65rem;color:#606060;text-transform:uppercase;"
+            "letter-spacing:1px;font-weight:700;margin-bottom:0.3rem;'>Combo Depth</div>",
             unsafe_allow_html=True,
         )
         _depth_opts = {"Pairs only (2)": 2, "Up to Triples (3)": 3,
@@ -200,34 +200,34 @@ def signal_analysis_tab(df, info_icon):
 
     st.markdown(f"""
     <div class='sa-kpi-grid'>
-        <div class='sa-kpi-card' style='border-top:3px solid {INFO};'>
+        <div class='sa-kpi-card'>
             <div class='sa-kpi-label'>Total Signals</div>
-            <div class='sa-kpi-value' style='color:{INFO};'>{total_signals}</div>
+            <div class='sa-kpi-value' style='color:{INFO};text-shadow:0 0 18px {INFO}33;'>{total_signals}</div>
             <div class='sa-kpi-sub'>All indicators</div>
         </div>
-        <div class='sa-kpi-card' style='border-top:3px solid {BULL};'>
+        <div class='sa-kpi-card'>
             <div class='sa-kpi-label'>Successful</div>
-            <div class='sa-kpi-value' style='color:{BULL};'>{total_successful}</div>
+            <div class='sa-kpi-value' style='color:{BULL};text-shadow:0 0 18px {BULL}33;'>{total_successful}</div>
             <div class='sa-kpi-sub'>Hit {risk_val}:{reward_val} target</div>
         </div>
-        <div class='sa-kpi-card' style='border-top:3px solid {BEAR};'>
+        <div class='sa-kpi-card'>
             <div class='sa-kpi-label'>Failures</div>
-            <div class='sa-kpi-value' style='color:{BEAR};'>{total_failed}</div>
+            <div class='sa-kpi-value' style='color:{BEAR};text-shadow:0 0 18px {BEAR}33;'>{total_failed}</div>
             <div class='sa-kpi-sub'>Missed target</div>
         </div>
-        <div class='sa-kpi-card' style='border-top:3px solid {sc};'>
+        <div class='sa-kpi-card'>
             <div class='sa-kpi-label'>Win Rate</div>
-            <div class='sa-kpi-value' style='color:{sc};'>{overall_success:.1f}%</div>
+            <div class='sa-kpi-value' style='color:{sc};text-shadow:0 0 18px {sc}33;'>{overall_success:.1f}%</div>
             <div class='sa-kpi-sub'>Overall hit rate</div>
         </div>
-        <div class='sa-kpi-card' style='border-top:3px solid {pf_col};'>
+        <div class='sa-kpi-card'>
             <div class='sa-kpi-label'>Profit Factor</div>
-            <div class='sa-kpi-value' style='color:{pf_col};'>{pf_overall:.2f}</div>
+            <div class='sa-kpi-value' style='color:{pf_col};text-shadow:0 0 18px {pf_col}33;'>{pf_overall:.2f}</div>
             <div class='sa-kpi-sub'>Gross W / Gross L</div>
         </div>
-        <div class='sa-kpi-card' style='border-top:3px solid {exp_col};'>
+        <div class='sa-kpi-card'>
             <div class='sa-kpi-label'>Expectancy</div>
-            <div class='sa-kpi-value' style='color:{exp_col};'>{expectancy_all:+.2f}%</div>
+            <div class='sa-kpi-value' style='color:{exp_col};text-shadow:0 0 18px {exp_col}33;'>{expectancy_all:+.2f}%</div>
             <div class='sa-kpi-sub'>Per-trade edge</div>
         </div>
     </div>
@@ -351,26 +351,27 @@ def signal_analysis_tab(df, info_icon):
                 gain_col = BULL if ind["avg_gain"] >= 1 else NEUT if ind["avg_gain"] > 0 else BEAR
                 loss_col = BEAR if ind["avg_loss"] < -1 else NEUT
 
-                def _sb(label, value, color, bg=None, sub=None, _border=border,
-                        _panel_alt=panel_alt, _muted=muted):
-                    _bg = bg or _panel_alt
+                def _sb(label, value, color, bg=None, sub=None):
+                    _bg = bg or "#161616"
                     _sh = (
                         f"<div style='font-size:0.68rem;font-weight:700;color:{color};"
                         f"opacity:0.8;margin-top:0.2rem;'>{sub}</div>"
                     ) if sub else ""
                     return (
-                        f"<div style='background:{_bg};border:1px solid {_border};"
+                        f"<div style='background:{_bg};border:1px solid #272727;"
                         f"border-radius:10px;padding:0.85rem 0.7rem;text-align:center;'>"
-                        f"<div style='font-size:0.6rem;color:{_muted};text-transform:uppercase;"
-                        f"letter-spacing:0.7px;font-weight:700;margin-bottom:0.35rem;'>{label}</div>"
-                        f"<div style='font-size:1.2rem;font-weight:900;color:{color};line-height:1;'>{value}</div>"
+                        f"<div style='font-size:0.6rem;color:#606060;text-transform:uppercase;"
+                        f"letter-spacing:1px;font-weight:700;margin-bottom:0.35rem;'>{label}</div>"
+                        f"<div style='font-size:1.2rem;font-weight:900;color:{color};line-height:1;"
+                        f"text-shadow:0 0 18px {color}33;'>{value}</div>"
                         f"{_sh}</div>"
                     )
 
                 st.markdown((
-                    f"<div style='background:{panel};border:1px solid {border};"
-                    f"border-left:4px solid {accent};border-radius:14px 14px 0 0;"
-                    f"padding:1.6rem 1.8rem;margin-bottom:0;'>"
+                    f"<div style='background:#1b1b1b;border:1px solid #272727;"
+                    f"border-radius:14px 14px 0 0;overflow:hidden;margin-bottom:0;'>"
+                    f"<div style='padding:1.6rem 1.8rem;"
+                    f"background:linear-gradient(135deg,{_hex_rgba(accent,.07)},transparent);'>"
 
                     # header row
                     f"<div style='display:flex;align-items:center;gap:1.2rem;margin-bottom:1.2rem;'>"
@@ -379,22 +380,24 @@ def signal_analysis_tab(df, info_icon):
                     f"display:flex;align-items:center;justify-content:center;flex-shrink:0;'>"
                     f"<span style='font-size:1.1rem;font-weight:900;color:{accent};'>#{idx+1}</span></div>"
                     f"<div style='flex:1;'>"
-                    f"<div style='font-size:1.15rem;font-weight:900;color:{text_col};'>{ind['name']}</div>"
+                    f"<div style='font-size:1.15rem;font-weight:900;color:#e0e0e0;'>{ind['name']}</div>"
                     f"<div style='font-size:0.75rem;color:{accent};font-weight:600;"
                     f"text-transform:uppercase;letter-spacing:0.5px;margin-top:0.15rem;'>{ind['category']}</div>"
                     f"</div>"
                     f"<div style='text-align:right;flex-shrink:0;'>"
-                    f"<div style='font-size:2.6rem;font-weight:900;color:{accent};line-height:1;'>"
+                    f"<div style='font-size:2.6rem;font-weight:900;color:{accent};line-height:1;"
+                    f"text-shadow:0 0 20px {accent}33;'>"
                     f"{win_pct:.0f}%</div>"
-                    f"<div style='font-size:0.65rem;color:{muted};text-transform:uppercase;"
+                    f"<div style='font-size:0.65rem;color:#606060;text-transform:uppercase;"
                     f"letter-spacing:0.6px;margin-top:0.1rem;'>Win Rate</div>"
                     f"</div></div>"
 
                     # win/loss bar
                     f"<div style='margin-bottom:1.2rem;'>"
                     f"<div style='display:flex;border-radius:6px;overflow:hidden;"
-                    f"height:7px;margin-bottom:0.4rem;'>"
-                    f"<div style='width:{win_pct:.1f}%;background:{accent};'></div>"
+                    f"height:7px;background:#1a1a1a;margin-bottom:0.4rem;'>"
+                    f"<div style='width:{win_pct:.1f}%;background:{accent};"
+                    f"box-shadow:0 0 8px {accent}55;'></div>"
                     f"<div style='width:{loss_pct:.1f}%;background:{_hex_rgba(BEAR,.35)};'></div>"
                     f"</div>"
                     f"<div style='display:flex;justify-content:space-between;'>"
@@ -407,13 +410,13 @@ def signal_analysis_tab(df, info_icon):
                     # stats grid
                     f"<div style='display:grid;grid-template-columns:repeat(6,1fr);gap:0.5rem;"
                     f"margin-bottom:0.8rem;'>"
-                    + _sb("Signals",    str(total),               text_col)
+                    + _sb("Signals",    str(total),               "#e0e0e0")
                     + _sb("Wins",       str(wins),                BULL, _hex_rgba(BULL,.08), f"{win_pct:.0f}%")
                     + _sb("Losses",     str(losses),              BEAR, _hex_rgba(BEAR,.08), f"{loss_pct:.0f}%")
                     + _sb("Avg Gain",   f"+{ind['avg_gain']:.2f}%", gain_col, _hex_rgba(BULL,.06))
                     + _sb("Avg Loss",   f"{ind['avg_loss']:.2f}%",  loss_col, _hex_rgba(BEAR,.06))
-                    + _sb("Best Regime", ind["best_regime"] or "â€”", br_color, _hex_rgba(br_color,.10))
-                    + "</div></div>"
+                    + _sb("Best Regime", ind["best_regime"] or "\u2014", br_color, _hex_rgba(br_color,.10))
+                    + "</div></div></div>"
                 ), unsafe_allow_html=True)
 
 
@@ -455,8 +458,8 @@ def signal_analysis_tab(df, info_icon):
         fc1, = st.columns([1])
         with fc1:
             st.markdown(
-                f"<div style='font-size:0.62rem;color:{muted};text-transform:uppercase;"
-                f"letter-spacing:0.7px;font-weight:700;margin-bottom:0.3rem;'>Combo Size Filter</div>",
+                "<div style='font-size:0.62rem;color:#606060;text-transform:uppercase;"
+                "letter-spacing:1px;font-weight:700;margin-bottom:0.3rem;'>Combo Size Filter</div>",
                 unsafe_allow_html=True)
             _size_opts = ["All sizes", "2-Way only", "3-Way only", "4-Way only", "5-Way only", "6-Way only"]
             _cc_size = st.selectbox("Size filter", _size_opts, index=0, key="cc_size_filt",
@@ -519,9 +522,9 @@ def signal_analysis_tab(df, info_icon):
                 for idx, p in enumerate(parts):
                     name  = _all_names.get(p, p)
                     html += (
-                        f"<span style='background:#252525;color:#e0e0e0;font-size:0.95rem;"
+                        f"<span style='background:#1b1b1b;color:#e0e0e0;font-size:0.95rem;"
                         f"font-weight:600;padding:0.25rem 0.75rem;border-radius:6px;"
-                        f"border:1px solid #383838;white-space:nowrap;'>{name}</span>"
+                        f"border:1px solid #272727;white-space:nowrap;'>{name}</span>"
                     )
                     if idx < len(parts) - 1:
                         html += "<span style='color:#555;padding:0 0.2rem;font-size:0.9rem;'>&middot;</span>"
@@ -532,7 +535,7 @@ def signal_analysis_tab(df, info_icon):
                 if wr >= 55: return ("#2e7d32", "#a5d6a7")
                 if wr >= 45: return ("#0d47a1", "#90caf9")
                 if wr >= 35: return ("#b71c1c", "#ef9a9a")
-                return ("#282828", "#757575")
+                return ("#282828", "#606060")
 
             _broad_cat = {
                 "Trend Following": "Trend", "Trend Reversal": "Trend",
@@ -551,11 +554,12 @@ def signal_analysis_tab(df, info_icon):
             # ── Stat mini-cell used inside combo cards ─────────────────────────
             def _st(lbl, val, col):
                 return (
-                    f"<div style='background:#1a1a1a;border:1px solid #2a2a2a;"
+                    f"<div style='background:#161616;border:1px solid #272727;"
                     f"border-radius:8px;padding:0.8rem 0.4rem;text-align:center;'>"
-                    f"<div style='font-size:0.75rem;color:#757575;text-transform:uppercase;"
-                    f"letter-spacing:0.5px;margin-bottom:0.35rem;font-weight:500;'>{lbl}</div>"
-                    f"<div style='font-size:1.15rem;font-weight:700;color:{col};line-height:1;'>{val}</div>"
+                    f"<div style='font-size:0.75rem;color:#606060;text-transform:uppercase;"
+                    f"letter-spacing:0.5px;margin-bottom:0.35rem;font-weight:600;'>{lbl}</div>"
+                    f"<div style='font-size:1.15rem;font-weight:800;color:{col};line-height:1;"
+                    f"text-shadow:0 0 18px {col}33;'>{val}</div>"
                     f"</div>"
                 )
 
@@ -587,9 +591,9 @@ def signal_analysis_tab(df, info_icon):
                     bars += (
                         f"<div style='margin-bottom:0.4rem;'>"
                         f"<div style='display:flex;justify-content:space-between;margin-bottom:0.15rem;'>"
-                        f"<span style='font-size:0.65rem;color:{muted};font-weight:700;text-transform:uppercase;'>{reg}</span>"
+                        f"<span style='font-size:0.65rem;color:#606060;font-weight:700;text-transform:uppercase;'>{reg}</span>"
                         f"<span style='font-size:0.72rem;font-weight:800;color:{rc};'>{pct:.0f}%</span></div>"
-                        f"<div style='background:{border};border-radius:3px;height:4px;'>"
+                        f"<div style='background:#272727;border-radius:3px;height:4px;'>"
                         f"<div style='background:{rc};border-radius:3px;height:4px;width:{bw:.0f}%;'></div>"
                         f"</div></div>"
                     )
@@ -599,9 +603,9 @@ def signal_analysis_tab(df, info_icon):
                 if mwr:
                     _sorted_mwr = sorted(mwr.items())[-18:]
                     mwr_bars = (
-                        f"<div style='background:#141414;border:1px solid #252525;border-radius:6px;"
+                        f"<div style='background:#161616;border:1px solid #272727;border-radius:6px;"
                         f"padding:0.5rem 0.6rem;margin-top:0.3rem;'>"
-                        f"<div style='font-size:0.65rem;color:#757575;font-weight:500;text-transform:uppercase;"
+                        f"<div style='font-size:0.65rem;color:#606060;font-weight:600;text-transform:uppercase;"
                         f"letter-spacing:0.6px;margin-bottom:0.4rem;'>Monthly Win Rate (last 18 mo.)</div>"
                         f"<div style='display:flex;align-items:flex-end;gap:2px;height:24px;'>"
                     )
@@ -615,30 +619,31 @@ def signal_analysis_tab(df, info_icon):
                     mwr_bars += "</div></div>"
 
                 st.markdown((
-                    f"<div style='background:#1e1e1e;border:1px solid #2d2d2d;"
-                    f"border-left:3px solid {_wr_col};border-radius:12px 12px 0 0;"
-                    f"padding:1.1rem 1.25rem;margin-bottom:0;'>"
+                    f"<div style='background:#1b1b1b;border:1px solid #272727;"
+                    f"border-radius:12px 12px 0 0;overflow:hidden;margin-bottom:0;'>"
+                    f"<div style='padding:1.1rem 1.25rem;"
+                    f"background:linear-gradient(135deg,{_hex_rgba(_wr_col,.06)},transparent);'>"
 
                     # Header row
                     f"<div style='display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:0.7rem;'>"
                     f"<div style='flex:1;min-width:0;'>"
-                    f"<div style='font-size:0.75rem;color:#757575;font-weight:500;text-transform:uppercase;"
+                    f"<div style='font-size:0.75rem;color:#606060;font-weight:600;text-transform:uppercase;"
                     f"letter-spacing:0.8px;margin-bottom:0.35rem;'>{rank_label} &middot; {row['size']}-Way Combination</div>"
                     f"<div style='display:flex;flex-wrap:wrap;align-items:center;gap:0.25rem;margin-bottom:0.28rem;'>"
                     f"{_badges(row['indicators'])}</div>"
-                    f"<div style='font-size:0.75rem;color:{muted};'>Best in: "
+                    f"<div style='font-size:0.75rem;color:#606060;'>Best in: "
                     f"<span style='color:{br_c};font-weight:700;'>{_br_label}</span></div>"
                     f"</div>"
                     f"<div style='text-align:right;flex-shrink:0;margin-left:0.8rem;'>"
                     f"<div style='font-size:2.4rem;font-weight:800;color:{_wr_col};line-height:1;'>"
                     f"{wr:.1f}<span style='font-size:1rem;'>%</span></div>"
-                    f"<div style='font-size:0.75rem;color:#757575;letter-spacing:0.3px;'>"
+                    f"<div style='font-size:0.75rem;color:#606060;letter-spacing:0.3px;'>"
                     f"win rate &middot; {n_c} signals</div>"
                     f"</div></div>"
 
                     # Win/loss bar
-                    f"<div style='display:flex;border-radius:4px;overflow:hidden;height:5px;margin-bottom:0.22rem;'>"
-                    f"<div style='width:{wr:.1f}%;background:{BULL};'></div>"
+                    f"<div style='display:flex;border-radius:4px;overflow:hidden;height:5px;background:#1a1a1a;margin-bottom:0.22rem;'>"
+                    f"<div style='width:{wr:.1f}%;background:{BULL};box-shadow:0 0 6px {BULL}44;'></div>"
                     f"<div style='width:{lp:.1f}%;background:{BEAR};'></div></div>"
                     f"<div style='display:flex;justify-content:space-between;margin-bottom:0.8rem;'>"
                     f"<span style='font-size:0.75rem;color:{BULL};font-weight:700;'>{row['wins']} wins ({wr:.1f}%)</span>"
@@ -646,7 +651,7 @@ def signal_analysis_tab(df, info_icon):
 
                     # Stats grid
                     f"<div style='display:grid;grid-template-columns:repeat(4,1fr);gap:0.28rem;margin-bottom:0.65rem;'>"
-                    + _st("Signals",       str(n_c),                                 text_col)
+                    + _st("Signals",       str(n_c),                                 "#e0e0e0")
                     + _st("Winners",       str(row["wins"]),                          BULL)
                     + _st("Losers",        str(row["losses"]),                        BEAR)
                     + _st("Avg Gain",      f"+{row['avg_gain']:.2f}%",               BULL)
@@ -662,19 +667,19 @@ def signal_analysis_tab(df, info_icon):
 
                     # Bottom 2-col: regime bars | consistency + monthly chart
                     f"<div style='display:grid;grid-template-columns:1fr 1fr;gap:0.55rem;'>"
-                    f"<div style='background:#141414;border:1px solid #252525;border-radius:8px;padding:0.65rem 0.75rem;'>"
-                    f"<div style='font-size:0.75rem;color:#9e9e9e;font-weight:600;text-transform:uppercase;"
+                    f"<div style='background:#161616;border:1px solid #272727;border-radius:8px;padding:0.65rem 0.75rem;'>"
+                    f"<div style='font-size:0.75rem;color:#606060;font-weight:600;text-transform:uppercase;"
                     f"letter-spacing:0.7px;margin-bottom:0.45rem;'>Win Rate by Regime</div>"
                     + bars +
                     "</div>"
-                    f"<div style='background:#141414;border:1px solid #252525;border-radius:8px;padding:0.65rem 0.75rem;'>"
+                    f"<div style='background:#161616;border:1px solid #272727;border-radius:8px;padding:0.65rem 0.75rem;'>"
                     f"<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:0.28rem;'>"
-                    f"<span style='font-size:0.75rem;color:#9e9e9e;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;'>Consistency</span>"
+                    f"<span style='font-size:0.75rem;color:#606060;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;'>Consistency</span>"
                     f"<span style='font-size:0.78rem;font-weight:800;color:{con_color};'>{con_label}</span></div>"
-                    f"<div style='font-size:0.72rem;color:{muted};margin-bottom:0.22rem;'>"
-                    f"Std dev <strong style='color:{text_col};'>{con:.1f}%</strong> - lower is more reliable</div>"
+                    f"<div style='font-size:0.72rem;color:#606060;margin-bottom:0.22rem;'>"
+                    f"Std dev <strong style='color:#e0e0e0;'>{con:.1f}%</strong> - lower is more reliable</div>"
                     + mwr_bars +
-                    "</div></div></div>"
+                    "</div></div></div></div>"
                 ), unsafe_allow_html=True)
             # ─────────────────────────────────────────────────────────────────
             # 4 ANALYSIS SUB-TABS
@@ -709,9 +714,9 @@ def signal_analysis_tab(df, info_icon):
                     f"The engine exhaustively tests every possible combination:</div>"
                     f"<div style='font-size:0.74rem;color:#90caf9;font-weight:600;margin-bottom:0.4rem;line-height:1.8;'>"
                     f"{_breakdown_str}</div>"
-                    f"<div style='font-size:0.72rem;color:#9e9e9e;margin-bottom:0.25rem;'>"
+                    f"<div style='font-size:0.72rem;color:#606060;margin-bottom:0.25rem;'>"
                     f"Total theoretical: <strong style='color:#fff;'>{_theory_total:,} combinations</strong> tested.</div>"
-                    f"<div style='font-size:0.72rem;color:#9e9e9e;margin-bottom:0.65rem;'>"
+                    f"<div style='font-size:0.72rem;color:#606060;margin-bottom:0.65rem;'>"
                     f"Shown below: <strong style='color:#4caf50;'>{total_combos:,} combinations</strong> that had "
                     f"enough signals to pass your minimum threshold. Combos with zero co-occurrences are excluded.</div>"
                     f"<div style='border-top:1px solid rgba(33,150,243,0.18);padding-top:0.6rem;'>"
@@ -720,27 +725,27 @@ def signal_analysis_tab(df, info_icon):
                     f"<div style='display:grid;grid-template-columns:repeat(3,1fr);gap:0.5rem;margin-bottom:0.5rem;'>"
                     f"<div style='background:rgba(239,83,80,0.08);border:1px solid rgba(239,83,80,0.2);"
                     f"border-radius:7px;padding:0.45rem 0.5rem;text-align:center;'>"
-                    f"<div style='font-size:0.6rem;color:#757575;text-transform:uppercase;letter-spacing:0.5px;"
+                    f"<div style='font-size:0.6rem;color:#606060;text-transform:uppercase;letter-spacing:0.5px;"
                     f"margin-bottom:0.2rem;'>Stop Loss</div>"
                     f"<div style='font-size:1.1rem;font-weight:900;color:#ef5350;line-height:1;'>2%</div>"
-                    f"<div style='font-size:0.62rem;color:#9e9e9e;margin-top:0.15rem;'>fixed, below entry</div>"
+                    f"<div style='font-size:0.62rem;color:#606060;margin-top:0.15rem;'>fixed, below entry</div>"
                     f"</div>"
                     f"<div style='background:rgba(76,175,80,0.08);border:1px solid rgba(76,175,80,0.2);"
                     f"border-radius:7px;padding:0.45rem 0.5rem;text-align:center;'>"
-                    f"<div style='font-size:0.6rem;color:#757575;text-transform:uppercase;letter-spacing:0.5px;"
+                    f"<div style='font-size:0.6rem;color:#606060;text-transform:uppercase;letter-spacing:0.5px;"
                     f"margin-bottom:0.2rem;'>Profit Target</div>"
                     f"<div style='font-size:1.1rem;font-weight:900;color:#4caf50;line-height:1;'>{profit_target*100:.0f}%</div>"
-                    f"<div style='font-size:0.62rem;color:#9e9e9e;margin-top:0.15rem;'>R:R {risk_val}:{reward_val}</div>"
+                    f"<div style='font-size:0.62rem;color:#606060;margin-top:0.15rem;'>R:R {risk_val}:{reward_val}</div>"
                     f"</div>"
                     f"<div style='background:rgba(33,150,243,0.08);border:1px solid rgba(33,150,243,0.2);"
                     f"border-radius:7px;padding:0.45rem 0.5rem;text-align:center;'>"
-                    f"<div style='font-size:0.6rem;color:#757575;text-transform:uppercase;letter-spacing:0.5px;"
+                    f"<div style='font-size:0.6rem;color:#606060;text-transform:uppercase;letter-spacing:0.5px;"
                     f"margin-bottom:0.2rem;'>Max Hold</div>"
                     f"<div style='font-size:1.1rem;font-weight:900;color:#2196f3;line-height:1;'>{holding_period}d</div>"
-                    f"<div style='font-size:0.62rem;color:#9e9e9e;margin-top:0.15rem;'>then auto-close</div>"
+                    f"<div style='font-size:0.62rem;color:#606060;margin-top:0.15rem;'>then auto-close</div>"
                     f"</div>"
                     f"</div>"
-                    f"<div style='font-size:0.71rem;color:#9e9e9e;line-height:1.6;'>"
+                    f"<div style='font-size:0.71rem;color:#606060;line-height:1.6;'>"
                     f"Each signal pair is simulated from the next bar's open. "
                     f"A <span style='color:#4caf50;font-weight:700;'>WIN</span> = price hits +{profit_target*100:.0f}% "
                     f"profit target first. A <span style='color:#ef5350;font-weight:700;'>LOSS</span> = price drops 2% "
@@ -786,20 +791,21 @@ def signal_analysis_tab(df, info_icon):
 
                 st.markdown(
                     # champion banner
-                    f"<div style='background:#1a1a1a;border:1px solid #2d2d2d;"
-                    f"border-radius:14px 14px 0 0;padding:1.5rem 1.6rem 1.3rem 1.6rem;"
-                    f"margin-bottom:0;'>"
+                    f"<div style='background:#1b1b1b;border:1px solid #272727;"
+                    f"border-radius:14px 14px 0 0;overflow:hidden;margin-bottom:0;'>"
+                    f"<div style='padding:1.5rem 1.6rem 1.3rem 1.6rem;"
+                    f"background:linear-gradient(135deg,rgba(255,215,0,0.04),transparent);'>"
 
                     # top row: crown badge + label + best regime pill
                     f"<div style='display:flex;align-items:center;gap:0.6rem;margin-bottom:1rem;'>"
                     f"<div style='font-size:1.5rem;line-height:1;'>&#127942;</div>"
                     f"<div style='flex:1;'>"
-                    f"<div style='font-size:0.72rem;color:#9e9e9e;font-weight:600;margin-bottom:0.35rem;'>Best Combination Overall</div>"
-                    f"<div style='font-size:0.7rem;color:#9e9e9e;margin-top:0.1rem;'>"
+                    f"<div style='font-size:0.72rem;color:#606060;font-weight:700;margin-bottom:0.35rem;'>Best Combination Overall</div>"
+                    f"<div style='font-size:0.7rem;color:#606060;margin-top:0.1rem;'>"
                     f"#{1} of {total_combos:,} &nbsp;&middot;&nbsp; {champ['size']}-Way</div>"
                     f"</div>"
                     f"<div style='text-align:right;flex-shrink:0;'>"
-                    f"<div style='font-size:0.6rem;color:#757575;text-transform:uppercase;"
+                    f"<div style='font-size:0.6rem;color:#606060;text-transform:uppercase;"
                     f"letter-spacing:0.5px;margin-bottom:0.22rem;'>Best Regime</div>"
                     f"<div style='display:inline-flex;align-items:center;gap:0.4rem;"
                     f"background:{_champ_br_col}18;border:1px solid {_champ_br_col}44;"
@@ -818,20 +824,21 @@ def signal_analysis_tab(df, info_icon):
 
                     # left: giant win rate
                     f"<div style='text-align:center;padding:0.9rem 1.2rem;"
-                    f"background:#212121;border:1px solid #2a2a2a;"
+                    f"background:#161616;border:1px solid #272727;"
                     f"border-radius:10px;min-width:120px;'>"
-                    f"<div style='font-size:0.62rem;font-weight:500;text-transform:uppercase;"
-                    f"letter-spacing:0.8px;color:#757575;margin-bottom:0.3rem;'>Win Rate</div>"
+                    f"<div style='font-size:0.62rem;font-weight:700;text-transform:uppercase;"
+                    f"letter-spacing:1px;color:#606060;margin-bottom:0.3rem;'>Win Rate</div>"
                     f"<div style='font-size:3rem;font-weight:900;color:{_champ_wr_col};line-height:1;"
-                    f"letter-spacing:-2px;'>{champ_wr:.1f}<span style='font-size:1.4rem;'>%</span></div>"
-                    f"<div style='font-size:0.62rem;color:#757575;margin-top:0.25rem;'>"
+                    f"letter-spacing:-2px;text-shadow:0 0 20px {_champ_wr_col}33;'>{champ_wr:.1f}<span style='font-size:1.4rem;'>%</span></div>"
+                    f"<div style='font-size:0.62rem;color:#606060;margin-top:0.25rem;'>"
                     f"{champ['wins']}W / {champ['losses']}L</div>"
                     f"</div>"
 
                     # right: win/loss bar + 5 stat pills
                     f"<div>"
-                    f"<div style='display:flex;border-radius:5px;overflow:hidden;height:8px;margin-bottom:0.35rem;'>"
-                    f"<div style='width:{champ_wr:.1f}%;background:linear-gradient(90deg,#43a047,#66bb6a);'></div>"
+                    f"<div style='display:flex;border-radius:5px;overflow:hidden;height:8px;background:#1a1a1a;margin-bottom:0.35rem;'>"
+                    f"<div style='width:{champ_wr:.1f}%;background:linear-gradient(90deg,#43a047,#66bb6a);"
+                    f"box-shadow:0 0 8px {BULL}55;'></div>"
                     f"<div style='width:{champ_lp:.1f}%;background:linear-gradient(90deg,#e53935,#ef5350);'></div>"
                     f"</div>"
                     f"<div style='display:flex;justify-content:space-between;margin-bottom:0.85rem;'>"
@@ -841,19 +848,19 @@ def signal_analysis_tab(df, info_icon):
                     f"<div style='display:grid;grid-template-columns:repeat(5,1fr);gap:0.4rem;'>"
 
                     # ── Box 1: Signals ──
-                    f"<div style='background:#1a1a1a;border:1px solid #2a2a2a;border-radius:8px;"
+                    f"<div style='background:#161616;border:1px solid #272727;border-radius:8px;"
                     f"padding:0.6rem 0.35rem;text-align:center;'>"
-                    f"<div style='font-size:0.72rem;color:#757575;text-transform:uppercase;"
+                    f"<div style='font-size:0.72rem;color:#606060;text-transform:uppercase;"
                     f"letter-spacing:0.5px;margin-bottom:0.3rem;'>Signals</div>"
                     f"<div style='font-size:1.4rem;font-weight:800;color:#90caf9;line-height:1;'>{champ['total']}</div>"
-                    f"<div style='font-size:0.68rem;color:#616161;margin-top:0.25rem;'>"
+                    f"<div style='font-size:0.68rem;color:#555;margin-top:0.25rem;'>"
                     f"{champ['wins']}W / {champ['losses']}L</div>"
                     f"</div>"
 
                     # ── Box 2: Expectancy ──
-                    f"<div style='background:#1a1a1a;border:1px solid #2a2a2a;border-radius:8px;"
+                    f"<div style='background:#161616;border:1px solid #272727;border-radius:8px;"
                     f"padding:0.6rem 0.35rem;text-align:center;'>"
-                    f"<div style='font-size:0.72rem;color:#757575;text-transform:uppercase;"
+                    f"<div style='font-size:0.72rem;color:#606060;text-transform:uppercase;"
                     f"letter-spacing:0.5px;margin-bottom:0.3rem;'>Expectancy</div>"
                     f"<div style='font-size:1.4rem;font-weight:800;color:{ea_col};line-height:1;'>{champ_ea:+.2f}%</div>"
                     f"<div style='font-size:0.68rem;color:{ea_col};margin-top:0.25rem;'>"
@@ -861,9 +868,9 @@ def signal_analysis_tab(df, info_icon):
                     f"</div>"
 
                     # ── Box 3: Profit Factor ──
-                    f"<div style='background:#1a1a1a;border:1px solid #2a2a2a;border-radius:8px;"
+                    f"<div style='background:#161616;border:1px solid #272727;border-radius:8px;"
                     f"padding:0.6rem 0.35rem;text-align:center;'>"
-                    f"<div style='font-size:0.72rem;color:#757575;text-transform:uppercase;"
+                    f"<div style='font-size:0.72rem;color:#606060;text-transform:uppercase;"
                     f"letter-spacing:0.5px;margin-bottom:0.3rem;'>Profit Factor</div>"
                     f"<div style='font-size:1.4rem;font-weight:800;color:{pf_col};line-height:1;'>{champ_pf:.2f}</div>"
                     f"<div style='font-size:0.68rem;color:{pf_col};margin-top:0.25rem;'>"
@@ -871,18 +878,18 @@ def signal_analysis_tab(df, info_icon):
                     f"</div>"
 
                     # ── Box 4: Combo Size ──
-                    f"<div style='background:#1a1a1a;border:1px solid #2a2a2a;border-radius:8px;"
+                    f"<div style='background:#161616;border:1px solid #272727;border-radius:8px;"
                     f"padding:0.6rem 0.35rem;text-align:center;'>"
-                    f"<div style='font-size:0.72rem;color:#757575;text-transform:uppercase;"
+                    f"<div style='font-size:0.72rem;color:#606060;text-transform:uppercase;"
                     f"letter-spacing:0.5px;margin-bottom:0.3rem;'>Combo Size</div>"
                     f"<div style='font-size:1.4rem;font-weight:800;color:#e0e0e0;line-height:1;'>{champ['size']}-Way</div>"
-                    f"<div style='font-size:0.68rem;color:#616161;margin-top:0.25rem;'>indicators</div>"
+                    f"<div style='font-size:0.68rem;color:#555;margin-top:0.25rem;'>indicators</div>"
                     f"</div>"
 
                     # ── Box 5: Consistency ──
-                    f"<div style='background:#1a1a1a;border:1px solid #2a2a2a;border-radius:8px;"
+                    f"<div style='background:#161616;border:1px solid #272727;border-radius:8px;"
                     f"padding:0.6rem 0.35rem;text-align:center;'>"
-                    f"<div style='font-size:0.72rem;color:#757575;text-transform:uppercase;"
+                    f"<div style='font-size:0.72rem;color:#606060;text-transform:uppercase;"
                     f"letter-spacing:0.5px;margin-bottom:0.3rem;'>Consistency</div>"
                     f"<div style='font-size:1.4rem;font-weight:800;color:{con_col};line-height:1;'>{champ_con:.1f}%</div>"
                     f"<div style='font-size:0.68rem;color:{con_col};margin-top:0.25rem;'>"
@@ -890,7 +897,7 @@ def signal_analysis_tab(df, info_icon):
                     f"</div>"
 
                     f"</div></div></div>"  # end stats grid, right col, 2-col grid
-                    f"</div>",
+                    f"</div></div>",
                     unsafe_allow_html=True,
                 )
                 with st.container(key="combo_save_wrap_champ"):
@@ -906,10 +913,10 @@ def signal_analysis_tab(df, info_icon):
                         _, _swr_col = _wr_color(_str['win_rate'])
                         _ea_col = "#81c784" if _str['expectancy'] > 0 else "#ef5350"
                         _sh += (
-                            f"<div style='background:#1a1a1a;border:1px solid #2a2a2a;"
-                            f"border-top:3px solid {_stac};border-radius:10px;"
+                            f"<div style='background:#1b1b1b;border:1px solid #272727;"
+                            f"border-radius:10px;overflow:hidden;"
                             f"padding:1.1rem 0.6rem;text-align:center;'>"
-                            f"<div style='font-size:0.6rem;color:#757575;text-transform:uppercase;"
+                            f"<div style='font-size:0.6rem;color:#606060;text-transform:uppercase;"
                             f"letter-spacing:0.8px;margin-bottom:0.45rem;font-weight:700;'>"
                             f"#{_sti+1} &nbsp;&middot;&nbsp; {_str['size']}-Way</div>"
                             f"<div style='font-size:0.8rem;font-weight:700;color:#e0e0e0;line-height:1.55;"
@@ -918,11 +925,11 @@ def signal_analysis_tab(df, info_icon):
                             + f"</div>"
                             f"<div style='font-size:2.1rem;font-weight:900;color:{_swr_col};line-height:1;"
                             f"margin-bottom:0.15rem;'>{_str['win_rate']:.0f}%</div>"
-                            f"<div style='font-size:0.62rem;color:#757575;text-transform:uppercase;"
+                            f"<div style='font-size:0.62rem;color:#606060;text-transform:uppercase;"
                             f"letter-spacing:0.5px;margin-bottom:0.45rem;'>Win Rate</div>"
                             f"<div style='font-size:0.82rem;font-weight:700;color:{_ea_col};'>"
                             f"exp {_str['expectancy']:+.1f}%</div>"
-                            f"<div style='font-size:0.68rem;color:#757575;margin-top:0.2rem;'>"
+                            f"<div style='font-size:0.68rem;color:#606060;margin-top:0.2rem;'>"
                             f"{_str['total']} signals</div>"
                             f"</div>"
                         )
@@ -955,7 +962,7 @@ def signal_analysis_tab(df, info_icon):
                     })
                 _tbl_df = pd.DataFrame(_tbl_rows).set_index("Rank")
                 st.markdown(
-                    f"<div style='font-size:0.7rem;color:{muted};margin-bottom:0.35rem;font-weight:600;'>"
+                    f"<div style='font-size:0.7rem;color:#606060;margin-bottom:0.35rem;font-weight:600;'>"
                     f"Click any column header to sort &nbsp;&bull;&nbsp; {total_combos:,} combinations:</div>",
                     unsafe_allow_html=True,
                 )
@@ -983,17 +990,17 @@ def signal_analysis_tab(df, info_icon):
                     )
                     st.markdown(
                         f"<div style='display:flex;align-items:center;gap:0.45rem;margin:0.9rem 0 0.5rem 0;'>"
-                        f"<span style='width:3px;height:1.1rem;background:{_rgc};border-radius:2px;"
+                        f"<span style='width:3px;height:1.1rem;background:{_rgc};border-radius:2px;box-shadow:0 0 6px {_rgc}44;"
                         f"flex-shrink:0;display:inline-block;'></span>"
                         f"<span style='font-size:0.82rem;font-weight:800;color:{_rgc};"
                         f"text-transform:uppercase;letter-spacing:0.5px;'>{_rgn} Regime</span>"
-                        f"<span style='font-size:0.62rem;color:{muted};'>({len(_reg_combos)} combos)</span>"
+                        f"<span style='font-size:0.62rem;color:#606060;'>({len(_reg_combos)} combos)</span>"
                         f"</div>",
                         unsafe_allow_html=True,
                     )
                     if not _reg_combos:
                         st.markdown(
-                            f"<div style='color:{muted};font-size:0.74rem;padding:0.3rem 0;'>"
+                            f"<div style='color:#606060;font-size:0.74rem;padding:0.3rem 0;'>"
                             f"No regime data yet. Try a longer date range.</div>",
                             unsafe_allow_html=True,
                         )
@@ -1007,15 +1014,16 @@ def signal_analysis_tab(df, info_icon):
                             _rwr = _rr["regime_perf"].get(_rgn, 0)
                             _, _rc_wr_col = _wr_color(_rwr)
                             _rhtml += (
-                                f"<div style='background:#1e1e1e;border:1px solid #2d2d2d;"
-                                f"border-left:3px solid {_rgc};border-radius:8px;"
-                                f"padding:0.65rem 0.45rem;text-align:center;'>"
-                                f"<div style='font-size:0.7rem;color:#757575;margin-bottom:0.2rem;'>#{_ri+1}</div>"
-                                f"<div style='font-size:0.9rem;font-weight:700;color:#c8c8c8;line-height:1.4;margin-bottom:0.25rem;'>"
+                                f"<div style='background:#1b1b1b;border:1px solid #272727;"
+                                f"border-radius:8px;overflow:hidden;"
+                                f"padding:0.65rem 0.45rem;text-align:center;"
+                                f"background:linear-gradient(135deg,{_hex_rgba(_rgc,.05)},transparent);'>"
+                                f"<div style='font-size:0.7rem;color:#606060;margin-bottom:0.2rem;'>#{_ri+1}</div>"
+                                f"<div style='font-size:0.9rem;font-weight:700;color:#e0e0e0;line-height:1.4;margin-bottom:0.25rem;'>"
                                 + " + ".join(_all_names.get(p, p) for p in _rr["indicators"])
                                 + f"</div>"
                                 f"<div style='font-size:1.2rem;font-weight:800;color:{_rc_wr_col};line-height:1;'>{_rwr:.0f}%</div>"
-                                f"<div style='font-size:0.7rem;color:#757575;margin-top:0.15rem;'>{_rgn} &middot; {_rr['total']} signals</div>"
+                                f"<div style='font-size:0.7rem;color:#606060;margin-top:0.15rem;'>{_rgn} &middot; {_rr['total']} signals</div>"
                                 f"</div>"
                             )
                         _rhtml += "</div>"
@@ -1038,7 +1046,7 @@ def signal_analysis_tab(df, info_icon):
                         with st.expander(f"Top {len(_rtbl)} combos for {_rgn}", expanded=False):
                             st.dataframe(pd.DataFrame(_rtbl).set_index("Rank"), use_container_width=True)
                     st.markdown(
-                        f"<hr style='border:none;border-top:1px solid {border};margin:0.55rem 0;'>",
+                        f"<hr style='border:none;border-top:1px solid #272727;margin:0.55rem 0;'>",
                         unsafe_allow_html=True,
                     )
 
@@ -1047,10 +1055,10 @@ def signal_analysis_tab(df, info_icon):
                 st.markdown(
                     f"<div style='display:flex;align-items:center;gap:0.6rem;"
                     f"margin:1.8rem 0 1rem 0;'>"
-                    f"<div style='flex:1;height:1px;background:{border};'></div>"
+                    f"<div style='flex:1;height:1px;background:#272727;'></div>"
                     f"<span style='font-size:0.65rem;font-weight:800;text-transform:uppercase;"
-                    f"letter-spacing:1.2px;color:{muted};padding:0 0.6rem;'>Deep Analysis by Combo Size</span>"
-                    f"<div style='flex:1;height:1px;background:{border};'></div>"
+                    f"letter-spacing:1.2px;color:#606060;padding:0 0.6rem;'>Deep Analysis by Combo Size</span>"
+                    f"<div style='flex:1;height:1px;background:#272727;'></div>"
                     f"</div>",
                     unsafe_allow_html=True,
                 )
@@ -1120,14 +1128,14 @@ def signal_analysis_tab(df, info_icon):
                         for _xi, _xr in enumerate(_sc[:_ns3]):
                             _, _xs_wr_col = _wr_color(_xr['win_rate'])
                             _ss3 += (
-                                f"<div style='background:#1e1e1e;border:1px solid #2d2d2d;"
+                                f"<div style='background:#1b1b1b;border:1px solid #272727;"
                                 f"border-radius:7px;padding:0.65rem 0.4rem;text-align:center;'>"
-                                f"<div style='font-size:0.7rem;color:#757575;margin-bottom:0.2rem;'>#{_xi+1}</div>"
-                                f"<div style='font-size:0.9rem;font-weight:700;color:#c8c8c8;line-height:1.35;margin-bottom:0.25rem;'>"
+                                f"<div style='font-size:0.7rem;color:#606060;margin-bottom:0.2rem;'>#{_xi+1}</div>"
+                                f"<div style='font-size:0.9rem;font-weight:700;color:#e0e0e0;line-height:1.35;margin-bottom:0.25rem;'>"
                                 + " + ".join(_all_names.get(p, p) for p in _xr["indicators"])
                                 + f"</div>"
                                 f"<div style='font-size:1.15rem;font-weight:800;color:{_xs_wr_col};'>{_xr['win_rate']:.0f}%</div>"
-                                f"<div style='font-size:0.7rem;color:#757575;'>{_xr['total']} signals</div>"
+                                f"<div style='font-size:0.7rem;color:#606060;'>{_xr['total']} signals</div>"
                                 f"</div>"
                             )
                         _ss3 += "</div>"

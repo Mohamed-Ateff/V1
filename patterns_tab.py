@@ -22,9 +22,12 @@ BDR   = "#303030"
 
 def _sec(title, color=None):
     c = color or INFO
-    return (f"<div style='font-size:1rem;color:#ffffff;font-weight:700;"
-            f"margin:2rem 0 1rem 0;border-bottom:2px solid {c}33;"
-            f"padding-bottom:0.5rem;'>{title}</div>")
+    return (f"<div style='display:flex;align-items:center;gap:0.6rem;"
+            f"margin:2.2rem 0 1rem;padding:0;'>"
+            f"<div style='width:3px;height:18px;border-radius:2px;background:{c};"
+            f"box-shadow:0 0 8px {c}44;'></div>"
+            f"<span style='font-size:0.92rem;font-weight:700;color:#e0e0e0;"
+            f"text-transform:uppercase;letter-spacing:0.8px;'>{title}</span></div>")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -613,16 +616,16 @@ def _build_pattern_chart(df, patterns, current_price):
 
     fig.update_layout(
         height=520, margin=dict(l=4, r=4, t=14, b=4),
-        paper_bgcolor=BG2, plot_bgcolor=BG,
-        font=dict(color="#757575", size=10),
+        paper_bgcolor="#1b1b1b", plot_bgcolor="#1b1b1b",
+        font=dict(color="#666", size=10),
         hovermode="x unified",
-        legend=dict(bgcolor=BG2, bordercolor=BDR, borderwidth=1, font=dict(size=9),
+        legend=dict(bgcolor="#1b1b1b", bordercolor="#272727", borderwidth=1, font=dict(size=9),
                     orientation="h", x=0.01, y=1.01, yanchor="bottom"),
         xaxis_rangeslider_visible=False,
     )
     for row_i in range(1, 3):
-        fig.update_xaxes(gridcolor=BDR, showgrid=True, zeroline=False, row=row_i, col=1)
-        fig.update_yaxes(gridcolor=BDR, showgrid=True, zeroline=False, row=row_i, col=1)
+        fig.update_xaxes(gridcolor="#272727", showgrid=True, zeroline=False, row=row_i, col=1)
+        fig.update_yaxes(gridcolor="#272727", showgrid=True, zeroline=False, row=row_i, col=1)
     return fig
 
 
@@ -637,31 +640,33 @@ def _pattern_card(p, current_price):
     bar_w    = p["strength"]
 
     html = (
-        "<div style='background:" + BG3 + ";border:1px solid " + BDR + ";"
-        "border-left:4px solid " + bias_col + ";border-radius:12px;"
-        "padding:0.9rem 1.2rem;margin-bottom:0.6rem;"
-        "display:flex;align-items:center;justify-content:space-between;gap:1rem;'>"
+        "<div style='background:#1b1b1b;border:1px solid #272727;"
+        "border-radius:12px;overflow:hidden;margin-bottom:0.7rem;"
+        "box-shadow:0 1px 8px rgba(0,0,0,0.15);'>"
+        "<div style='padding:0.85rem 1.3rem;"
+        "display:flex;align-items:center;justify-content:space-between;gap:1rem;"
+        "background:linear-gradient(135deg,rgba(" + ','.join(str(int(bias_col[i:i+2],16)) for i in (1,3,5)) + ",0.06),transparent);'>"
         # left: name + signal badge
-        "<div style='display:flex;align-items:center;gap:0.65rem;min-width:0;'>"
-        "<div style='font-size:0.96rem;font-weight:800;color:" + bias_col + ";'>"
+        "<div style='display:flex;align-items:center;gap:0.7rem;min-width:0;'>"
+        "<div style='font-size:0.95rem;font-weight:800;color:" + bias_col + ";'>"
         + p["pattern"] + "</div>"
-        "<div style='font-size:0.67rem;font-weight:700;color:" + sig_col + ";"
-        "background:" + sig_col + "22;border:1px solid " + sig_col + "66;"
-        "border-radius:5px;padding:0.15rem 0.55rem;letter-spacing:0.6px;white-space:nowrap;'>"
+        "<div style='font-size:0.65rem;font-weight:700;color:" + sig_col + ";"
+        "background:rgba(" + ','.join(str(int(sig_col[i:i+2],16)) for i in (1,3,5)) + ",0.12);"
+        "border-radius:5px;padding:0.15rem 0.55rem;letter-spacing:0.5px;white-space:nowrap;'>"
         + p["signal"] + "</div>"
         "</div>"
         # right: strength bar + date
         "<div style='display:flex;align-items:center;gap:1.2rem;flex-shrink:0;'>"
         "<div style='display:flex;align-items:center;gap:0.5rem;'>"
-        "<div style='width:70px;background:" + BDR + ";border-radius:4px;height:5px;'>"
+        "<div style='width:70px;background:#1a1a1a;border-radius:4px;height:4px;'>"
         "<div style='background:" + bias_col + ";width:" + str(bar_w) + "%;"
-        "height:5px;border-radius:4px;'></div></div>"
+        "height:4px;border-radius:4px;box-shadow:0 0 6px " + bias_col + "44;'></div></div>"
         "<div style='font-size:0.80rem;font-weight:700;color:" + bias_col + ";'>"
         + str(bar_w) + "%</div>"
         "</div>"
-        "<div style='font-size:0.78rem;color:#9e9e9e;white-space:nowrap;'>" + dt_str + "</div>"
+        "<div style='font-size:0.75rem;color:#555;white-space:nowrap;'>" + dt_str + "</div>"
         "</div>"
-        "</div>"
+        "</div></div>"
     )
     st.markdown(html, unsafe_allow_html=True)
 
@@ -779,16 +784,18 @@ def patterns_tab(df):
 
     # ── Hero banner ──────────────────────────────────────────────────────────
     hero_html = (
-        "<div style='background:" + BG3 + ";border:1px solid " + BDR + ";"
-        "border-left:5px solid " + bias_col + ";border-radius:14px;"
-        "padding:1.5rem 1.8rem;margin-bottom:1.2rem;'>"
-        "<div style='font-size:0.68rem;color:#9e9e9e;text-transform:uppercase;"
-        "letter-spacing:1.1px;margin-bottom:0.4rem;font-weight:600;'>Pattern Signal</div>"
-        "<div style='font-size:3rem;font-weight:900;color:" + bias_col + ";line-height:1;"
-        "letter-spacing:-0.5px;'>" + signal_lbl + "</div>"
-        "<div style='font-size:0.86rem;color:#9e9e9e;margin-top:0.6rem;line-height:1.6;"
+        "<div style='background:#1b1b1b;border:1px solid #272727;"
+        "border-radius:14px;overflow:hidden;margin-bottom:1.4rem;"
+        "box-shadow:0 4px 24px rgba(0,0,0,0.3);'>"
+        "<div style='padding:1.6rem 2rem;"
+        "background:linear-gradient(135deg,rgba(" + ','.join(str(int(bias_col[i:i+2],16)) for i in (1,3,5)) + ",0.08),transparent);'>"
+        "<div style='font-size:0.62rem;color:#606060;text-transform:uppercase;"
+        "letter-spacing:1.2px;margin-bottom:0.5rem;font-weight:700;'>Pattern Signal</div>"
+        "<div style='font-size:2.4rem;font-weight:900;color:" + bias_col + ";line-height:1;"
+        "letter-spacing:-1px;text-shadow:0 0 20px " + bias_col + "33;'>" + signal_lbl + "</div>"
+        "<div style='font-size:0.82rem;color:#888;margin-top:0.6rem;line-height:1.7;"
         "max-width:600px;'>" + reason + "</div>"
-        "</div>"
+        "</div></div>"
     )
     st.markdown(hero_html, unsafe_allow_html=True)
 
@@ -817,8 +824,8 @@ def patterns_tab(df):
             _pattern_card(p, current_price)
     else:
         st.markdown(
-            "<div style='background:" + BG3 + ";border:1px solid " + BDR + ";border-radius:12px;"
-            "padding:1.2rem 1.4rem;color:#9e9e9e;font-size:0.88rem;'>"
+            "<div style='background:#1b1b1b;border:1px solid #272727;border-radius:12px;"
+            "padding:1.4rem 1.5rem;color:#666;font-size:0.85rem;'>"
             "No patterns detected in the last 10 trading sessions."
             "</div>",
             unsafe_allow_html=True,

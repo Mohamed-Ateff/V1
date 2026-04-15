@@ -17,18 +17,22 @@ BDR   = "#303030"
 
 def _sec(title, color=INFO):
     return (
-        f"<div style='font-size:1rem;color:#ffffff;font-weight:700;"
-        f"margin:2rem 0 1rem 0;border-bottom:2px solid {color}33;"
-        f"padding-bottom:0.5rem;'>{title}</div>"
+        f"<div style='display:flex;align-items:center;gap:0.6rem;"
+        f"margin:2.2rem 0 1rem;padding:0;'>"
+        f"<div style='width:3px;height:18px;border-radius:2px;background:{color};"
+        f"box-shadow:0 0 8px {color}44;'></div>"
+        f"<span style='font-size:0.92rem;font-weight:700;color:#e0e0e0;"
+        f"text-transform:uppercase;letter-spacing:0.8px;'>{title}</span></div>"
     )
 
 
-def _glowbar(pct, color=BULL, height="8px"):
+def _glowbar(pct, color=BULL, height="5px"):
     pct = max(0, min(100, pct))
     return (
-        f"<div style='background:{BDR};border-radius:999px;height:{height};overflow:hidden;'>"
+        f"<div style='background:#1a1a1a;border-radius:999px;height:{height};overflow:hidden;'>"
         f"<div style='width:{pct}%;height:100%;"
-        f"background:linear-gradient(90deg,{color}99,{color});border-radius:999px;'></div></div>"
+        f"background:linear-gradient(90deg,{color}cc,{color});border-radius:999px;"
+        f"box-shadow:0 0 8px {color}55;'></div></div>"
     )
 
 
@@ -323,41 +327,51 @@ def price_action_analysis_tab(df, info_icon):
     pos_zone = "Upper" if pos_pct >= 66 else "Lower" if pos_pct <= 33 else "Middle"
     st.markdown(
         f"""
-        <div style='background:{BG2};border:1px solid {BDR};border-left:5px solid {t_col};
-                    border-radius:14px;padding:1.6rem 2rem;margin-bottom:1.2rem;'>
-            <div style='margin-bottom:1.4rem;'>
-                <div style='font-size:0.70rem;color:#9e9e9e;text-transform:uppercase;
-                            letter-spacing:1.1px;margin-bottom:0.4rem;font-weight:600;'>
-                    Market Structure</div>
-                <div style='font-size:3rem;font-weight:900;color:{t_col};
-                            line-height:1;letter-spacing:-0.5px;'>{trend}</div>
-                <div style='font-size:0.88rem;color:#9e9e9e;margin-top:0.5rem;'>{trend_desc}</div>
+        <div style='background:#1b1b1b;border:1px solid #272727;
+                    border-radius:14px;overflow:hidden;margin-bottom:1.4rem;
+                    box-shadow:0 4px 24px rgba(0,0,0,0.3);'>
+            <div style='padding:1.6rem 2rem;
+                        background:linear-gradient(135deg,rgba({','.join(str(int(t_col[i:i+2],16)) for i in (1,3,5))},0.08),transparent);'>
+                <div style='display:flex;align-items:center;gap:0.9rem;margin-bottom:0.5rem;'>
+                    <div style='width:42px;height:42px;border-radius:10px;
+                                background:rgba({','.join(str(int(t_col[i:i+2],16)) for i in (1,3,5))},0.12);
+                                display:flex;align-items:center;justify-content:center;
+                                font-size:0.7rem;color:{t_col};font-weight:800;text-transform:uppercase;
+                                letter-spacing:0.5px;'>MKT</div>
+                    <div>
+                        <div style='font-size:0.62rem;color:#606060;text-transform:uppercase;
+                                    letter-spacing:1.2px;font-weight:700;'>Market Structure</div>
+                        <div style='font-size:2.2rem;font-weight:900;color:{t_col};line-height:1;
+                                    letter-spacing:-1px;text-shadow:0 0 20px {t_col}33;'>{trend}</div>
+                    </div>
+                </div>
+                <div style='font-size:0.82rem;color:#888;margin-top:0.15rem;'>{trend_desc}</div>
             </div>
             <div style='display:grid;grid-template-columns:repeat(4,1fr);
-                        border-top:1px solid {BDR};padding-top:1.1rem;gap:0.75rem;'>
+                        border-top:1px solid #272727;padding:1.1rem 2rem;gap:0.75rem;'>
                 <div>
-                    <div style='font-size:0.67rem;color:#9e9e9e;text-transform:uppercase;
-                                letter-spacing:0.6px;margin-bottom:0.35rem;'>Range Position</div>
-                    <div style='font-size:1.25rem;font-weight:800;color:{t_col};'>{pos_pct}%</div>
-                    <div style='font-size:0.72rem;color:#9e9e9e;margin-top:0.2rem;'>{pos_zone} of {_sw}d range</div>
+                    <div style='font-size:0.62rem;color:#606060;text-transform:uppercase;
+                                letter-spacing:0.6px;margin-bottom:0.4rem;font-weight:700;'>Range Position</div>
+                    <div style='font-size:1.3rem;font-weight:800;color:{t_col};'>{pos_pct}%</div>
+                    <div style='font-size:0.72rem;color:#666;margin-top:0.2rem;'>{pos_zone} of {_sw}d range</div>
                 </div>
                 <div>
-                    <div style='font-size:0.67rem;color:#9e9e9e;text-transform:uppercase;
-                                letter-spacing:0.6px;margin-bottom:0.35rem;'>Swing High</div>
-                    <div style='font-size:1.25rem;font-weight:800;color:#ffffff;'>${swing_high:.2f}</div>
+                    <div style='font-size:0.62rem;color:#606060;text-transform:uppercase;
+                                letter-spacing:0.6px;margin-bottom:0.4rem;font-weight:700;'>Swing High</div>
+                    <div style='font-size:1.3rem;font-weight:800;color:#e0e0e0;'>${swing_high:.2f}</div>
                     <div style='font-size:0.72rem;color:{BEAR};margin-top:0.2rem;'>↑ {dist_high:.2f}% away</div>
                 </div>
                 <div>
-                    <div style='font-size:0.67rem;color:#9e9e9e;text-transform:uppercase;
-                                letter-spacing:0.6px;margin-bottom:0.35rem;'>Swing Low</div>
-                    <div style='font-size:1.25rem;font-weight:800;color:#ffffff;'>${swing_low:.2f}</div>
+                    <div style='font-size:0.62rem;color:#606060;text-transform:uppercase;
+                                letter-spacing:0.6px;margin-bottom:0.4rem;font-weight:700;'>Swing Low</div>
+                    <div style='font-size:1.3rem;font-weight:800;color:#e0e0e0;'>${swing_low:.2f}</div>
                     <div style='font-size:0.72rem;color:{BULL};margin-top:0.2rem;'>↓ {dist_low:.2f}% cushion</div>
                 </div>
                 <div>
-                    <div style='font-size:0.67rem;color:#9e9e9e;text-transform:uppercase;
-                                letter-spacing:0.6px;margin-bottom:0.35rem;'>Range Size</div>
-                    <div style='font-size:1.25rem;font-weight:800;color:#ffffff;'>${range_sz:.2f}</div>
-                    <div style='font-size:0.72rem;color:#9e9e9e;margin-top:0.2rem;'>{_sw}-day Hi–Lo spread</div>
+                    <div style='font-size:0.62rem;color:#606060;text-transform:uppercase;
+                                letter-spacing:0.6px;margin-bottom:0.4rem;font-weight:700;'>Range Size</div>
+                    <div style='font-size:1.3rem;font-weight:800;color:#e0e0e0;'>${range_sz:.2f}</div>
+                    <div style='font-size:0.72rem;color:#666;margin-top:0.2rem;'>{_sw}-day Hi–Lo spread</div>
                 </div>
             </div>
         </div>
@@ -385,13 +399,12 @@ def price_action_analysis_tab(df, info_icon):
     for col, (label, price, color, dist) in zip(cols, level_data):
         with col:
             st.markdown(
-                f"<div style='background:{BG2};border:1px solid {BDR};"
-                f"border-top:3px solid {color};border-radius:12px;"
-                f"padding:0.9rem 0.7rem;text-align:center;'>"
-                f"<div style='font-size:0.72rem;color:#9e9e9e;text-transform:uppercase;"
-                f"letter-spacing:0.6px;margin-bottom:0.4rem;'>{label}</div>"
-                f"<div style='font-size:1.15rem;font-weight:800;color:{color};'>${price:.2f}</div>"
-                f"<div style='font-size:0.75rem;color:#757575;margin-top:0.2rem;'>{dist}</div>"
+                f"<div style='background:#1b1b1b;border:1px solid #272727;"
+                f"border-radius:10px;padding:0.85rem 0.6rem;text-align:center;'>"
+                f"<div style='font-size:0.65rem;color:#606060;text-transform:uppercase;"
+                f"letter-spacing:0.6px;margin-bottom:0.45rem;font-weight:700;'>{label}</div>"
+                f"<div style='font-size:1.2rem;font-weight:800;color:{color};'>${price:.2f}</div>"
+                f"<div style='font-size:0.72rem;color:#555;margin-top:0.25rem;'>{dist}</div>"
                 f"</div>",
                 unsafe_allow_html=True,
             )
@@ -414,30 +427,36 @@ def price_action_analysis_tab(df, info_icon):
                       else f"<span style='color:#757575;'>Outside</span>")
         with col:
             st.markdown(
-                f"<div style='background:linear-gradient(135deg,{col_accent}0d,{BG2});"
-                f"border:1px solid {col_accent}30;border-left:4px solid {col_accent};"
-                f"border-radius:16px;padding:1.5rem 1.6rem;'>"
+                f"<div style='background:#1b1b1b;border:1px solid #272727;"
+                f"border-radius:12px;overflow:hidden;"
+                f"box-shadow:0 2px 16px rgba(0,0,0,0.2);'>"
+                f"<div style='padding:1rem 1.4rem;"
+                f"background:linear-gradient(135deg,rgba({','.join(str(int(col_accent[i:i+2],16)) for i in (1,3,5))},0.07),transparent);"
+                f"border-bottom:1px solid #272727;'>"
                 f"<div style='display:flex;justify-content:space-between;align-items:center;"
-                f"margin-bottom:0.8rem;'>"
-                f"<div style='font-size:0.78rem;color:#9e9e9e;text-transform:uppercase;"
+                f"margin-bottom:0.7rem;'>"
+                f"<div style='font-size:0.82rem;color:#bdbdbd;text-transform:uppercase;"
                 f"letter-spacing:0.8px;font-weight:700;'>{label}</div>"
                 f"{in_html}</div>"
-                f"<div style='font-size:2rem;font-weight:900;color:{col_accent};'>${lvl:.2f}</div>"
-                f"<div style='font-size:0.82rem;color:#9e9e9e;margin:0.25rem 0 1rem;'>"
+                f"<div style='font-size:2rem;font-weight:900;color:{col_accent};"
+                f"text-shadow:0 0 16px {col_accent}22;'>${lvl:.2f}</div>"
+                f"<div style='font-size:0.78rem;color:#666;margin:0.2rem 0 0;'>"
                 f"Band: ${zone_lo:.2f} \u2013 ${zone_hi:.2f}</div>"
-                f"<div style='display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;'>"
-                f"<div style='background:{BG};border-radius:10px;padding:0.7rem 0.9rem;'>"
-                f"<div style='font-size:0.72rem;color:#757575;text-transform:uppercase;"
-                f"letter-spacing:0.5px;margin-bottom:0.2rem;'>Strength</div>"
-                f"<div style='font-size:1rem;font-weight:700;color:{sc};'>{strength_str}</div>"
                 f"</div>"
-                f"<div style='background:{BG};border-radius:10px;padding:0.7rem 0.9rem;'>"
-                f"<div style='font-size:0.72rem;color:#757575;text-transform:uppercase;"
-                f"letter-spacing:0.5px;margin-bottom:0.2rem;'>Touches</div>"
-                f"<div style='font-size:1rem;font-weight:700;color:{NEUT};'>{touches}</div>"
+                f"<div style='padding:0.9rem 1.4rem;'>"
+                f"<div style='display:grid;grid-template-columns:1fr 1fr;gap:0.55rem;margin-bottom:0.7rem;'>"
+                f"<div style='background:#161616;border:1px solid #272727;border-radius:8px;padding:0.6rem 0.8rem;'>"
+                f"<div style='font-size:0.62rem;color:#606060;text-transform:uppercase;"
+                f"letter-spacing:0.5px;margin-bottom:0.2rem;font-weight:700;'>Strength</div>"
+                f"<div style='font-size:1.05rem;font-weight:700;color:{sc};'>{strength_str}</div>"
+                f"</div>"
+                f"<div style='background:#161616;border:1px solid #272727;border-radius:8px;padding:0.6rem 0.8rem;'>"
+                f"<div style='font-size:0.62rem;color:#606060;text-transform:uppercase;"
+                f"letter-spacing:0.5px;margin-bottom:0.2rem;font-weight:700;'>Touches</div>"
+                f"<div style='font-size:1.05rem;font-weight:700;color:{NEUT};'>{touches}</div>"
                 f"</div></div>"
-                f"<div style='margin-top:0.8rem;'>{_glowbar(min(touches*20,100), col_accent, '5px')}</div>"
-                f"</div>",
+                f"{_glowbar(min(touches*20,100), col_accent, '4px')}"
+                f"</div></div>",
                 unsafe_allow_html=True,
             )
 
@@ -520,35 +539,34 @@ def price_action_analysis_tab(df, info_icon):
 
         # ── Hero banner ──
         st.markdown(
-            f"<div style='background:{BG2};border:1px solid {BDR};"
-            f"border-left:5px solid {sc};border-radius:14px;"
-            f"padding:1.5rem 2rem;margin-bottom:1rem;'>"
+            f"<div style='background:#1b1b1b;border:1px solid #272727;"
+            f"border-radius:14px;overflow:hidden;margin-bottom:1rem;"
+            f"box-shadow:0 4px 24px rgba(0,0,0,0.3);'>"
+            f"<div style='padding:1.5rem 2rem;"
+            f"background:linear-gradient(135deg,rgba({','.join(str(int(sc[i:i+2],16)) for i in (1,3,5))},0.08),transparent);'>"
             f"<div style='display:flex;justify-content:space-between;align-items:center;"
             f"margin-bottom:1rem;'>"
             f"<div>"
-            f"<div style='font-size:0.65rem;color:#9e9e9e;text-transform:uppercase;"
-            f"letter-spacing:1px;font-weight:700;margin-bottom:0.3rem;'>Price Action Trade Setup</div>"
-            f"<div style='font-size:2.6rem;font-weight:900;color:{sc};"
-            f"letter-spacing:-1px;line-height:1;'>{icon}</div>"
-            f"<div style='font-size:0.82rem;color:#9e9e9e;margin-top:0.4rem;'>"
+            f"<div style='font-size:0.62rem;color:#606060;text-transform:uppercase;"
+            f"letter-spacing:1.2px;font-weight:700;margin-bottom:0.3rem;'>Price Action Trade Setup</div>"
+            f"<div style='font-size:2.2rem;font-weight:900;color:{sc};"
+            f"letter-spacing:-1px;line-height:1;"
+            f"text-shadow:0 0 20px {sc}33;'>{icon}</div>"
+            f"<div style='font-size:0.78rem;color:#888;margin-top:0.4rem;'>"
             f"{sig_txt}</div>"
             f"</div>"
             f"<div style='text-align:right;'>"
-            f"<div style='font-size:0.65rem;color:#9e9e9e;margin-bottom:0.3rem;"
-            f"text-transform:uppercase;letter-spacing:1px;'>Signal Confidence</div>"
-            f"<div style='font-size:3rem;font-weight:900;color:{sc};"
+            f"<div style='font-size:0.62rem;color:#606060;margin-bottom:0.3rem;"
+            f"text-transform:uppercase;letter-spacing:1px;font-weight:700;'>Signal Confidence</div>"
+            f"<div style='font-size:2.6rem;font-weight:900;color:{sc};"
             f"line-height:1;letter-spacing:-2px;'>{conf}%</div>"
             f"</div>"
             f"</div>"
             # Confidence bar
-            f"<div style='background:{BDR};border-radius:999px;height:6px;"
-            f"overflow:hidden;margin-bottom:0.5rem;'>"
-            f"<div style='width:{conf}%;height:100%;"
-            f"background:linear-gradient(90deg,{conf_bar_cl}66,{conf_bar_cl});"
-            f"border-radius:999px;'></div></div>"
-            f"<div style='font-size:0.65rem;color:#555;'>"
+            + _glowbar(conf, conf_bar_cl, '6px') +
+            f"<div style='font-size:0.65rem;color:#4a4a4a;margin-top:0.6rem;'>"
             f"Long signals: {ts['ls']} pts &nbsp;|&nbsp; Short signals: {ts['ss']} pts</div>"
-            f"</div>",
+            f"</div></div>",
             unsafe_allow_html=True,
         )
 
@@ -628,11 +646,11 @@ def price_action_analysis_tab(df, info_icon):
     fig.update_yaxes(gridcolor=BDR, showline=False, zeroline=False,
                      tickfont=dict(color="#757575"))
     fig.update_layout(
-        height=620, plot_bgcolor=BG, paper_bgcolor=BG,
-        font=dict(color="#e0e0e0", family="Inter, Arial, sans-serif", size=12),
+        height=620, plot_bgcolor="#1b1b1b", paper_bgcolor="#1b1b1b",
+        font=dict(color="#888", family="Inter, Arial, sans-serif", size=12),
         hovermode="x unified", xaxis_rangeslider=dict(visible=False),
         legend=dict(orientation="h", yanchor="bottom", y=1.01,
-                    xanchor="right", x=1, font=dict(color="#9e9e9e"),
+                    xanchor="right", x=1, font=dict(color="#888"),
                     bgcolor="rgba(0,0,0,0)"),
         margin=dict(t=10, b=10, l=40, r=60),
         bargap=0.1,

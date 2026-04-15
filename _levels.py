@@ -546,36 +546,36 @@ def price_ladder_html(cp, stop, t1, t2, t3, is_bullish,
         if label == "Entry":
             dist_str = "Entry Point"
             if abs(ez_hi - ez_lo) > 0.001:
-                sub_html = (f"<div style='font-size:0.68rem;color:{color}bb;"
-                            f"margin-top:0.35rem;font-weight:700;letter-spacing:0.3px;'"
+                sub_html = (f"<div style='font-size:0.62rem;color:{color}bb;"
+                            f"margin-top:0.3rem;font-weight:600;'"
                             f">Zone: {ez_lo:.2f}&ndash;{ez_hi:.2f}</div>")
             else:
                 sub_html = ""
         else:
             dist_str = f"{sign}{dist_pct:.1f}%"
-            sub_html = (f"<div style='font-size:0.72rem;color:{color}99;"
-                        f"margin-top:0.3rem;font-weight:600;'>{sub}</div>") if sub else ""
+            sub_html = (f"<div style='font-size:0.64rem;color:{color}99;"
+                        f"margin-top:0.25rem;font-weight:600;'>{sub}</div>") if sub else ""
         return (
-            f"<div style='background:{color}18;border:1.5px solid {color}55;"
-            f"border-top:4px solid {color};border-radius:14px;"
-            f"padding:1.5rem 0.8rem;text-align:center;'>"
-            f"<div style='font-size:0.75rem;color:{color};text-transform:uppercase;"
-            f"letter-spacing:1px;font-weight:800;margin-bottom:0.7rem;'>{label}</div>"
-            f"<div style='font-size:1.9rem;font-weight:900;color:#ffffff;"
-            f"letter-spacing:-0.5px;line-height:1;'>{price:.2f}</div>"
-            f"<div style='font-size:1.05rem;font-weight:800;color:{color};"
-            f"margin-top:0.55rem;'>{dist_str}</div>"
+            f"<div style='background:#161616;border:1px solid #272727;"
+            f"border-radius:10px;padding:0.9rem 0.6rem;text-align:center;"
+            f"transition:border-color 0.15s;'>"
+            f"<div style='font-size:0.65rem;color:#606060;text-transform:uppercase;"
+            f"letter-spacing:0.8px;font-weight:700;margin-bottom:0.5rem;'>{label}</div>"
+            f"<div style='font-size:1.25rem;font-weight:800;color:#ffffff;"
+            f"line-height:1;'>{price:.2f}</div>"
+            f"<div style='font-size:0.78rem;font-weight:700;color:{color};"
+            f"margin-top:0.4rem;'>{dist_str}</div>"
             + sub_html +
             f"</div>"
         )
 
     def _meta(label, value, color):
         return (
-            f"<div style='background:{BG};border:1px solid {BDR};border-radius:12px;"
-            f"padding:0.9rem 1rem;text-align:center;'>"
-            f"<div style='font-size:0.65rem;color:#666;text-transform:uppercase;"
-            f"letter-spacing:0.8px;font-weight:700;margin-bottom:0.4rem;'>{label}</div>"
-            f"<div style='font-size:1.5rem;font-weight:900;color:{color};line-height:1;'>"
+            f"<div style='background:#131313;border:1px solid #272727;border-radius:8px;"
+            f"padding:0.65rem 0.7rem;text-align:center;'>"
+            f"<div style='font-size:0.58rem;color:#555;text-transform:uppercase;"
+            f"letter-spacing:0.6px;font-weight:700;margin-bottom:0.35rem;'>{label}</div>"
+            f"<div style='font-size:1.1rem;font-weight:800;color:{color};line-height:1;'>"
             f"{value}</div></div>"
         )
 
@@ -584,35 +584,44 @@ def price_ladder_html(cp, stop, t1, t2, t3, is_bullish,
     if entry_quality:
         _ec = eq_col or NEUT
         eq_badge = (
-            f"<span style='margin-left:1rem;font-size:0.72rem;font-weight:800;"
-            f"color:{_ec};background:{_ec}22;border:1px solid {_ec}66;"
-            f"border-radius:6px;padding:0.2rem 0.6rem;text-transform:uppercase;"
-            f"letter-spacing:0.8px;'>Entry: {entry_quality}</span>"
+            f"<span style='font-size:0.65rem;font-weight:700;"
+            f"color:{_ec};background:rgba({','.join(str(int(_ec[i:i+2],16)) for i in (1,3,5))},0.12);"
+            f"border-radius:5px;padding:0.15rem 0.5rem;'>Entry: {entry_quality}</span>"
         )
 
     return (
-        f"<div style='background:{BG2};border:1px solid #FFD70033;"
-        f"border-left:5px solid #FFD700;border-radius:16px;"
-        f"padding:1.4rem 1.6rem;margin-bottom:1.2rem;'>"
-        f"<div style='display:flex;align-items:center;margin-bottom:1.4rem;'>"
-        f"<div style='font-size:1rem;color:#FFD700;text-transform:uppercase;"
-        f"letter-spacing:1.5px;font-weight:800;'>Price Ladder</div>"
+        f"<div style='background:#1b1b1b;border:1px solid #272727;"
+        f"border-radius:12px;overflow:hidden;margin-bottom:0.85rem;"
+        f"box-shadow:0 2px 16px rgba(0,0,0,0.2);'>"
+
+        # Header
+        f"<div style='padding:0.8rem 1.2rem;border-bottom:1px solid #272727;"
+        f"background:linear-gradient(135deg,rgba(255,215,0,0.06),transparent);"
+        f"display:flex;align-items:center;gap:0.7rem;'>"
+        f"<span style='font-size:0.85rem;font-weight:700;color:#FFD700;'>Price Ladder</span>"
         + eq_badge +
         f"</div>"
-        f"<div style='display:grid;grid-template-columns:repeat(5,1fr);gap:0.65rem;margin-bottom:1rem;'>"
+
+        # 5-col levels grid
+        f"<div style='padding:1rem 1.2rem;'>"
+        f"<div style='display:grid;grid-template-columns:repeat(5,1fr);gap:0.55rem;margin-bottom:0.85rem;'>"
         + _cell("Stop Loss", stop, stop_pct,  stop_col)
         + _cell("Entry",     entry, 0.0,      INFO)
         + _cell("Target 1",  t1,   t1_pct,   t_col,  f"{rr1:.1f}R")
         + _cell("Target 2",  t2,   t2_pct,   t_col,  f"{rr2:.1f}R")
         + _cell("Target 3",  t3,   t3_pct,   t_col,  f"{rr3:.1f}R")
         + f"</div>"
-        f"<div style='display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;"
-        f"border-top:1px solid {BDR};padding-top:1.1rem;'>"
+
+        # 4-col risk/reward row
+        f"<div style='display:grid;grid-template-columns:repeat(4,1fr);gap:0.55rem;"
+        f"border-top:1px solid #272727;padding-top:0.8rem;'>"
         + _meta("Max Risk",   f"{risk_pct:.1f}%",   BEAR)
         + _meta("R:R to T1",  f"1 : {rr1:.1f}",     rr1_col)
         + _meta("R:R to T2",  f"1 : {rr2:.1f}",     rr2_col)
         + _meta("R:R to T3",  f"1 : {rr3:.1f}",     rr3_col)
         + f"</div>"
+        f"</div>"
+
         f"</div>"
     )
 

@@ -5,74 +5,92 @@ _INSIGHT_CSS = """
 <style>
 /* ── Insight Toggle Expander ─────────────────────────────────────── */
 details.insight-toggle {
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-left: 3px solid #26A69A;
+    background: #1a1a1a;
+    border: 1px solid #2a2a2a;
     border-radius: 10px;
-    margin: 0.5rem 0 1rem 0;
+    margin: 0.6rem 0 1.2rem 0;
     overflow: hidden;
+    transition: border-color 0.2s;
+}
+details.insight-toggle:hover {
+    border-color: #3a3a3a;
+}
+details.insight-toggle[open] {
+    border-color: rgba(38,166,154,0.3);
+    box-shadow: 0 2px 12px rgba(38,166,154,0.06);
 }
 details.insight-toggle summary {
     display: flex;
     align-items: center;
-    gap: 0.55rem;
-    padding: 0.65rem 1rem;
+    gap: 0.6rem;
+    padding: 0.75rem 1.1rem;
     cursor: pointer;
     list-style: none;
-    font-size: 0.76rem;
-    font-weight: 700;
-    color: #26A69A;
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: #808080;
     letter-spacing: 0.2px;
     user-select: none;
-    transition: background 0.15s;
+    transition: background 0.15s, color 0.15s;
 }
 details.insight-toggle summary:hover {
-    background: rgba(38,166,154,0.06);
+    background: rgba(255,255,255,0.02);
+    color: #26A69A;
+}
+details.insight-toggle[open] summary {
+    color: #26A69A;
+    background: rgba(38,166,154,0.04);
+    border-bottom: 1px solid #2a2a2a;
 }
 details.insight-toggle summary::-webkit-details-marker { display: none; }
 details.insight-toggle summary .itog-icon {
-    font-size: 1rem;
+    font-size: 0.95rem;
     line-height: 1;
     flex-shrink: 0;
+    opacity: 0.7;
+}
+details.insight-toggle[open] summary .itog-icon {
+    opacity: 1;
 }
 details.insight-toggle summary .itog-arrow {
     margin-left: auto;
-    font-size: 0.7rem;
-    opacity: 0.5;
-    transition: transform 0.2s;
+    font-size: 0.6rem;
+    opacity: 0.35;
+    transition: transform 0.25s, opacity 0.2s;
 }
 details.insight-toggle[open] summary .itog-arrow {
     transform: rotate(180deg);
+    opacity: 0.6;
 }
 details.insight-toggle .itog-body {
-    padding: 0 1rem 1rem 1rem;
-    border-top: 1px solid rgba(255,255,255,0.06);
+    padding: 0.9rem 1.2rem 1.1rem;
 }
 details.insight-toggle .itog-body p {
-    font-size: 0.78rem;
-    color: #c0c0c0;
-    line-height: 1.7;
-    margin: 0.7rem 0 0 0;
+    font-size: 0.76rem;
+    color: #b0b0b0;
+    line-height: 1.75;
+    margin: 0.5rem 0 0 0;
 }
 details.insight-toggle .itog-body strong {
-    color: #e8e8e8;
+    color: #e0e0e0;
     font-weight: 700;
 }
 details.insight-toggle .itog-body .itog-row {
     display: flex;
     align-items: flex-start;
-    gap: 0.5rem;
-    margin: 0.45rem 0;
-    font-size: 0.77rem;
-    color: #b0b0b0;
-    line-height: 1.55;
+    gap: 0.55rem;
+    margin: 0.5rem 0;
+    font-size: 0.75rem;
+    color: #a0a0a0;
+    line-height: 1.6;
 }
 details.insight-toggle .itog-body .itog-dot {
-    width: 6px; height: 6px;
+    width: 5px; height: 5px;
     border-radius: 50%;
     background: #26A69A;
     flex-shrink: 0;
-    margin-top: 0.45rem;
+    margin-top: 0.5rem;
+    box-shadow: 0 0 4px rgba(38,166,154,0.4);
 }
 </style>
 """
