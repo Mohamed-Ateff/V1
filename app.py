@@ -749,6 +749,9 @@ def main():
              v:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="16" y2="6"/><line x1="4" y1="10" x2="20" y2="10"/><line x1="4" y1="14" x2="12" y2="14"/><line x1="4" y1="18" x2="18" y2="18"/></svg>'},
             {l:'SMC',
              v:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>'},
+            {l:'Elliott Wave',
+             v:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="2 17 6 9 10 13 14 5 18 11 22 3"/></svg>',
+             badge:'NEW'},
             {l:'AI Analysis',
              v:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.636 5.636l1.414 1.414M16.95 16.95l1.414 1.414M5.636 18.364l1.414-1.414M16.95 7.05l1.414-1.414"/></svg>'},
             {l:'Validator',
@@ -795,6 +798,7 @@ def main():
                     'transition:color .2s,background .2s,border-color .2s,transform .15s;">' +
                     '<span class="sqnb-ico" style="display:inline-flex;align-items:center;opacity:' + (on ? '1' : '.45') + ';transition:opacity .2s;pointer-events:none;">' + tab.v + '</span>' +
                     '<span>' + tab.l + '</span>' +
+                    (tab.badge ? '<span style="margin-left:5px;padding:1px 6px;border-radius:8px;font-size:0.5rem;font-weight:800;letter-spacing:0.5px;background:rgba(76,175,80,0.15);color:#4caf50;border:1px solid rgba(76,175,80,0.35);text-transform:uppercase;line-height:1.4;">' + tab.badge + '</span>' : '') +
                     '</button>';
             });
             return h;
@@ -813,6 +817,17 @@ def main():
                 sp.style.cssText = 'display:inline-flex;align-items:center;margin-right:6px;' +
                     'vertical-align:middle;pointer-events:none;opacity:' + (isOn ? '1' : '.45') + ';transition:opacity .2s;';
                 b.insertBefore(sp, b.firstChild);
+                // NEW badge
+                if (TABS[i].badge && !b.querySelector('.sqnb-badge')) {
+                    var bd = doc.createElement('span');
+                    bd.className = 'sqnb-badge';
+                    bd.textContent = TABS[i].badge;
+                    bd.style.cssText = 'display:inline-flex;align-items:center;margin-left:6px;padding:1px 6px;' +
+                        'border-radius:8px;font-size:0.5rem;font-weight:800;letter-spacing:0.5px;' +
+                        'background:rgba(76,175,80,0.15);color:#4caf50;border:1px solid rgba(76,175,80,0.35);' +
+                        'text-transform:uppercase;line-height:1.4;pointer-events:none;';
+                    b.appendChild(bd);
+                }
             });
         }
 
@@ -3684,30 +3699,6 @@ def main():
                                         st.session_state.analyzed_symbol = symbol_input
                                         st.session_state.additional_charts = ['ADX','RSI','MACD']
 
-                                        # Pre-warm AI Analysis + Trade Validator caches while
-                                        # the spinner is still showing — tabs load instantly on click.
-                                        try:
-                                            from gemini_tab import (
-                                                _ml_predict, _historical_analogy,
-                                                _price_predictor, _monte_carlo,
-                                            )
-                                            _ml_predict(df, horizon=5)
-                                            _ml_predict(df, horizon=10)
-                                            _ml_predict(df, horizon=20)
-                                            _price_predictor(df, horizon=20)
-                                            _historical_analogy(df, k=25, horizon=5)
-                                            _historical_analogy(df, k=25, horizon=10)
-                                            _historical_analogy(df, k=25, horizon=20)
-                                            _monte_carlo(df, days=20)
-                                        except Exception:
-                                            pass
-                                        try:
-                                            from decision_tab import _score_engine
-                                            _cp = float(df["Close"].iloc[-1])
-                                            _score_engine(df, _cp)
-                                        except Exception:
-                                            pass
-
                                         st.session_state.show_results = True
                                 except Exception as e:
                                     st.error(f"Error: {str(e)}")
@@ -5611,16 +5602,18 @@ def main():
         from volume_profile_tab import volume_profile_tab
         from smc_tab import smc_tab
         from trade_validator_tab import trade_validator_tab
+        from elliott_wave_tab import elliott_wave_tab
 
         # AI cache pre-warm removed — tabs compute on demand (Streamlit lazy-loads tab content)
 
-        tab_dec, tab0, tab1, tab2, tab_vp, tab_smc, tab4, tab_tv = st.tabs([
+        tab_dec, tab0, tab1, tab2, tab_vp, tab_smc, tab_ew, tab4, tab_tv = st.tabs([
             "Decision",
             "Regime",
             "Signals",
             "Patterns & Price Action",
             "Volume Profile",
             "SMC",
+            "Elliott Wave",
             "AI Analysis",
             "Trade Validator",
         ])
@@ -5643,6 +5636,9 @@ def main():
 
         with tab_smc:
             smc_tab(df, current_price)
+
+        with tab_ew:
+            elliott_wave_tab(df, current_price)
 
         with tab4:
             insight_toggle(
