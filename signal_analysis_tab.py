@@ -248,7 +248,7 @@ def signal_analysis_tab(df, info_icon):
         "PSAR":  ("Parabolic SAR",          "Trend Reversal",      None),
         "ICHI":  ("Ichimoku Cloud",         "Trend & S/R",         None),
         "WMA":   ("WMA (20)",               "Trend Following",     None),
-        "RSI":   ("RSI (14)",               "Momentum",            create_rsi_chart),
+        "RSI":   ("RSI (14)",               "Momentum",            None),
         "MACD":  ("MACD (12/26/9)",         "Momentum",            create_macd_chart),
         "STOCH": ("Stochastic (14,3,3)",    "Reversal",            create_stochastic_chart),
         "ROC":   ("ROC (12)",               "Momentum",            None),
@@ -369,8 +369,8 @@ def signal_analysis_tab(df, info_icon):
 
                 st.markdown((
                     f"<div style='background:{panel};border:1px solid {border};"
-                    f"border-left:4px solid {accent};border-radius:14px;"
-                    f"padding:1.6rem 1.8rem;margin-bottom:0.8rem;'>"
+                    f"border-left:4px solid {accent};border-radius:14px 14px 0 0;"
+                    f"padding:1.6rem 1.8rem;margin-bottom:0;'>"
 
                     # header row
                     f"<div style='display:flex;align-items:center;gap:1.2rem;margin-bottom:1.2rem;'>"
@@ -417,6 +417,9 @@ def signal_analysis_tab(df, info_icon):
                 ), unsafe_allow_html=True)
 
 
+                with st.container(key=f"ind_save_wrap_{idx}_{ind['key']}"):
+                    render_save_indicator_button(idx, ind, risk_val, reward_val, _period_label)
+
                 # indicator chart
                 if ind["chart_fn"] is not None:
                     try:
@@ -437,7 +440,6 @@ def signal_analysis_tab(df, info_icon):
                     except Exception:
                         pass
 
-                render_save_indicator_button(idx, ind, risk_val, reward_val, _period_label)
                 st.markdown("<div style='margin-bottom:1.5rem;'></div>", unsafe_allow_html=True)
 
     # â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
@@ -614,8 +616,8 @@ def signal_analysis_tab(df, info_icon):
 
                 st.markdown((
                     f"<div style='background:#1e1e1e;border:1px solid #2d2d2d;"
-                    f"border-left:3px solid {_wr_col};border-radius:12px;"
-                    f"padding:1.1rem 1.25rem;margin-bottom:0.65rem;'>"
+                    f"border-left:3px solid {_wr_col};border-radius:12px 12px 0 0;"
+                    f"padding:1.1rem 1.25rem;margin-bottom:0;'>"
 
                     # Header row
                     f"<div style='display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:0.7rem;'>"
@@ -674,8 +676,6 @@ def signal_analysis_tab(df, info_icon):
                     + mwr_bars +
                     "</div></div></div>"
                 ), unsafe_allow_html=True)
-                st.markdown("<div style='margin-bottom:0.3rem;'></div>", unsafe_allow_html=True)
-
             # ─────────────────────────────────────────────────────────────────
             # 4 ANALYSIS SUB-TABS
             # ─────────────────────────────────────────────────────────────────
@@ -711,9 +711,44 @@ def signal_analysis_tab(df, info_icon):
                     f"{_breakdown_str}</div>"
                     f"<div style='font-size:0.72rem;color:#9e9e9e;margin-bottom:0.25rem;'>"
                     f"Total theoretical: <strong style='color:#fff;'>{_theory_total:,} combinations</strong> tested.</div>"
-                    f"<div style='font-size:0.72rem;color:#9e9e9e;'>"
+                    f"<div style='font-size:0.72rem;color:#9e9e9e;margin-bottom:0.65rem;'>"
                     f"Shown below: <strong style='color:#4caf50;'>{total_combos:,} combinations</strong> that had "
                     f"enough signals to pass your minimum threshold. Combos with zero co-occurrences are excluded.</div>"
+                    f"<div style='border-top:1px solid rgba(33,150,243,0.18);padding-top:0.6rem;'>"
+                    f"<div style='font-size:0.6rem;font-weight:800;color:#90caf9;text-transform:uppercase;"
+                    f"letter-spacing:0.7px;margin-bottom:0.45rem;'>Simulation parameters</div>"
+                    f"<div style='display:grid;grid-template-columns:repeat(3,1fr);gap:0.5rem;margin-bottom:0.5rem;'>"
+                    f"<div style='background:rgba(239,83,80,0.08);border:1px solid rgba(239,83,80,0.2);"
+                    f"border-radius:7px;padding:0.45rem 0.5rem;text-align:center;'>"
+                    f"<div style='font-size:0.6rem;color:#757575;text-transform:uppercase;letter-spacing:0.5px;"
+                    f"margin-bottom:0.2rem;'>Stop Loss</div>"
+                    f"<div style='font-size:1.1rem;font-weight:900;color:#ef5350;line-height:1;'>2%</div>"
+                    f"<div style='font-size:0.62rem;color:#9e9e9e;margin-top:0.15rem;'>fixed, below entry</div>"
+                    f"</div>"
+                    f"<div style='background:rgba(76,175,80,0.08);border:1px solid rgba(76,175,80,0.2);"
+                    f"border-radius:7px;padding:0.45rem 0.5rem;text-align:center;'>"
+                    f"<div style='font-size:0.6rem;color:#757575;text-transform:uppercase;letter-spacing:0.5px;"
+                    f"margin-bottom:0.2rem;'>Profit Target</div>"
+                    f"<div style='font-size:1.1rem;font-weight:900;color:#4caf50;line-height:1;'>{profit_target*100:.0f}%</div>"
+                    f"<div style='font-size:0.62rem;color:#9e9e9e;margin-top:0.15rem;'>R:R {risk_val}:{reward_val}</div>"
+                    f"</div>"
+                    f"<div style='background:rgba(33,150,243,0.08);border:1px solid rgba(33,150,243,0.2);"
+                    f"border-radius:7px;padding:0.45rem 0.5rem;text-align:center;'>"
+                    f"<div style='font-size:0.6rem;color:#757575;text-transform:uppercase;letter-spacing:0.5px;"
+                    f"margin-bottom:0.2rem;'>Max Hold</div>"
+                    f"<div style='font-size:1.1rem;font-weight:900;color:#2196f3;line-height:1;'>{holding_period}d</div>"
+                    f"<div style='font-size:0.62rem;color:#9e9e9e;margin-top:0.15rem;'>then auto-close</div>"
+                    f"</div>"
+                    f"</div>"
+                    f"<div style='font-size:0.71rem;color:#9e9e9e;line-height:1.6;'>"
+                    f"Each signal pair is simulated from the next bar's open. "
+                    f"A <span style='color:#4caf50;font-weight:700;'>WIN</span> = price hits +{profit_target*100:.0f}% "
+                    f"profit target first. A <span style='color:#ef5350;font-weight:700;'>LOSS</span> = price drops 2% "
+                    f"first, or {holding_period} days pass without resolution. "
+                    f"<span style='color:#90caf9;font-weight:700;'>Wilson Score</span> = confidence-adjusted win rate — "
+                    f"it penalises combinations with very few signals so you only see statistically solid results, "
+                    f"not lucky one-trade flukes.</div>"
+                    f"</div>"
                     f"</div>"
                 )
                 insight_toggle(
@@ -752,8 +787,8 @@ def signal_analysis_tab(df, info_icon):
                 st.markdown(
                     # champion banner
                     f"<div style='background:#1a1a1a;border:1px solid #2d2d2d;"
-                    f"border-radius:14px;padding:1.5rem 1.6rem 1.3rem 1.6rem;"
-                    f"margin-bottom:1.2rem;'>"
+                    f"border-radius:14px 14px 0 0;padding:1.5rem 1.6rem 1.3rem 1.6rem;"
+                    f"margin-bottom:0;'>"
 
                     # top row: crown badge + label + best regime pill
                     f"<div style='display:flex;align-items:center;gap:0.6rem;margin-bottom:1rem;'>"
@@ -858,28 +893,37 @@ def signal_analysis_tab(df, info_icon):
                     f"</div>",
                     unsafe_allow_html=True,
                 )
-                render_save_combo_button(0, champ, _all_names, risk_val, reward_val, _period_label)
-                for _row_start in [0, 5]:
-                    _strip_items = all_combo_data[_row_start:_row_start + 5]
-                    if not _strip_items:
-                        break
+                with st.container(key="combo_save_wrap_champ"):
+                    render_save_combo_button(0, champ, _all_names, risk_val, reward_val, _period_label)
+                _strip_items = all_combo_data[:5]
+                if _strip_items:
                     _sh = (
                         f"<div style='display:grid;grid-template-columns:repeat({len(_strip_items)},1fr);"
-                        f"gap:0.4rem;margin-bottom:0.4rem;'>"
+                        f"gap:0.6rem;margin-bottom:1rem;'>"
                     )
                     for _sti, _str in enumerate(_strip_items):
-                        _idx  = _row_start + _sti
-                        _stac = combo_accent_cycle[_idx % len(combo_accent_cycle)]
+                        _stac = combo_accent_cycle[_sti % len(combo_accent_cycle)]
                         _, _swr_col = _wr_color(_str['win_rate'])
+                        _ea_col = "#81c784" if _str['expectancy'] > 0 else "#ef5350"
                         _sh += (
-                            f"<div style='background:#1e1e1e;border:1px solid #2d2d2d;"
-                            f"border-radius:8px;padding:0.6rem 0.4rem;text-align:center;'>"
-                            f"<div style='font-size:0.7rem;color:#757575;margin-bottom:0.2rem;'>#{_idx+1} &nbsp;&middot;&nbsp; {_str['size']}-Way</div>"
-                            f"<div style='font-size:0.9rem;font-weight:700;color:#c8c8c8;line-height:1.4;margin-bottom:0.3rem;'>"
-                            + " + ".join(_all_names.get(p, p) for p in _str["indicators"])
+                            f"<div style='background:#1a1a1a;border:1px solid #2a2a2a;"
+                            f"border-top:3px solid {_stac};border-radius:10px;"
+                            f"padding:1.1rem 0.6rem;text-align:center;'>"
+                            f"<div style='font-size:0.6rem;color:#757575;text-transform:uppercase;"
+                            f"letter-spacing:0.8px;margin-bottom:0.45rem;font-weight:700;'>"
+                            f"#{_sti+1} &nbsp;&middot;&nbsp; {_str['size']}-Way</div>"
+                            f"<div style='font-size:0.8rem;font-weight:700;color:#e0e0e0;line-height:1.55;"
+                            f"margin-bottom:0.55rem;'>"
+                            + "<br>".join(_all_names.get(p, p) for p in _str["indicators"])
                             + f"</div>"
-                            f"<div style='font-size:1.3rem;font-weight:800;color:{_swr_col};line-height:1;'>{_str['win_rate']:.0f}%</div>"
-                            f"<div style='font-size:0.72rem;color:#757575;margin-top:0.2rem;'>{_str['total']} signals &nbsp;&middot;&nbsp; exp {_str['expectancy']:+.1f}%</div>"
+                            f"<div style='font-size:2.1rem;font-weight:900;color:{_swr_col};line-height:1;"
+                            f"margin-bottom:0.15rem;'>{_str['win_rate']:.0f}%</div>"
+                            f"<div style='font-size:0.62rem;color:#757575;text-transform:uppercase;"
+                            f"letter-spacing:0.5px;margin-bottom:0.45rem;'>Win Rate</div>"
+                            f"<div style='font-size:0.82rem;font-weight:700;color:{_ea_col};'>"
+                            f"exp {_str['expectancy']:+.1f}%</div>"
+                            f"<div style='font-size:0.68rem;color:#757575;margin-top:0.2rem;'>"
+                            f"{_str['total']} signals</div>"
                             f"</div>"
                         )
                     _sh += "</div>"
@@ -1095,9 +1139,10 @@ def signal_analysis_tab(df, info_icon):
                         for _ci, _cr in enumerate(_top_n):
                             _cac4 = combo_accent_cycle[_ci % len(combo_accent_cycle)]
                             _make_combo_card(_cr, f"#{_ci + 1}", _cac4)
-                            render_save_combo_button(
-                                _ci + _sv * 100, _cr, _all_names, risk_val, reward_val, _period_label
-                            )
+                            with st.container(key=f"combo_save_wrap_{_sv}_{_ci}"):
+                                render_save_combo_button(
+                                    _ci + _sv * 100, _cr, _all_names, risk_val, reward_val, _period_label
+                                )
 
                         # Remaining in table
                         if _rest2:

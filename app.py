@@ -1,4 +1,4 @@
-﻿import streamlit as st
+import streamlit as st
 import streamlit.components.v1 as components
 import yfinance as yf
 import pandas as pd
@@ -54,7 +54,7 @@ from charts import (
     create_consensus_regime_chart,
     placeholder_consensus,
 )
-from ui_helpers import info_icon, apply_ui_theme
+from ui_helpers import info_icon, apply_ui_theme, insight_toggle
 
 warnings.filterwarnings('ignore')
 
@@ -82,9 +82,11 @@ st.markdown("""
 
     [data-testid="stToolbar"], [data-testid="stDecoration"],
 
-    [data-testid="stStatusWidget"], [data-testid="collapsedControl"],
+    [data-testid="stStatusWidget"],
 
-    [data-testid="stHeader"] {
+    [data-testid="stHeader"],
+
+    [data-testid="collapsedControl"] {
 
         visibility: hidden !important;
 
@@ -266,7 +268,11 @@ st.markdown("""
 
         top: 0 !important;
 
-        z-index: 999 !important;
+        z-index: 9999 !important;
+
+        backdrop-filter: blur(12px) !important;
+
+        -webkit-backdrop-filter: blur(12px) !important;
 
     }
 
@@ -337,6 +343,189 @@ st.markdown("""
     div[data-baseweb="tab-highlight"] { display: none !important; }
 
     div[data-baseweb="tab-border"]    { display: none !important; }
+
+    /* ── Save-button footer panels (attached to indicator/combo cards) ── */
+
+    /* Remove the gap/margin on the element container that wraps the save button container */
+    [class*="st-key-ind_save_wrap_"],
+    [class*="st-key-ind-save-wrap-"],
+    [class*="st-key-combo_save_wrap_"],
+    [class*="st-key-combo-save-wrap-"] {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+    }
+
+    [class*="st-key-ind_save_wrap_"] > div[data-testid="stVerticalBlock"],
+    [class*="st-key-ind-save-wrap-"] > div[data-testid="stVerticalBlock"] {
+
+        background: #181818 !important;
+
+        border: 1px solid #2d2d2d !important;
+
+        border-top: none !important;
+
+        border-radius: 0 0 14px 14px !important;
+
+        padding: 0.35rem 1.4rem 0.6rem !important;
+
+        margin-top: 0 !important;
+
+        margin-bottom: 1.2rem !important;
+
+    }
+
+    [class*="st-key-ind_save_wrap_"] > div[data-testid="stVerticalBlock"] > [data-testid="stElementContainer"],
+    [class*="st-key-ind-save-wrap-"] > div[data-testid="stVerticalBlock"] > [data-testid="stElementContainer"],
+    [class*="st-key-combo_save_wrap_"] > div[data-testid="stVerticalBlock"] > [data-testid="stElementContainer"],
+    [class*="st-key-combo-save-wrap-"] > div[data-testid="stVerticalBlock"] > [data-testid="stElementContainer"] {
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    /* Full-width button inside save wrappers */
+    [class*="st-key-ind_save_wrap_"] .stButton > button,
+    [class*="st-key-ind-save-wrap-"] .stButton > button,
+    [class*="st-key-combo_save_wrap_"] .stButton > button,
+    [class*="st-key-combo-save-wrap-"] .stButton > button {
+        width: 100% !important;
+        border-radius: 0 0 14px 14px !important;
+        background: #0f1214 !important;
+        border: none !important;
+        border-top: 1px solid #252b2e !important;
+        color: #5a6470 !important;
+        font-size: 0.82rem !important;
+        font-weight: 600 !important;
+        padding: 0.6rem 1rem !important;
+        letter-spacing: 0.3px !important;
+        transition: background 0.15s ease, color 0.15s ease !important;
+    }
+
+    [class*="st-key-ind_save_wrap_"] .stButton > button:hover,
+    [class*="st-key-ind-save-wrap-"] .stButton > button:hover,
+    [class*="st-key-combo_save_wrap_"] .stButton > button:hover,
+    [class*="st-key-combo-save-wrap-"] .stButton > button:hover {
+        background: #26A69A !important;
+        color: #fff !important;
+        border-top-color: #26A69A !important;
+    }
+
+    [class*="st-key-combo_save_wrap_"] > div[data-testid="stVerticalBlock"],
+    [class*="st-key-combo-save-wrap-"] > div[data-testid="stVerticalBlock"] {
+
+        background: #1a1a1a !important;
+
+        border: 1px solid #2d2d2d !important;
+
+        border-top: none !important;
+
+        border-radius: 0 0 14px 14px !important;
+
+        padding: 0 !important;
+
+        margin-top: 0 !important;
+
+        margin-bottom: 1rem !important;
+
+    }
+
+    /* ── Main tab-list: hide Streamlit default chrome, icons injected by JS ── */
+    [data-testid="stTabs"] [data-baseweb="tab-list"] {
+        background: #111518 !important;
+        border-radius: 0 !important;
+        padding: 0 0.5rem !important;
+        gap: 0 !important;
+        border: none !important;
+        border-bottom: 1px solid #1f2428 !important;
+        margin-bottom: 1.5rem !important;
+        min-height: 54px !important;
+    }
+    [data-testid="stTabs"] [data-baseweb="tab"] {
+        background: transparent !important;
+        color: #4a5568 !important;
+        border-radius: 10px !important;
+        font-size: 0.82rem !important;
+        font-weight: 500 !important;
+        letter-spacing: 0.25px !important;
+        padding: 0.45rem 1.15rem !important;
+        border: none !important;
+        margin: 0.45rem 0.15rem !important;
+        transition: color 0.18s ease, background 0.18s ease !important;
+    }
+    [data-testid="stTabs"] [data-baseweb="tab"]:hover {
+        color: #a0aec0 !important;
+        background: rgba(255,255,255,0.04) !important;
+    }
+    [data-testid="stTabs"] [aria-selected="true"] {
+        background: linear-gradient(135deg,rgba(38,166,154,0.18),rgba(33,150,243,0.10)) !important;
+        color: #e2e8f0 !important;
+        border: 1px solid rgba(38,166,154,0.35) !important;
+        font-weight: 650 !important;
+    }
+    [data-testid="stTabs"] [data-baseweb="tab-border"],
+    [data-testid="stTabs"] [data-baseweb="tab-highlight"] {
+        display: none !important;
+    }
+    [data-testid="stTabs"] [data-baseweb="tab-panel"] {
+        padding: 0 !important;
+    }
+
+    /* ── Sidebar premium nav ── */
+    [data-testid="stSidebar"] {
+        background: #0d1013 !important;
+        border-right: 1px solid #1a1f23 !important;
+        min-width: 210px !important;
+        max-width: 210px !important;
+    }
+    [data-testid="stSidebar"] > div:first-child {
+        padding: 1.4rem 0.85rem 1.4rem 0.85rem !important;
+    }
+    [data-testid="stSidebar"] [data-testid="stRadio"] > label {
+        display: none !important;
+    }
+    [data-testid="stSidebar"] [data-testid="stRadio"] > div {
+        gap: 4px !important;
+        flex-direction: column !important;
+        display: flex !important;
+    }
+    [data-testid="stSidebar"] [data-testid="stRadio"] [data-testid="stMarkdownContainer"] p {
+        font-size: 0.82rem !important;
+        font-weight: 600 !important;
+        letter-spacing: 0.2px !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    [data-testid="stSidebar"] [data-testid="stRadio"] label {
+        background: transparent !important;
+        color: #5a6470 !important;
+        border-radius: 10px !important;
+        padding: 0.6rem 0.9rem !important;
+        cursor: pointer !important;
+        transition: background 0.12s, color 0.12s !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 0 !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+        border: 1px solid transparent !important;
+    }
+    [data-testid="stSidebar"] [data-testid="stRadio"] label:hover {
+        background: #1a1f23 !important;
+        color: #c8cdd2 !important;
+    }
+    [data-testid="stSidebar"] [data-testid="stRadio"] label[data-checked="true"],
+    [data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked),
+    [data-testid="stSidebar"] [data-testid="stRadio"] input:checked ~ div {
+        background: #26A69A !important;
+        color: #fff !important;
+        border-color: #26A69A !important;
+    }
+    [data-testid="stSidebar"] [data-testid="stRadio"] [data-baseweb="radio"] {
+        display: none !important;
+    }
+    /* hide actual radio circle indicator */
+    [data-testid="stSidebar"] [data-testid="stRadio"] span[data-baseweb="radio"] {
+        display: none !important;
+    }
 
 </style>
 
@@ -510,6 +699,203 @@ def main():
         btn.addEventListener('click', function() {
             _doTranslate();
         });
+    })();
+    // ── Icons on original tabs + ghost sticky bar ──
+    (function() {
+        var doc = window.parent.document;
+        var win = window.parent;
+        var GHO = 'sqnb_ghost';
+        var NH  = 54;
+        var cssOk = false, moOk = false, scrollOk = false;
+        var tabsTop = 9999;
+
+        var TABS = [
+            {l:'Decision',
+             v:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>'},
+            {l:'Regime',
+             v:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>'},
+            {l:'Signals',
+             v:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>'},
+            {l:'Patterns',
+             v:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>'},
+            {l:'Volume',
+             v:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="16" y2="6"/><line x1="4" y1="10" x2="20" y2="10"/><line x1="4" y1="14" x2="12" y2="14"/><line x1="4" y1="18" x2="18" y2="18"/></svg>'},
+            {l:'SMC',
+             v:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>'},
+            {l:'AI Analysis',
+             v:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.636 5.636l1.414 1.414M16.95 16.95l1.414 1.414M5.636 18.364l1.414-1.414M16.95 7.05l1.414-1.414"/></svg>'},
+            {l:'Validator',
+             v:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>'},
+        ];
+
+        function getTL() {
+            var tls = doc.querySelectorAll('div[role="tablist"]');
+            for (var i = 0; i < tls.length; i++) {
+                if (tls[i].querySelectorAll('button').length >= 6) return tls[i];
+            }
+            return null;
+        }
+        function getActiveIdx() {
+            var tl = getTL(); if (!tl) return 0;
+            var bs = tl.querySelectorAll('button');
+            for (var i = 0; i < bs.length; i++) {
+                if (bs[i].getAttribute('aria-selected') === 'true') return i;
+            }
+            return 0;
+        }
+
+        function makeButtons(ai) {
+            var h = '';
+            TABS.forEach(function(tab, i) {
+                var on = (i === ai);
+                var bg  = on
+                    ? 'linear-gradient(135deg,rgba(38,166,154,0.22),rgba(33,150,243,0.12))'
+                    : 'transparent';
+                var bdr = on
+                    ? '1px solid rgba(38,166,154,0.4)'
+                    : '1px solid transparent';
+                var col = on ? '#e2e8f0' : '#4a5568';
+                var fw  = on ? '650' : '500';
+                h += '<button class="sqnb-btn" data-i="' + i + '" style="' +
+                    'display:flex;align-items:center;gap:7px;padding:0 1.1rem;margin:0 3px;' +
+                    'background:' + bg + ';' +
+                    'border:' + bdr + ';' +
+                    'border-radius:10px;' +
+                    'color:' + col + ';' +
+                    'font-size:.8rem;font-weight:' + fw + ';' +
+                    'font-family:Segoe UI,system-ui,sans-serif;cursor:pointer;white-space:nowrap;' +
+                    'height:calc(100% - 16px);align-self:center;flex-shrink:0;letter-spacing:.2px;' +
+                    'transition:color .2s,background .2s,border-color .2s,transform .15s;">' +
+                    '<span class="sqnb-ico" style="display:inline-flex;align-items:center;opacity:' + (on ? '1' : '.45') + ';transition:opacity .2s;pointer-events:none;">' + tab.v + '</span>' +
+                    '<span>' + tab.l + '</span>' +
+                    '</button>';
+            });
+            return h;
+        }
+
+        // Inject SVG icons into Streamlit's own buttons (re-added after React re-renders via MO)
+        function addIcons() {
+            var tl = getTL(); if (!tl) return;
+            tl.querySelectorAll('button').forEach(function(b, i) {
+                if (i >= TABS.length) return;
+                if (b.querySelector('.sqnb-ico')) return;
+                var sp = doc.createElement('span');
+                sp.className = 'sqnb-ico';
+                sp.innerHTML = TABS[i].v;
+                var isOn = b.getAttribute('aria-selected') === 'true';
+                sp.style.cssText = 'display:inline-flex;align-items:center;margin-right:6px;' +
+                    'vertical-align:middle;pointer-events:none;opacity:' + (isOn ? '1' : '.45') + ';transition:opacity .2s;';
+                b.insertBefore(sp, b.firstChild);
+            });
+        }
+
+        function injectCSS() {
+            if (cssOk) return; cssOk = true;
+            var s = doc.createElement('style');
+            s.textContent =
+                '#' + GHO + '::-webkit-scrollbar{display:none}' +
+                '.sqnb-btn:hover{color:#a0aec0 !important;background:rgba(255,255,255,0.05) !important;transform:translateY(-1px)}' +
+                '.sqnb-btn:hover .sqnb-ico{opacity:.8 !important}' +
+                '.sqnb-btn{transition:color .2s,background .2s,border-color .2s,transform .15s !important}';
+            doc.head.appendChild(s);
+        }
+
+        function buildGhost() {
+            if (doc.getElementById(GHO)) return;
+            injectCSS();
+            var g = doc.createElement('div');
+            g.id = GHO;
+            g.style.cssText =
+                'position:fixed;top:0;left:0;right:0;height:' + NH + 'px;z-index:999999;' +
+                'background:rgba(14,17,22,.97);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);' +
+                'border-bottom:1px solid rgba(38,166,154,0.12);' +
+                'box-shadow:0 1px 0 rgba(38,166,154,0.08),0 8px 32px rgba(0,0,0,.6);' +
+                'display:flex;align-items:center;padding:0 0.75rem;gap:2px;' +
+                'overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-ms-overflow-style:none;' +
+                'opacity:0;pointer-events:none;transition:opacity .22s cubic-bezier(.4,0,.2,1),transform .22s cubic-bezier(.4,0,.2,1);' +
+                'transform:translateY(-6px);';
+            g.innerHTML = makeButtons(getActiveIdx());
+            g.querySelectorAll('.sqnb-btn').forEach(function(b) {
+                b.addEventListener('click', function() {
+                    var idx = parseInt(b.getAttribute('data-i'));
+                    var tl = getTL();
+                    if (tl) { var ob = tl.querySelectorAll('button')[idx]; if (ob) ob.click(); }
+                });
+            });
+            doc.body.appendChild(g);
+        }
+
+        function showGhost(show) {
+            var g = doc.getElementById(GHO); if (!g) return;
+            g.style.opacity       = show ? '1' : '0';
+            g.style.pointerEvents = show ? 'auto' : 'none';
+            g.style.transform     = show ? 'translateY(0)' : 'translateY(-6px)';
+        }
+
+        function syncAll() {
+            var ai = getActiveIdx();
+            var g = doc.getElementById(GHO);
+            if (g) {
+                g.querySelectorAll('.sqnb-btn').forEach(function(b, i) {
+                    var on = (i === ai);
+                    b.style.background   = on
+                        ? 'linear-gradient(135deg,rgba(38,166,154,0.22),rgba(33,150,243,0.12))'
+                        : 'transparent';
+                    b.style.border       = on
+                        ? '1px solid rgba(38,166,154,0.4)'
+                        : '1px solid transparent';
+                    b.style.color        = on ? '#e2e8f0' : '#4a5568';
+                    b.style.fontWeight   = on ? '650' : '500';
+                    var ic = b.querySelector('.sqnb-ico');
+                    if (ic) ic.style.opacity = on ? '1' : '.45';
+                });
+            }
+            var tl = getTL();
+            if (tl) {
+                tl.querySelectorAll('button').forEach(function(b, i) {
+                    var ic = b.querySelector('.sqnb-ico');
+                    if (ic) ic.style.opacity = (i === ai) ? '1' : '.45';
+                });
+            }
+        }
+
+        function recordTabsTop() {
+            var tl = getTL(); if (!tl) return;
+            var rect = tl.getBoundingClientRect();
+            var measured = rect.top + (win.pageYOffset || win.scrollY || 0);
+            if (measured > 50) tabsTop = measured;
+        }
+
+        function setupScroll() {
+            if (scrollOk) return; scrollOk = true;
+            win.addEventListener('scroll', function() {
+                var scrolled = win.pageYOffset || win.scrollY || 0;
+                showGhost(scrolled > tabsTop - 20);
+            }, {passive: true});
+        }
+
+        function setupMO() {
+            if (moOk) return; moOk = true;
+            new MutationObserver(function() {
+                addIcons();
+                syncAll();
+            }).observe(doc.body, {subtree:true, childList:true, attributes:true, attributeFilter:['aria-selected']});
+        }
+
+        function run() {
+            addIcons();
+            buildGhost();
+            recordTabsTop();
+            setupScroll();
+            setupMO();
+            syncAll();
+        }
+
+        run();
+        [200, 500, 1000, 2000, 4000].forEach(function(t) { setTimeout(run, t); });
+
+        var iv = setInterval(function() { addIcons(); syncAll(); }, 900);
+        setTimeout(function() { clearInterval(iv); }, 120000);
     })();
     </script>
     """, height=0)
@@ -5095,29 +5481,44 @@ def main():
 
         with tab0:
             render_regime_analysis_tab(df, info_icon, create_regime_distribution_chart)
+
         with tab1:
             signal_analysis_tab(df, info_icon)
+
         with tab2:
             price_action_analysis_tab(df, info_icon)
             patterns_tab(df)
+
         with tab_vp:
             volume_profile_tab(df, current_price)
+
         with tab_smc:
             smc_tab(df, current_price)
+
         with tab4:
-            gemini_tab(
-
-                df, symbol_input, stock_name, latest,
-
-                current_price, period_change, period_high, period_low,
-
-                annual_vol, current_regime, adx_current, rsi_current,
-
-                atr_pct, price_vs_ema20, price_vs_ema200,
-
-                recent_5d_change, recent_20d_change,
-
+            insight_toggle(
+                "ai_analysis_info",
+                "How AI Analysis works",
+                "<p>This tab uses a <strong>12-factor scoring engine</strong> to evaluate the current market setup.</p>"
+                "<p><strong>AI Score (0–100):</strong> Every factor — momentum, trend strength, RSI positioning, MACD divergence, "
+                "Bollinger Band compression, volume dynamics, ATR volatility, support/resistance proximity — casts a bullish or bearish vote. "
+                "The score aggregates them. <strong style='color:#4caf50'>70+</strong> = bullish setup, "
+                "<strong style='color:#f44336'>30−</strong> = bearish, <strong style='color:#ff9800'>30–70</strong> = neutral/wait.</p>"
+                "<p><strong>Trade Setups:</strong> Entry, stop loss, and profit target are calculated from current ATR and nearest support/resistance levels. "
+                "Risk/reward ratios are computed for each setup.</p>"
+                "<p><strong>ML Predictions:</strong> Three independent models forecast 5-day, 10-day, and 20-day price moves using historical pattern matching "
+                "and feature regression on hundreds of prior similar market conditions.</p>"
+                "<p><strong>Historical Analogies:</strong> Searches for the 25 most similar past price patterns and shows their average forward return.</p>"
+                "<p style='color:#9e9e9e;font-size:0.85em'>Analysis tool only — not financial advice. Always apply your own risk management.</p>",
             )
+            gemini_tab(
+                df, symbol_input, stock_name, latest,
+                current_price, period_change, period_high, period_low,
+                annual_vol, current_regime, adx_current, rsi_current,
+                atr_pct, price_vs_ema20, price_vs_ema200,
+                recent_5d_change, recent_20d_change,
+            )
+
         with tab_tv:
             trade_validator_tab(df, latest, current_price)
 

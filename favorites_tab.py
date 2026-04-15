@@ -453,43 +453,41 @@ def render_save_indicator_button(idx: int, ind: dict, risk_val: int,
     _is_saved    = any(f.get('id') == _fav_id for f in _cur_favs)
     _btn_lbl     = "★  Saved — click to remove" if _is_saved else f"☆  Save  {ind['name']}"
 
-    _sv_col, _ = st.columns([3, 7])
-    with _sv_col:
-        if st.button(_btn_lbl, key=f"fav_save_ind_{idx}_{ind['key']}", width="stretch"):
-            _user = st.session_state.get('auth_username', '')
-            if _is_saved:
-                delete_favorite(_user, _fav_id)
-                st.session_state.favorites = [f for f in _cur_favs if f.get('id') != _fav_id]
-            else:
-                if 'favorites' not in st.session_state:
-                    st.session_state.favorites = []
-                _new_fav = {
-                    'id':            _fav_id,
-                    'symbol':        _sym,
-                    'stock_name':    st.session_state.get('analyzed_stock_name', ''),
-                    'pair':          ind['key'],
-                    'pair_display':  ind['name'],
-                    'win_rate':      ind['win_rate'],
-                    'profit_factor': ind['profit_factor'],
-                    'expectancy':    ind['expectancy'],
-                    'avg_gain':      ind['avg_gain'],
-                    'avg_loss':      ind['avg_loss'],
-                    'signals':       ind['total'],
-                    'best_regime':   ind.get('best_regime', ''),
-                    'saved_at':      _today_date.today().strftime('%b %d, %Y'),
-                    'entry_price':   None,
-                    'save_type':     'indicator',
-                    'risk_val':      risk_val,
-                    'reward_val':    reward_val,
-                    'period_label':  period_label,
-                    'combo_indicators': ind['name'],
-                }
-                upsert_favorite(_user, _new_fav)
-                st.session_state.favorites.append(_new_fav)
-            st.rerun()
+    if st.button(_btn_lbl, key=f"fav_save_ind_{idx}_{ind['key']}", use_container_width=True):
+        _user = st.session_state.get('auth_username', '')
+        if _is_saved:
+            delete_favorite(_user, _fav_id)
+            st.session_state.favorites = [f for f in _cur_favs if f.get('id') != _fav_id]
+        else:
+            if 'favorites' not in st.session_state:
+                st.session_state.favorites = []
+            _new_fav = {
+                'id':            _fav_id,
+                'symbol':        _sym,
+                'stock_name':    st.session_state.get('analyzed_stock_name', ''),
+                'pair':          ind['key'],
+                'pair_display':  ind['name'],
+                'win_rate':      ind['win_rate'],
+                'profit_factor': ind['profit_factor'],
+                'expectancy':    ind['expectancy'],
+                'avg_gain':      ind['avg_gain'],
+                'avg_loss':      ind['avg_loss'],
+                'signals':       ind['total'],
+                'best_regime':   ind.get('best_regime', ''),
+                'saved_at':      _today_date.today().strftime('%b %d, %Y'),
+                'entry_price':   None,
+                'save_type':     'indicator',
+                'risk_val':      risk_val,
+                'reward_val':    reward_val,
+                'period_label':  period_label,
+                'combo_indicators': ind['name'],
+            }
+            upsert_favorite(_user, _new_fav)
+            st.session_state.favorites.append(_new_fav)
+        st.rerun()
 
 
-# ── Save button: N-way combo ──────────────────────────────────────────────────
+# ── Save button: N-way combo ─────────────────────────────────────────────────
 
 def render_save_combo_button(idx: int, row: dict, all_names: dict,
                               risk_val: int, reward_val: int, period_label: str) -> None:
@@ -504,40 +502,38 @@ def render_save_combo_button(idx: int, row: dict, all_names: dict,
     _display   = ' + '.join(_ind_names)
     _btn_lbl   = "★  Saved — click to remove" if _is_saved else f"☆  Save  {row['size']}-Way Combo"
 
-    _sv_col, _ = st.columns([3, 7])
-    with _sv_col:
-        if st.button(_btn_lbl, key=f"fav_save_combo_{idx}_{_key_str[:30]}", width="stretch"):
-            _user = st.session_state.get('auth_username', '')
-            if _is_saved:
-                delete_favorite(_user, _fav_id)
-                st.session_state.favorites = [f for f in _cur_favs if f.get('id') != _fav_id]
-            else:
-                if 'favorites' not in st.session_state:
-                    st.session_state.favorites = []
-                _new_fav = {
-                    'id':               _fav_id,
-                    'symbol':           _sym,
-                    'stock_name':       st.session_state.get('analyzed_stock_name', ''),
-                    'pair':             ' + '.join(row['indicators']),
-                    'pair_display':     _display,
-                    'win_rate':         row['win_rate'],
-                    'profit_factor':    row['profit_factor'],
-                    'expectancy':       row['expectancy'],
-                    'avg_gain':         row['avg_gain'],
-                    'avg_loss':         row['avg_loss'],
-                    'signals':          row['total'],
-                    'best_regime':      row.get('best_regime', ''),
-                    'saved_at':         _today_date.today().strftime('%b %d, %Y'),
-                    'entry_price':      None,
-                    'save_type':        'combo',
-                    'risk_val':         risk_val,
-                    'reward_val':       reward_val,
-                    'period_label':     period_label,
-                    'combo_indicators': _display,
-                }
-                upsert_favorite(_user, _new_fav)
-                st.session_state.favorites.append(_new_fav)
-            st.rerun()
+    if st.button(_btn_lbl, key=f"fav_save_combo_{idx}_{_key_str[:30]}", use_container_width=True):
+        _user = st.session_state.get('auth_username', '')
+        if _is_saved:
+            delete_favorite(_user, _fav_id)
+            st.session_state.favorites = [f for f in _cur_favs if f.get('id') != _fav_id]
+        else:
+            if 'favorites' not in st.session_state:
+                st.session_state.favorites = []
+            _new_fav = {
+                'id':               _fav_id,
+                'symbol':           _sym,
+                'stock_name':       st.session_state.get('analyzed_stock_name', ''),
+                'pair':             ' + '.join(row['indicators']),
+                'pair_display':     _display,
+                'win_rate':         row['win_rate'],
+                'profit_factor':    row['profit_factor'],
+                'expectancy':       row['expectancy'],
+                'avg_gain':         row['avg_gain'],
+                'avg_loss':         row['avg_loss'],
+                'signals':          row['total'],
+                'best_regime':      row.get('best_regime', ''),
+                'saved_at':         _today_date.today().strftime('%b %d, %Y'),
+                'entry_price':      None,
+                'save_type':        'combo',
+                'risk_val':         risk_val,
+                'reward_val':       reward_val,
+                'period_label':     period_label,
+                'combo_indicators': _display,
+            }
+            upsert_favorite(_user, _new_fav)
+            st.session_state.favorites.append(_new_fav)
+        st.rerun()
 
 
 # ── Full-page Saved Analysis view ─────────────────────────────────────────────
