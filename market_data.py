@@ -353,35 +353,37 @@ def get_saudi_market_data(period="1d"):
 
     yf_period = period_map.get(period, "5d")
 
-    
+    # ── Download in batches of 50 ───────────────────────────────────────
+    import time as _time
+    _BATCH = 50
+    _chunks = [tickers_list[i:i + _BATCH]
+               for i in range(0, len(tickers_list), _BATCH)]
+    if len(_chunks) > 1 and len(_chunks[-1]) == 1:
+        _chunks[-2].append(_chunks[-1][0])
+        _chunks.pop()
 
-    try:
+    _frames = []
+    for _ci, _chunk in enumerate(_chunks):
+        try:
+            _part = yf.download(
+                _chunk,
+                period=yf_period,
+                progress=False,
+                threads=True,
+                group_by='ticker',
+                timeout=30,
+            )
+            if _part is not None and not _part.empty:
+                _frames.append(_part)
+        except Exception:
+            pass
+        if _ci < len(_chunks) - 1:
+            _time.sleep(0.3)
 
-        data = yf.download(
-
-            tickers_list,
-
-            period=yf_period,
-
-            progress=False,
-
-            threads=True,
-
-            group_by='ticker',
-
-            timeout=15
-
-        )
-
-    except Exception:
-
+    if not _frames:
         return None
 
-    
-
-    if data is None or data.empty:
-
-        return None
+    data = pd.concat(_frames, axis=1) if len(_frames) > 1 else _frames[0]
 
     
 
@@ -613,43 +615,72 @@ def run_market_analysis(tickers_list, period="6mo", min_score=2, sector_filter=N
 
     yf_period = _PERIOD_MAP.get(period, "1y")
 
-    try:
-        if start and end:
-            all_data = yf.download(
-                tickers_list,
-                start=str(start),
-                end=str(end),
-                progress=False,
-                threads=True,
-                group_by='ticker',
-                timeout=45,
-            )
-        else:
-            all_data = yf.download(
-                tickers_list,
-                period=yf_period,
-                progress=False,
-                threads=True,
-                group_by='ticker',
-                timeout=45,
-            )
-    except Exception:
-        return results
+    # ── Download in batches of 50 ─────────────────────────────────────────
+    import time as _time
+    _BATCH = 50
+    _tlist = list(tickers_list)
+    _chunks = [_tlist[i:i + _BATCH]
+               for i in range(0, len(_tlist), _BATCH)]
+    # Ensure no chunk has just 1 ticker (yfinance returns different column format)
+    if len(_chunks) > 1 and len(_chunks[-1]) == 1:
+        _chunks[-2].append(_chunks[-1][0])
+        _chunks.pop()
+    _frames = []
+    for _ci, _chunk in enumerate(_chunks):
+        for _dl_try in range(2):
+            try:
+                if start and end:
+                    _part = yf.download(
+                        list(_chunk),
+                        start=str(start),
+                        end=str(end),
+                        progress=False,
+                        threads=True,
+                        group_by='ticker',
+                        timeout=30,
+                    )
+                else:
+                    _part = yf.download(
+                        list(_chunk),
+                        period=yf_period,
+                        progress=False,
+                        threads=True,
+                        group_by='ticker',
+                        timeout=30,
+                    )
+                if _part is not None and not _part.empty:
+                    _frames.append(_part)
+                    break
+            except Exception:
+                pass
+        # small pause between batches to avoid throttling
+        if _ci < len(_chunks) - 1:
+            _time.sleep(0.3)
 
-    if all_data is None or all_data.empty:
+    if not _frames:
         return results
+    all_data = pd.concat(_frames, axis=1) if len(_frames) > 1 else _frames[0]
 
     # ── TASI Index: macro regime + relative strength baseline ────────────────
     # Downloaded once before the loop — used for RS calculation and market gate
     tasi_regime_bearish = False
     tasi_ret_20d        = 0.0
     try:
-        if start and end:
-            _td = yf.download("^TASI", start=str(start), end=str(end),
-                              progress=False, timeout=15)
-        else:
-            _td = yf.download("^TASI", period="1y", progress=False, timeout=15)
+        _td = None
+        for _tasi_sym in ["^TASI", "^TASI.SR"]:
+            try:
+                if start and end:
+                    _td = yf.download(_tasi_sym, start=str(start), end=str(end),
+                                      progress=False, timeout=10)
+                else:
+                    _td = yf.download(_tasi_sym, period="1y", progress=False, timeout=10)
+                if _td is not None and not _td.empty:
+                    break
+            except Exception:
+                continue
         if _td is not None and not _td.empty:
+            if isinstance(_td.columns, pd.MultiIndex):
+                _td.columns = _td.columns.get_level_values(0)
             _tc   = _td['Close'].astype(float).dropna()
             _te50 = ta.ema(_tc, length=50)
             _te20 = ta.ema(_tc, length=20)

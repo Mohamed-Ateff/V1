@@ -72,16 +72,32 @@ _GOLD   = "#F5A623"
 def _fetch_pulse_data():
     """Download 3-month daily data for the breadth universe + TASI index."""
     tickers = _BREADTH + ["^TASI"]
-    try:
-        raw = yf.download(
-            tickers, period="3mo", progress=False,
-            threads=True, group_by="ticker", timeout=60,
-        )
-    except Exception:
+    # ── Download in batches of 50 ────────────────────────────────────────
+    import time as _time
+    _BATCH = 50
+    # Remove ^TASI from batch (always fails); download breadth stocks only
+    _tlist = list(_BREADTH)
+    _chunks = [_tlist[i:i + _BATCH]
+               for i in range(0, len(_tlist), _BATCH)]
+    if len(_chunks) > 1 and len(_chunks[-1]) == 1:
+        _chunks[-2].append(_chunks[-1][0])
+        _chunks.pop()
+    _frames = []
+    for _ci, _chunk in enumerate(_chunks):
+        try:
+            _part = yf.download(
+                _chunk, period="3mo", progress=False,
+                threads=True, group_by="ticker", timeout=30,
+            )
+            if _part is not None and not _part.empty:
+                _frames.append(_part)
+        except Exception:
+            pass
+        if _ci < len(_chunks) - 1:
+            _time.sleep(0.3)
+    if not _frames:
         return None, None
-
-    if raw is None or raw.empty:
-        return None, None
+    raw = pd.concat(_frames, axis=1) if len(_frames) > 1 else _frames[0]
 
     # ── TASI index ──────────────────────────────────────────────────────────
     tasi_close = None

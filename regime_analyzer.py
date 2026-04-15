@@ -10,12 +10,17 @@ warnings.filterwarnings('ignore')
 
 @st.cache_data(ttl=300, show_spinner=False)
 def _cached_download(symbol: str, start: str, end: str) -> pd.DataFrame | None:
-    """Cached yfinance download — avoids re-downloading if symbol/dates unchanged."""
-    try:
-        df = yf.download(symbol, start=start, end=end, progress=False)
-        return df if df is not None and not df.empty else None
-    except Exception:
-        return None
+    """Cached yfinance download with retry — Yahoo/curl_cffi can fail on first attempt."""
+    for _attempt in range(3):
+        try:
+            df = yf.download(symbol, start=start, end=end, progress=False)
+            if df is not None and not df.empty:
+                if isinstance(df.columns, pd.MultiIndex):
+                    df.columns = df.columns.get_level_values(0)
+                return df
+        except Exception:
+            pass
+    return None
 
 
 class RegimeAnalyzer:

@@ -62,6 +62,8 @@ def get_macro_snapshot():
             else:
                 data  = yf.download(ticker, period='45d', interval='1d',
                                     progress=False, auto_adjust=True)
+                if isinstance(data.columns, pd.MultiIndex):
+                    data.columns = data.columns.get_level_values(0)
                 close = data['Close'].dropna()
 
             if len(close) < 2:

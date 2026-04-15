@@ -3787,7 +3787,7 @@ def main():
                                     label_visibility="collapsed")
                             st.markdown(
                                 "<div style='color:#3a4550;font-size:0.68rem;margin:0.3rem 0 0.8rem;'>"
-                                "Full market scan — takes 1-2 minutes.</div>",
+                                "Full market scan — may take 1-2 minutes.</div>",
                                 unsafe_allow_html=True)
 
                             def run_market_analysis_callback_all():

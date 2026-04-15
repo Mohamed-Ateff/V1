@@ -383,6 +383,53 @@ def volume_profile_tab(df, current_price):
     sig = _vp_signal(vp, current_price, df)
     poc = vp["poc"];  vah = vp["vah"];  val = vp["val"];  vwap = vp["vwap"]
 
+    # ── Educational Insight Toggle ──
+    insight_toggle(
+        "vp_what_is",
+        "What is Volume Profile?",
+        "<h4 style='margin:0 0 0.6rem 0;color:#fff;font-size:0.9rem;'>Volume Profile — Where the Real Money Trades</h4>"
+        "<p>Most charts show you <em>when</em> people traded. Volume Profile flips that — it shows you "
+        "<strong>at which price</strong> the most trading happened. Think of it like a heat map on the Y-axis: "
+        "the wider the bar, the more money changed hands at that price.</p>"
+
+        "<div style='display:grid;grid-template-columns:repeat(2,1fr);gap:0.5rem;margin:0.6rem 0;'>"
+
+        "<div style='background:rgba(255,215,0,0.06);border:1px solid rgba(255,215,0,0.18);border-radius:8px;padding:0.6rem 0.8rem;'>"
+        "<div style='font-size:0.85rem;font-weight:800;color:#FFD700;'>POC (Point of Control)</div>"
+        "<div style='font-size:0.72rem;color:#e0e0e0;line-height:1.5;margin-top:0.2rem;'>"
+        "The single price with the highest traded volume. The market keeps coming back to this price "
+        "like a magnet — it's where buyers and sellers agreed the most.</div></div>"
+
+        "<div style='background:rgba(156,39,176,0.06);border:1px solid rgba(156,39,176,0.18);border-radius:8px;padding:0.6rem 0.8rem;'>"
+        "<div style='font-size:0.85rem;font-weight:800;color:#ce93d8;'>VWAP (Volume-Weighted Avg)</div>"
+        "<div style='font-size:0.72rem;color:#e0e0e0;line-height:1.5;margin-top:0.2rem;'>"
+        "The average price weighted by how much was traded at each level. "
+        "Big institutions use VWAP as their benchmark — above VWAP means buyers are winning, below means sellers.</div></div>"
+
+        "<div style='background:rgba(76,175,80,0.06);border:1px solid rgba(76,175,80,0.18);border-radius:8px;padding:0.6rem 0.8rem;'>"
+        "<div style='font-size:0.85rem;font-weight:800;color:#81c784;'>VAL (Value Area Low)</div>"
+        "<div style='font-size:0.72rem;color:#e0e0e0;line-height:1.5;margin-top:0.2rem;'>"
+        "The bottom of the zone where 70% of all trading happened. "
+        "When price drops to VAL, smart money often steps in to buy — it's the discount zone.</div></div>"
+
+        "<div style='background:rgba(244,67,54,0.06);border:1px solid rgba(244,67,54,0.18);border-radius:8px;padding:0.6rem 0.8rem;'>"
+        "<div style='font-size:0.85rem;font-weight:800;color:#ef9a9a;'>VAH (Value Area High)</div>"
+        "<div style='font-size:0.72rem;color:#e0e0e0;line-height:1.5;margin-top:0.2rem;'>"
+        "The top of the 70% volume zone. When price rises to VAH, sellers often show up — "
+        "it's the premium zone where things get expensive.</div></div>"
+
+        "</div>"
+
+        "<p style='margin-top:0.5rem;'><strong style='color:#2196f3;'>How to read the signal:</strong></p>"
+        "<ul style='margin:0;padding-left:1.2rem;'>"
+        "<li>Price <strong>below VAL</strong> with rising volume → potential bounce (BUY zone)</li>"
+        "<li>Price <strong>near POC</strong> → market is balanced, expect sideways action</li>"
+        "<li>Price <strong>above VAH</strong> → stretched into premium, watch for pullback</li>"
+        "<li><strong>HVN</strong> (High Volume Node) = strong support/resistance — price stalls here</li>"
+        "<li><strong>LVN</strong> (Low Volume Node) = thin air — price moves fast through these gaps</li>"
+        "</ul>"
+    )
+
     if sig["signal"] == "BUY":
         sig_col = BULL;  sig_left = BULL;  sig_icon = "▲ BUY"
     elif sig["signal"] == "WATCH":
