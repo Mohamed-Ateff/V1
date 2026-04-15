@@ -1552,7 +1552,6 @@ def gemini_tab(df, symbol_input, stock_name, latest,
     )
 
     # ── PRICE LADDER (BUY / is_trade only) ──────────────────────────────────
-    # ── PRICE LADDER (BUY / is_trade only) ──────────────────────────────────
     if is_trade:
         try:
             from _levels import price_ladder_html as _g_plh
@@ -1560,6 +1559,267 @@ def gemini_tab(df, symbol_input, stock_name, latest,
             st.markdown(_g_plh(_entry, _stop, _t1, _t2, _g_t3, True), unsafe_allow_html=True)
         except Exception:
             pass
+
+    # ── 2. MAIN CHART — Candlestick + Forecast + S/R ─────────────────────────
+    st.markdown(_sec("Price Chart & AI Forecast", INFO, "📈"), unsafe_allow_html=True)
+    try:
+        chart_fig = _build_chart(df, cp, supports, resistances, fibs, forecast_prices)
+        st.plotly_chart(chart_fig, use_container_width=True, config={"displayModeBar": False})
+    except Exception:
+        pass
+
+    # ── 3. SIGNAL EVIDENCE — Bull vs Bear ──────────────────────────────────────
+    if bull_ev or bear_ev:
+        st.markdown(_sec("Signal Evidence", PURP, "⚡"), unsafe_allow_html=True)
+        _ev_left, _ev_right = st.columns(2)
+        with _ev_left:
+            _bull_html = (
+                f"<div style='background:#1b1b1b;border:1px solid #272727;"
+                f"border-radius:12px;padding:1rem 1.1rem;'>"
+                f"<div style='font-size:0.65rem;color:{BULL};text-transform:uppercase;"
+                f"letter-spacing:1px;font-weight:800;margin-bottom:0.7rem;'>"
+                f"▲ Bullish Evidence ({bp} pts)</div>"
+            )
+            for _icon, _title, _detail, _color in bull_ev:
+                _bull_html += _sig_row(_icon, _title, _detail, _color)
+            if not bull_ev:
+                _bull_html += (
+                    f"<div style='color:#555;font-size:0.82rem;padding:0.6rem 0;'>"
+                    f"No bullish signals detected</div>"
+                )
+            _bull_html += "</div>"
+            st.markdown(_bull_html, unsafe_allow_html=True)
+        with _ev_right:
+            _bear_html = (
+                f"<div style='background:#1b1b1b;border:1px solid #272727;"
+                f"border-radius:12px;padding:1rem 1.1rem;'>"
+                f"<div style='font-size:0.65rem;color:{BEAR};text-transform:uppercase;"
+                f"letter-spacing:1px;font-weight:800;margin-bottom:0.7rem;'>"
+                f"▼ Bearish Evidence ({rp} pts)</div>"
+            )
+            for _icon, _title, _detail, _color in bear_ev:
+                _bear_html += _sig_row(_icon, _title, _detail, _color)
+            if not bear_ev:
+                _bear_html += (
+                    f"<div style='color:#555;font-size:0.82rem;padding:0.6rem 0;'>"
+                    f"No bearish signals detected</div>"
+                )
+            _bear_html += "</div>"
+            st.markdown(_bear_html, unsafe_allow_html=True)
+
+    # ── 4. AI FACTOR BREAKDOWN — 12-indicator detail ──────────────────────────
+    st.markdown(_sec("AI Factor Breakdown", INFO, "🔬"), unsafe_allow_html=True)
+    _fac_html = (
+        f"<div style='background:#1b1b1b;border:1px solid #272727;"
+        f"border-radius:12px;padding:1.1rem 1.2rem;"
+        f"display:grid;grid-template-columns:repeat(3,1fr);gap:0.7rem;'>"
+    )
+    for _fk, _fv in factor_scores.items():
+        _fc = BULL if _fv >= 60 else (BEAR if _fv <= 40 else NEUT)
+        _flabel = "Bullish" if _fv >= 60 else ("Bearish" if _fv <= 40 else "Neutral")
+        _fac_html += (
+            f"<div style='background:#161616;border-radius:8px;padding:0.65rem 0.8rem;"
+            f"border:1px solid #222;'>"
+            f"<div style='display:flex;justify-content:space-between;align-items:center;"
+            f"margin-bottom:0.35rem;'>"
+            f"<span style='font-size:0.72rem;color:#ccc;font-weight:600;'>{_fk}</span>"
+            f"<span style='font-size:0.78rem;color:{_fc};font-weight:800;'>{_fv}</span>"
+            f"</div>"
+            + _glowbar(_fv, _fc, "5px")
+            + f"<div style='font-size:0.55rem;color:#555;margin-top:0.25rem;'>{_flabel}</div>"
+            f"</div>"
+        )
+    _fac_html += "</div>"
+    st.markdown(_fac_html, unsafe_allow_html=True)
+
+    # ── 5. ML INTELLIGENCE — multi-horizon probability + model accuracy ───────
+    _any_ml = ml5 or ml10 or ml20
+    if _any_ml:
+        st.markdown(_sec("ML Probability Intelligence", PURP, "🧠"), unsafe_allow_html=True)
+        _ml_cols = st.columns(3)
+        for _i, (_ml_data, _hor_lbl) in enumerate([(ml5, "5-Day"), (ml10, "10-Day"), (ml20, "20-Day")]):
+            with _ml_cols[_i]:
+                if _ml_data:
+                    _mu = _ml_data['up_prob']
+                    _md = _ml_data['direction']
+                    _ma = _ml_data['accuracy']
+                    _mc = BULL if _mu >= 55 else (BEAR if _mu <= 45 else NEUT)
+                    _ml_card = (
+                        f"<div style='background:#1b1b1b;border:1px solid #272727;"
+                        f"border-radius:12px;padding:1rem;text-align:center;'>"
+                        f"<div style='font-size:0.55rem;color:#606060;text-transform:uppercase;"
+                        f"letter-spacing:1px;font-weight:700;margin-bottom:0.4rem;'>{_hor_lbl} Forecast</div>"
+                        f"<div style='font-size:2rem;font-weight:900;color:{_mc};line-height:1;'>"
+                        f"{_mu:.0f}%</div>"
+                        f"<div style='font-size:0.7rem;color:#888;margin:0.3rem 0;'>"
+                        f"Direction: {_md}</div>"
+                        + _glowbar(_mu, _mc, "6px")
+                        + f"<div style='margin-top:0.6rem;padding-top:0.5rem;"
+                        f"border-top:1px solid #272727;'>"
+                        f"<div style='font-size:0.58rem;color:#555;'>CV Accuracy: "
+                        f"<span style='color:#9e9e9e;font-weight:700;'>{_ma:.1f}%</span> "
+                        f"· {_ml_data['test_size']} bars</div>"
+                    )
+                    if _ml_data.get('model_accs'):
+                        _ml_card += "<div style='margin-top:0.35rem;'>"
+                        for _mn, _mv in _ml_data['model_accs'].items():
+                            _ml_card += (
+                                f"<span style='font-size:0.52rem;color:#666;"
+                                f"margin-right:0.5rem;'>{_mn} {_mv:.0f}%</span>"
+                            )
+                        _ml_card += "</div>"
+                    _ml_card += "</div></div>"
+                    st.markdown(_ml_card, unsafe_allow_html=True)
+                else:
+                    st.markdown(
+                        f"<div style='background:#1b1b1b;border:1px solid #272727;"
+                        f"border-radius:12px;padding:1.5rem;text-align:center;"
+                        f"color:#555;font-size:0.8rem;'>Insufficient data</div>",
+                        unsafe_allow_html=True,
+                    )
+
+    # ── 6. PRICE TARGETS — Quantile Regression ────────────────────────────────
+    if pt20 and any(pt20.get(k) for k in ['p10', 'p25', 'p50', 'p75', 'p90']):
+        st.markdown(_sec("AI Price Targets (20-Day)", "#FFD700", "🎯"), unsafe_allow_html=True)
+        _pt_keys = ['p10', 'p25', 'p50', 'p75', 'p90']
+        _pt_labels = ['Bear P10', 'Bear P25', 'Median', 'Bull P75', 'Bull P90']
+        _pt_cols_c = [BEAR, BEAR, NEUT, BULL, BULL]
+        _pt_html = (
+            f"<div style='background:#1b1b1b;border:1px solid #272727;"
+            f"border-radius:12px;padding:1rem 1.2rem;'>"
+            f"<div style='display:grid;grid-template-columns:repeat(5,1fr);gap:0.6rem;'>"
+        )
+        for _pk, _pl, _pcol in zip(_pt_keys, _pt_labels, _pt_cols_c):
+            _pv = pt20.get(_pk)
+            if _pv is not None:
+                _pchg = (_pv / cp - 1) * 100
+                _pt_html += (
+                    f"<div style='text-align:center;padding:0.5rem 0.3rem;'>"
+                    f"<div style='font-size:0.5rem;color:#606060;text-transform:uppercase;"
+                    f"letter-spacing:0.5px;font-weight:700;margin-bottom:0.3rem;'>{_pl}</div>"
+                    f"<div style='font-size:1.25rem;font-weight:800;color:{_pcol};'>"
+                    f"{_pv:.2f}</div>"
+                    f"<div style='font-size:0.65rem;color:{_pcol};margin-top:0.15rem;'>"
+                    f"{_pchg:+.1f}%</div></div>"
+                )
+            else:
+                _pt_html += (
+                    f"<div style='text-align:center;padding:0.5rem 0.3rem;'>"
+                    f"<div style='font-size:0.5rem;color:#606060;'>{_pl}</div>"
+                    f"<div style='font-size:1.1rem;color:#444;'>—</div></div>"
+                )
+        _pt_html += "</div>"
+        # MAE note
+        if pt20.get('mae'):
+            _pt_html += (
+                f"<div style='margin-top:0.6rem;padding-top:0.5rem;"
+                f"border-top:1px solid #272727;font-size:0.58rem;color:#555;text-align:center;'>"
+                f"Cross-validated MAE: ±{pt20['mae']:.2f} SAR</div>"
+            )
+        _pt_html += "</div>"
+        st.markdown(_pt_html, unsafe_allow_html=True)
+
+    # ── 7. HISTORICAL PATTERN MATCHING ────────────────────────────────────────
+    _any_ana = ana5 or ana10 or ana20
+    if _any_ana:
+        st.markdown(_sec("Historical Pattern Matching", "#00BCD4", "🔍"), unsafe_allow_html=True)
+        _ana_cols = st.columns(3)
+        for _i, (_ana_d, _hor_lbl) in enumerate([(ana5, "5-Day"), (ana10, "10-Day"), (ana20, "20-Day")]):
+            with _ana_cols[_i]:
+                if _ana_d:
+                    _aw = _ana_d['w_win_rate']
+                    _ac_col = BULL if _aw >= 55 else (BEAR if _aw <= 45 else NEUT)
+                    _ana_card = (
+                        f"<div style='background:#1b1b1b;border:1px solid #272727;"
+                        f"border-radius:12px;padding:1rem;'>"
+                        f"<div style='font-size:0.55rem;color:#606060;text-transform:uppercase;"
+                        f"letter-spacing:1px;font-weight:700;margin-bottom:0.4rem;"
+                        f"text-align:center;'>{_hor_lbl} Analogs</div>"
+                        f"<div style='text-align:center;'>"
+                        f"<div style='font-size:1.8rem;font-weight:900;color:{_ac_col};'>"
+                        f"{_aw:.0f}%</div>"
+                        f"<div style='font-size:0.65rem;color:#888;margin-bottom:0.5rem;'>Win Rate</div>"
+                        f"</div>"
+                        + _glowbar(_aw, _ac_col, "5px")
+                        + f"<div style='display:grid;grid-template-columns:1fr 1fr;gap:0.4rem;"
+                        f"margin-top:0.6rem;padding-top:0.5rem;border-top:1px solid #272727;'>"
+                        f"<div style='text-align:center;'>"
+                        f"<div style='font-size:0.5rem;color:#555;'>Median Return</div>"
+                        f"<div style='font-size:0.85rem;font-weight:700;"
+                        f"color:{BULL if _ana_d['median_return'] >= 0 else BEAR};'>"
+                        f"{_ana_d['median_return']:+.1f}%</div></div>"
+                        f"<div style='text-align:center;'>"
+                        f"<div style='font-size:0.5rem;color:#555;'>Matched</div>"
+                        f"<div style='font-size:0.85rem;font-weight:700;color:#9e9e9e;'>"
+                        f"{_ana_d['n_similar']}</div></div>"
+                        f"<div style='text-align:center;'>"
+                        f"<div style='font-size:0.5rem;color:#555;'>Best Case</div>"
+                        f"<div style='font-size:0.85rem;font-weight:700;color:{BULL};'>"
+                        f"+{_ana_d['best_case']:.1f}%</div></div>"
+                        f"<div style='text-align:center;'>"
+                        f"<div style='font-size:0.5rem;color:#555;'>Worst Case</div>"
+                        f"<div style='font-size:0.85rem;font-weight:700;color:{BEAR};'>"
+                        f"{_ana_d['worst_case']:.1f}%</div></div>"
+                        f"</div></div>"
+                    )
+                    st.markdown(_ana_card, unsafe_allow_html=True)
+                else:
+                    st.markdown(
+                        f"<div style='background:#1b1b1b;border:1px solid #272727;"
+                        f"border-radius:12px;padding:1.5rem;text-align:center;"
+                        f"color:#555;font-size:0.8rem;'>Insufficient data</div>",
+                        unsafe_allow_html=True,
+                    )
+
+    # ── 8. MONTE CARLO SIMULATION ─────────────────────────────────────────────
+    mc = _monte_carlo(df, days=20, n_sims=1000)
+    if mc:
+        st.markdown(_sec("Monte Carlo Simulation (20-Day)", "#FF9800", "🎲"), unsafe_allow_html=True)
+        _mc_l, _mc_r = st.columns([2, 1])
+        with _mc_l:
+            try:
+                mc_fig = _build_mc_chart(mc, df)
+                st.plotly_chart(mc_fig, use_container_width=True, config={"displayModeBar": False})
+            except Exception:
+                pass
+        with _mc_r:
+            _mc_prob_col = BULL if mc['prob_up'] >= 55 else (BEAR if mc['prob_up'] <= 45 else NEUT)
+            _mc_card = (
+                f"<div style='background:#1b1b1b;border:1px solid #272727;"
+                f"border-radius:12px;padding:1rem;'>"
+                f"<div style='text-align:center;margin-bottom:0.7rem;'>"
+                f"<div style='font-size:0.55rem;color:#606060;text-transform:uppercase;"
+                f"letter-spacing:1px;font-weight:700;margin-bottom:0.3rem;'>Prob. Up</div>"
+                f"<div style='font-size:2rem;font-weight:900;color:{_mc_prob_col};'>"
+                f"{mc['prob_up']:.0f}%</div>"
+                f"</div>"
+                + _glowbar(mc['prob_up'], _mc_prob_col, "5px")
+                + f"<div style='margin-top:0.8rem;'>"
+            )
+            _mc_bands = [
+                ("Bull P95", mc['p95'], BULL),
+                ("Bull P75", mc['p75'], BULL),
+                ("Median",   mc['p50'], NEUT),
+                ("Bear P25", mc['p25'], BEAR),
+                ("Bear P5",  mc['p5'],  BEAR),
+            ]
+            for _ml, _mv, _mcc in _mc_bands:
+                _mpchg = (_mv / cp - 1) * 100
+                _mc_card += (
+                    f"<div style='display:flex;justify-content:space-between;"
+                    f"padding:0.25rem 0;border-bottom:1px solid #222;'>"
+                    f"<span style='font-size:0.68rem;color:#888;'>{_ml}</span>"
+                    f"<span style='font-size:0.72rem;font-weight:700;color:{_mcc};'>"
+                    f"{_mv:.2f} <span style='font-size:0.55rem;'>({_mpchg:+.1f}%)</span></span>"
+                    f"</div>"
+                )
+            _mc_card += (
+                f"</div>"
+                f"<div style='margin-top:0.5rem;font-size:0.52rem;color:#555;"
+                f"text-align:center;'>1,000 simulations · log-normal returns</div>"
+                f"</div>"
+            )
+            st.markdown(_mc_card, unsafe_allow_html=True)
 
     # ── METHODOLOGY NOTE ──────────────────────────────────────────────────────
     st.markdown(
@@ -1570,7 +1830,7 @@ def gemini_tab(df, symbol_input, stock_name, latest,
         f"Trade direction determined by {len(factor_scores)}-factor scoring engine, "
         f"5-model ML ensemble (XGBoost · LightGBM · RF · ET · GB) with Platt calibration + "
         f"TimeSeriesSplit CV, XGBoost quantile regression for price targets (P10–P90), "
-        f"and 25-nearest-neighbour historical pattern matching. "
+        f"KNN pattern matching ({_ana_n} analogs), and 1,000-path Monte Carlo simulation. "
         f"Total data: {len(df)} bars · {n_feat} features. "
         f"Past performance does not guarantee future results.</div>",
         unsafe_allow_html=True,

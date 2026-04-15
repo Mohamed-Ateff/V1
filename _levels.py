@@ -595,10 +595,11 @@ def price_ladder_html(cp, stop, t1, t2, t3, is_bullish,
         f"box-shadow:0 2px 16px rgba(0,0,0,0.2);'>"
 
         # Header
-        f"<div style='padding:0.8rem 1.2rem;border-bottom:1px solid #272727;"
-        f"background:linear-gradient(135deg,rgba(255,215,0,0.06),transparent);"
-        f"display:flex;align-items:center;gap:0.7rem;'>"
-        f"<span style='font-size:0.85rem;font-weight:700;color:#FFD700;'>Price Ladder</span>"
+        f"<div style='padding:1rem 1.4rem;border-bottom:1px solid #272727;"
+        f"background:linear-gradient(135deg,rgba(255,215,0,0.07),rgba(255,215,0,0.02),transparent);"
+        f"display:flex;align-items:center;gap:0.8rem;'>"
+        f"<span style='font-size:1.1rem;font-weight:900;color:#FFD700;"
+        f"letter-spacing:-0.3px;'>Price Ladder</span>"
         + eq_badge +
         f"</div>"
 

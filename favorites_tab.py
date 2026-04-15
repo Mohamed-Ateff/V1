@@ -543,292 +543,351 @@ def render_saved_page() -> None:
     favs      = st.session_state.get('favorites', [])
     _r_colors = {'TREND': '#4A9EFF', 'RANGE': '#FFC107', 'VOLATILE': '#FF6B6B'}
 
+    # Two categories only: Indicators + Combinations (everything else → combo)
     _ind_favs   = [f for f in favs if f.get('save_type') == 'indicator']
-    _combo_favs = [f for f in favs if f.get('save_type') == 'combo']
-    _strat_favs = [f for f in favs if f.get('save_type') not in ('indicator', 'combo')]
+    _combo_favs = [f for f in favs if f.get('save_type') != 'indicator']
 
     # ── page CSS ─────────────────────────────────────────────────────────
     st.markdown("""
     <style>
-    .sp-back-btn .stButton > button {
-        background: rgba(255,255,255,0.04) !important;
-        border: 1px solid #404040 !important;
-        border-radius: 8px !important; color: #9e9e9e !important;
-        font-size: 0.78rem !important; font-weight: 600 !important;
-        min-height: 2.2rem !important; padding: 0 1rem !important;
-    }
-    .sp-back-btn .stButton > button:hover {
-        background: rgba(255,255,255,0.08) !important;
-        border-color: #606060 !important; color: #ffffff !important;
-    }
-    .sp-filter-row .stButton > button {
-        background: rgba(255,255,255,0.03) !important;
-        border: 1px solid #303030 !important; border-radius: 20px !important;
-        color: #9e9e9e !important; font-size: 0.72rem !important;
-        font-weight: 600 !important; min-height: 2rem !important;
-        padding: 0 0.9rem !important; white-space: nowrap !important;
-    }
-    .sp-filter-row .stButton > button:hover {
-        background: rgba(255,255,255,0.08) !important;
-        border-color: #606060 !important; color: #fff !important;
-    }
-    [class*="st-key-sp_f_active"] .stButton > button {
-        background: rgba(38,166,154,0.12) !important;
-        border-color: rgba(38,166,154,0.45) !important;
-        color: #26A69A !important; font-weight: 700 !important;
-    }
-    [class*="st-key-sp_del_"] .stButton > button {
+    /* ── page wrapper ─────────────────────────────────────────────── */
+    .sv-page { max-width: 960px; margin: 0 auto; }
+
+    /* ── back button ──────────────────────────────────────────────── */
+    .st-key-sv_back .stButton > button {
         background: transparent !important;
-        border: 1px solid rgba(239,83,80,0.18) !important;
-        border-radius: 8px !important; color: rgba(239,83,80,0.45) !important;
-        height: 100% !important; min-height: 5.5rem !important;
-        font-size: 0.9rem !important; padding: 0 !important;
+        border: 1px solid #272727 !important;
+        border-radius: 10px !important; color: #606060 !important;
+        font-size: 0.76rem !important; font-weight: 700 !important;
+        min-height: 2.1rem !important; padding: 0 1rem !important;
+        transition: all .15s ease !important;
     }
-    [class*="st-key-sp_del_"] .stButton > button:hover {
-        background: rgba(239,83,80,0.10) !important;
-        border-color: rgba(239,83,80,0.55) !important; color: #ef5350 !important;
+    .st-key-sv_back .stButton > button:hover {
+        background: rgba(255,255,255,0.04) !important;
+        border-color: #404040 !important; color: #e0e0e0 !important;
     }
-    .sp-hero { display:grid; grid-template-columns:repeat(4,1fr);
-               gap:0.8rem; margin-bottom:1.5rem; }
-    .sp-hero-card { background:#212121; border:1px solid #303030;
-                    border-radius:12px; padding:1rem 1.2rem;
-                    display:flex; flex-direction:column; gap:0.2rem; }
-    .sp-hero-val { font-size:2rem; font-weight:900; line-height:1; letter-spacing:-1px; }
-    .sp-hero-lbl { font-size:0.65rem; color:#757575; font-weight:600;
-                   text-transform:uppercase; letter-spacing:0.5px; }
-    .sp-section-hdr { display:flex; align-items:center; gap:0.5rem;
-                      margin:1.2rem 0 0.65rem 0; }
-    .sp-section-bar { width:3px; height:1rem; border-radius:2px; flex-shrink:0; }
-    .sp-section-title { font-size:0.78rem; font-weight:800;
-                        text-transform:uppercase; letter-spacing:0.5px; }
-    .sp-section-cnt { font-size:0.6rem; color:#757575; }
-    .sp-card { background:#212121; border:1px solid #303030;
-               border-radius:12px; overflow:hidden; margin-bottom:0.6rem; }
-    .sp-card-head { display:flex; align-items:center; gap:0.65rem;
-        padding:0.9rem 1.2rem 0.75rem 1.2rem; border-bottom:1px solid #2a2a2a;
-        flex-wrap:wrap; }
-    .sp-sym { background:rgba(38,166,154,0.10); border:1px solid rgba(38,166,154,0.25);
-              border-radius:7px; padding:0.2rem 0.65rem;
-              font-size:0.92rem; font-weight:900; color:#26A69A; letter-spacing:0.5px; }
-    .sp-type-badge { font-size:0.6rem; font-weight:800; text-transform:uppercase;
-                     letter-spacing:0.5px; border-radius:20px; padding:0.18rem 0.7rem;
-                     border:1px solid currentColor; }
-    .sp-tag { font-size:0.58rem; font-weight:700; border-radius:5px;
-              padding:0.15rem 0.5rem; border:1px solid currentColor; white-space:nowrap; }
-    .sp-date { font-size:0.57rem; color:#616161; margin-left:auto; }
-    .sp-stats { display:grid; grid-template-columns:repeat(6,1fr);
-               border-top:1px solid #2a2a2a; }
-    .sp-stat { padding:0.7rem 0.5rem 0.65rem 0.5rem; text-align:center;
-               border-right:1px solid #2a2a2a; }
-    .sp-stat:last-child { border-right:none; }
-    .sp-stat-lbl { font-size:0.51rem; font-weight:700; text-transform:uppercase;
-                   letter-spacing:0.6px; color:#616161; margin-bottom:0.22rem; }
-    .sp-stat-val { font-size:0.95rem; font-weight:900; line-height:1; }
-    .sp-empty { display:flex; flex-direction:column; align-items:center;
-                gap:0.6rem; padding:4rem 2rem; text-align:center; }
-    .sp-empty-icon { font-size:2.5rem; opacity:0.15; }
-    .sp-empty-title { font-size:0.95rem; font-weight:700; color:#9e9e9e; }
-    .sp-empty-sub { font-size:0.73rem; color:#616161; max-width:320px; line-height:1.7; }
+
+    /* ── sort select ──────────────────────────────────────────────── */
+    .st-key-sv_sort [data-baseweb="select"] {
+        background: #161616 !important; border: 1px solid #272727 !important;
+        border-radius: 10px !important; min-height: 2.1rem !important;
+    }
+    .st-key-sv_sort [data-baseweb="select"] * {
+        color: #9e9e9e !important; font-size: 0.72rem !important;
+        font-weight: 600 !important;
+    }
+
+    /* ── filter pills ─────────────────────────────────────────────── */
+    .st-key-sv_filters .stButton > button {
+        background: #161616 !important;
+        border: 1px solid #272727 !important; border-radius: 20px !important;
+        color: #606060 !important; font-size: 0.7rem !important;
+        font-weight: 700 !important; min-height: 1.9rem !important;
+        padding: 0 1rem !important; white-space: nowrap !important;
+        transition: all .15s ease !important;
+    }
+    .st-key-sv_filters .stButton > button:hover {
+        background: rgba(38,166,154,0.06) !important;
+        border-color: rgba(38,166,154,0.25) !important; color: #26A69A !important;
+    }
+    [class*="st-key-svf_on"] .stButton > button {
+        background: rgba(38,166,154,0.10) !important;
+        border: 1px solid rgba(38,166,154,0.35) !important;
+        color: #26A69A !important; font-weight: 800 !important;
+        box-shadow: 0 0 12px rgba(38,166,154,0.08) !important;
+    }
+
+    /* ── delete buttons ───────────────────────────────────────────── */
+    [class*="st-key-sv_del_"] .stButton > button {
+        background: transparent !important;
+        border: 1px solid rgba(239,83,80,0.12) !important;
+        border-radius: 10px !important; color: rgba(239,83,80,0.30) !important;
+        height: 100% !important; min-height: 100% !important;
+        font-size: 0.85rem !important; padding: 0 !important;
+        transition: all .15s ease !important;
+    }
+    [class*="st-key-sv_del_"] .stButton > button:hover {
+        background: rgba(239,83,80,0.08) !important;
+        border-color: rgba(239,83,80,0.50) !important; color: #ef5350 !important;
+        box-shadow: 0 0 15px rgba(239,83,80,0.12) !important;
+    }
+
+    /* ── hero stat cards ──────────────────────────────────────────── */
+    .sv-hero { display: grid; grid-template-columns: repeat(3, 1fr);
+               gap: 0.7rem; margin-bottom: 1.4rem; }
+    .sv-hc { background: #1b1b1b; border: 1px solid #272727;
+             border-radius: 14px; padding: 1rem 1.2rem;
+             position: relative; overflow: hidden; }
+    .sv-hc::before { content: ''; position: absolute; top: 0; left: 0; right: 0;
+                     height: 3px; border-radius: 14px 14px 0 0; }
+    .sv-hc-val { font-size: 1.8rem; font-weight: 900; line-height: 1;
+                 letter-spacing: -1px; }
+    .sv-hc-lbl { font-size: 0.6rem; color: #606060; font-weight: 700;
+                 text-transform: uppercase; letter-spacing: 0.6px; margin-top: 0.3rem; }
+
+    /* ── section header ───────────────────────────────────────────── */
+    .sv-sec { display: flex; align-items: center; gap: 0.55rem;
+              margin: 1.6rem 0 0.7rem 0; }
+    .sv-sec-bar { width: 3px; height: 1.1rem; border-radius: 2px; flex-shrink: 0; }
+    .sv-sec-t { font-size: 0.76rem; font-weight: 800;
+                text-transform: uppercase; letter-spacing: 0.6px; }
+    .sv-sec-n { font-size: 0.6rem; color: #606060; font-weight: 600; }
+
+    /* ── card ──────────────────────────────────────────────────────── */
+    .sv-card { background: #1b1b1b; border: 1px solid #272727;
+               border-radius: 14px; overflow: hidden; margin-bottom: 0.55rem;
+               transition: border-color .15s ease, box-shadow .15s ease; }
+    .sv-card:hover { border-color: #363636;
+                     box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+
+    /* card header */
+    .sv-ch { display: flex; align-items: center; gap: 0.6rem;
+             padding: 0.85rem 1.1rem; flex-wrap: wrap; }
+    .sv-sym { font-size: 0.88rem; font-weight: 900; color: #26A69A;
+              background: rgba(38,166,154,0.08); border: 1px solid rgba(38,166,154,0.20);
+              border-radius: 8px; padding: 0.2rem 0.6rem; letter-spacing: 0.5px; }
+    .sv-sname { font-size: 0.62rem; color: #505050; font-weight: 600; }
+    .sv-type { font-size: 0.55rem; font-weight: 800; text-transform: uppercase;
+               letter-spacing: 0.5px; border-radius: 20px; padding: 0.15rem 0.65rem;
+               border: 1px solid; }
+    .sv-pills { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem;
+                flex: 1; min-width: 0; }
+    .sv-pill { font-size: 0.68rem; font-weight: 800; border-radius: 6px;
+               padding: 0.15rem 0.5rem; border: 1px solid; }
+    .sv-plus { font-size: 0.62rem; color: #404040; font-weight: 700; }
+    .sv-tag { font-size: 0.55rem; font-weight: 700; border-radius: 5px;
+              padding: 0.12rem 0.45rem; border: 1px solid; white-space: nowrap; }
+    .sv-date { font-size: 0.55rem; color: #505050; font-weight: 600; margin-left: auto; }
+
+    /* card stats grid */
+    .sv-sg { display: grid; grid-template-columns: repeat(6, 1fr);
+             background: #161616; }
+    .sv-si { padding: 0.65rem 0.4rem; text-align: center;
+             border-right: 1px solid #222222; position: relative; }
+    .sv-si:last-child { border-right: none; }
+    .sv-si::before { content: ''; position: absolute; top: 0; left: 0; right: 0;
+                     height: 2px; }
+    .sv-sl { font-size: 0.48rem; font-weight: 700; text-transform: uppercase;
+             letter-spacing: 0.7px; color: #505050; margin-bottom: 0.2rem; }
+    .sv-sv { font-size: 0.88rem; font-weight: 900; line-height: 1; }
+
+    /* ── empty state ──────────────────────────────────────────────── */
+    .sv-empty { display: flex; flex-direction: column; align-items: center;
+                gap: 0.8rem; padding: 5rem 2rem; text-align: center; }
+    .sv-empty-ring { width: 64px; height: 64px; border-radius: 50%;
+                     border: 2px solid #272727; display: flex;
+                     align-items: center; justify-content: center;
+                     font-size: 1.6rem; color: #363636; }
+    .sv-empty-t { font-size: 0.95rem; font-weight: 800; color: #606060; }
+    .sv-empty-s { font-size: 0.72rem; color: #404040; max-width: 340px;
+                  line-height: 1.7; }
     </style>
     """, unsafe_allow_html=True)
 
+    _total = len(favs)
+
     # ── header row ────────────────────────────────────────────────────────
-    _hcols = st.columns([1, 7, 2])
-    with _hcols[0]:
-        with st.container(key="sp_back_btn"):
-            if st.button("← Back", key="sp_back", width="stretch"):
+    _hc = st.columns([1.2, 6, 2.5])
+    with _hc[0]:
+        with st.container(key="sv_back"):
+            if st.button("←  Back", key="sv_back_btn", width="stretch"):
                 st.session_state.show_saved_page = False
                 st.rerun()
-    with _hcols[1]:
-        _total = len(favs)
+    with _hc[1]:
         st.markdown(
-            f"<div style='display:flex;align-items:center;gap:0.6rem;padding-top:0.1rem;'>"
-            f"<span style='font-size:1.1rem;font-weight:900;color:#fff;'>Saved Analysis</span>"
-            f"<span style='font-size:0.68rem;color:#9e9e9e;font-weight:600;'>"
-            f"{_total} item{'s' if _total != 1 else ''} saved</span>"
-            f"</div>",
+            f"<div style='display:flex;align-items:baseline;gap:0.6rem;padding-top:0.15rem;'>"
+            f"<span style='font-size:1.15rem;font-weight:900;color:#e0e0e0;"
+            f"letter-spacing:-0.3px;'>Saved Analysis</span>"
+            f"<span style='font-size:0.65rem;font-weight:700;color:#505050;'>"
+            f"{_total} item{'s' if _total != 1 else ''}</span></div>",
             unsafe_allow_html=True)
-    with _hcols[2]:
-        _sort_by = st.selectbox(
-            "Sort", ["Win Rate ↓", "Profit Factor ↓", "Expectancy ↓", "Signals ↓", "Date Saved ↓"],
-            index=0, key="sp_sort", label_visibility="collapsed")
-
-    st.markdown("<div style='margin-bottom:0.5rem;'></div>", unsafe_allow_html=True)
+    with _hc[2]:
+        with st.container(key="sv_sort"):
+            _sort_by = st.selectbox(
+                "Sort", ["Win Rate ↓", "Signals ↓", "Date Saved ↓"],
+                index=0, key="sv_sort_sel", label_visibility="collapsed")
 
     # ── hero stats ─────────────────────────────────────────────────────────
+    # compute best win rate across all
+    _all_wr = [f.get('win_rate', 0) for f in favs]
+    _best_wr = max(_all_wr) if _all_wr else 0
+    _best_wr_c = '#26A69A' if _best_wr >= 55 else ('#FFC107' if _best_wr >= 45 else '#ef5350')
+
     st.markdown(
-        f"<div class='sp-hero'>"
-        f"<div class='sp-hero-card' style='border-top:3px solid #26A69A;'>"
-        f"<div class='sp-hero-val' style='color:#26A69A;'>{_total}</div>"
-        f"<div class='sp-hero-lbl'>Total Saved</div></div>"
-        f"<div class='sp-hero-card' style='border-top:3px solid #4caf50;'>"
-        f"<div class='sp-hero-val' style='color:#4caf50;'>{len(_ind_favs)}</div>"
-        f"<div class='sp-hero-lbl'>Indicators</div></div>"
-        f"<div class='sp-hero-card' style='border-top:3px solid #FFD700;'>"
-        f"<div class='sp-hero-val' style='color:#FFD700;'>{len(_combo_favs)}</div>"
-        f"<div class='sp-hero-lbl'>Combinations</div></div>"
-        f"<div class='sp-hero-card' style='border-top:3px solid #f472b6;'>"
-        f"<div class='sp-hero-val' style='color:#f472b6;'>{len(_strat_favs)}</div>"
-        f"<div class='sp-hero-lbl'>Strategies</div></div>"
+        f"<div class='sv-hero'>"
+        f"<div class='sv-hc' style='--c:#26A69A;'>"
+        f"<div style='position:absolute;top:0;left:0;right:0;height:3px;"
+        f"background:linear-gradient(90deg,#26A69A,transparent);border-radius:14px 14px 0 0;'></div>"
+        f"<div class='sv-hc-val' style='color:#26A69A;'>{_total}</div>"
+        f"<div class='sv-hc-lbl'>Total Saved</div></div>"
+        f"<div class='sv-hc'>"
+        f"<div style='position:absolute;top:0;left:0;right:0;height:3px;"
+        f"background:linear-gradient(90deg,#4caf50,transparent);border-radius:14px 14px 0 0;'></div>"
+        f"<div class='sv-hc-val' style='color:#4caf50;'>{len(_ind_favs)}</div>"
+        f"<div class='sv-hc-lbl'>Indicators</div></div>"
+        f"<div class='sv-hc'>"
+        f"<div style='position:absolute;top:0;left:0;right:0;height:3px;"
+        f"background:linear-gradient(90deg,#FFD700,transparent);border-radius:14px 14px 0 0;'></div>"
+        f"<div class='sv-hc-val' style='color:#FFD700;'>{len(_combo_favs)}</div>"
+        f"<div class='sv-hc-lbl'>Combinations</div></div>"
         f"</div>",
         unsafe_allow_html=True)
 
     # ── filter tabs ────────────────────────────────────────────────────────
     if 'sp_filter' not in st.session_state:
         st.session_state.sp_filter = 'all'
-    _cur_filter = st.session_state.sp_filter
-    _filter_opts = [
+    _cur = st.session_state.sp_filter
+    _fopts = [
         ('all',       f'All  ({_total})'),
         ('indicator', f'Indicators  ({len(_ind_favs)})'),
         ('combo',     f'Combinations  ({len(_combo_favs)})'),
-        ('strategy',  f'Strategies  ({len(_strat_favs)})'),
     ]
-    with st.container(key="sp_filter_row"):
-        _fcols = st.columns(len(_filter_opts))
-        for _fi, (_fk, _fl) in enumerate(_filter_opts):
-            _active_key = 'active' if _cur_filter == _fk else 'btn'
-            with st.container(key=f"sp_f_{_active_key}_{_fi}"):
-                with _fcols[_fi]:
-                    if st.button(_fl, key=f"sp_flt_{_fk}", width="stretch"):
-                        st.session_state.sp_filter = _fk
+    with st.container(key="sv_filters"):
+        _fc = st.columns(len(_fopts))
+        for _i, (_k, _l) in enumerate(_fopts):
+            _ak = 'svf_on' if _cur == _k else 'svf_off'
+            with st.container(key=f"{_ak}_{_i}"):
+                with _fc[_i]:
+                    if st.button(_l, key=f"svf_{_k}", width="stretch"):
+                        st.session_state.sp_filter = _k
                         st.rerun()
-
-    st.markdown("<div style='margin-bottom:0.4rem;'></div>", unsafe_allow_html=True)
 
     # ── empty state ────────────────────────────────────────────────────────
     if not favs:
         st.markdown(
-            "<div class='sp-empty'><div class='sp-empty-icon'>☆</div>"
-            "<div class='sp-empty-title'>Nothing saved yet</div>"
-            "<div class='sp-empty-sub'>Run a Signal Analysis and tap <b>☆ Save</b> on any "
-            "indicator or combination card. Tadawul AI strategies also save here.</div>"
-            "</div>",
+            "<div class='sv-empty'>"
+            "<div class='sv-empty-ring'>☆</div>"
+            "<div class='sv-empty-t'>No saved analysis yet</div>"
+            "<div class='sv-empty-s'>Run a <b>Signal Analysis</b> and tap "
+            "<b>☆ Save</b> on any indicator or combination card to start "
+            "building your collection.</div></div>",
             unsafe_allow_html=True)
         return
 
     # ── sort helper ────────────────────────────────────────────────────────
-    def _sort_favs(lst):
+    def _sort(lst):
         if _sort_by.startswith('Win Rate'):
             return sorted(lst, key=lambda x: x.get('win_rate', 0), reverse=True)
-        if _sort_by.startswith('Profit Factor'):
-            return sorted(lst, key=lambda x: x.get('profit_factor', 0), reverse=True)
-        if _sort_by.startswith('Expectancy'):
-            return sorted(lst, key=lambda x: x.get('expectancy', 0), reverse=True)
         if _sort_by.startswith('Signals'):
             return sorted(lst, key=lambda x: x.get('signals', 0), reverse=True)
-        return list(reversed(lst))
+        return list(reversed(lst))  # Date Saved ↓  (newest first)
 
     # ── card renderer ──────────────────────────────────────────────────────
-    def _sp_card(f_idx: int, fav: dict, accent: str, type_label: str, type_color: str):
-        _sym   = fav.get('symbol', '').replace('.SR', '')
-        _disp  = fav.get('pair_display', fav.get('pair', ''))
-        _regime = fav.get('best_regime') or ''
-        _rc    = _r_colors.get(_regime, '#9e9e9e')
-        _wr    = fav.get('win_rate', 0)
-        _wr_c  = '#26A69A' if _wr >= 55 else ('#FFC107' if _wr >= 45 else '#ef5350')
-        _pf    = fav.get('profit_factor', 0)
-        _pf_c  = '#26A69A' if _pf >= 1.5 else ('#FFC107' if _pf >= 1 else '#ef5350')
-        _ea    = fav.get('expectancy', 0)
-        _ea_c  = '#26A69A' if _ea > 0 else '#ef5350'
-        _ag    = fav.get('avg_gain', 0)
-        _ag_c  = '#26A69A' if _ag > 0 else '#ef5350'
-        _al    = fav.get('avg_loss', 0)
-        _sig   = fav.get('signals', 0)
-        _rv    = fav.get('risk_val')
-        _rw    = fav.get('reward_val')
-        _pl    = fav.get('period_label', '')
-        _pl_s  = _pl.split('(')[0].strip() if _pl else ''
-        _date  = fav.get('saved_at', '')
+    def _card(idx: int, fav: dict, accent: str, type_lbl: str):
+        _sym  = fav.get('symbol', '').replace('.SR', '')
+        _sn   = fav.get('stock_name', '')
+        _disp = fav.get('pair_display', fav.get('pair', ''))
+        _reg  = fav.get('best_regime') or ''
+        _rc   = _r_colors.get(_reg, '#606060')
+        _wr   = fav.get('win_rate', 0)
+        _wc   = '#26A69A' if _wr >= 55 else ('#FFC107' if _wr >= 45 else '#ef5350')
+        _pf   = fav.get('profit_factor', 0)
+        _pc   = '#26A69A' if _pf >= 1.5 else ('#FFC107' if _pf >= 1 else '#ef5350')
+        _ea   = fav.get('expectancy', 0)
+        _ec   = '#26A69A' if _ea > 0 else '#ef5350'
+        _ag   = fav.get('avg_gain', 0)
+        _ac   = '#26A69A' if _ag > 0 else '#ef5350'
+        _al   = fav.get('avg_loss', 0)
+        _sig  = fav.get('signals', 0)
+        _rv   = fav.get('risk_val')
+        _rw   = fav.get('reward_val')
+        _pl   = (fav.get('period_label', '') or '').split('(')[0].strip()
+        _dt   = fav.get('saved_at', '')
 
+        # pills
         _parts = [p.strip() for p in _disp.split('+')]
         _pills = ''
         for _pi, _pn in enumerate(_parts):
             _pills += (
-                f"<span style='background:{accent}14;border:1px solid {accent}33;"
-                f"border-radius:5px;padding:0.18rem 0.55rem;"
-                f"font-size:0.75rem;font-weight:800;color:{accent};'>{_pn}</span>"
+                f"<span class='sv-pill' style='color:{accent};"
+                f"border-color:{accent}33;background:{accent}0A;'>{_pn}</span>"
             )
             if _pi < len(_parts) - 1:
-                _pills += f"<span style='font-size:0.7rem;color:#616161;padding:0 0.1rem;'>+</span>"
+                _pills += "<span class='sv-plus'>+</span>"
 
-        _rr_html = (
-            f"<span class='sp-tag' style='color:#64b5f6;border-color:rgba(100,181,246,0.35);"
-            f"background:rgba(100,181,246,0.07);'>R:R {_rv}:{_rw}</span>"
-        ) if _rv and _rw else ''
+        _tags = ''
+        if _rv and _rw:
+            _tags += (f"<span class='sv-tag' style='color:#64b5f6;"
+                      f"border-color:rgba(100,181,246,0.25);background:rgba(100,181,246,0.06);'>"
+                      f"R:R {_rv}:{_rw}</span>")
+        if _pl:
+            _tags += (f"<span class='sv-tag' style='color:#ce93d8;"
+                      f"border-color:rgba(206,147,216,0.25);background:rgba(206,147,216,0.06);'>"
+                      f"{_pl}</span>")
+        if _reg:
+            _tags += (f"<span class='sv-tag' style='color:{_rc};"
+                      f"border-color:{_rc}33;background:{_rc}0A;'>{_reg}</span>")
 
-        _pd_html = (
-            f"<span class='sp-tag' style='color:#ce93d8;border-color:rgba(206,147,216,0.35);"
-            f"background:rgba(206,147,216,0.07);'>{_pl_s}</span>"
-        ) if _pl_s else ''
-
-        _rg_html = (
-            f"<span class='sp-tag' style='color:{_rc};border-color:{_rc}44;"
-            f"background:{_rc}0D;'>{_regime}</span>"
-        ) if _regime else ''
-
-        _html = (
-            f"<div class='sp-card' style='border-left:3px solid {accent};'>"
-            f"<div class='sp-card-head'>"
-            f"<span class='sp-sym'>{_sym}</span>"
-            f"<span class='sp-type-badge' style='color:{type_color};border-color:{type_color}44;"
-            f"background:{type_color}0D;'>{type_label}</span>"
-            f"<div style='flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:0.3rem;'>"
-            + _pills + f"</div>"
-            + _rr_html + _pd_html + _rg_html
-            + f"<span class='sp-date'>{_date}</span>"
+        _h = (
+            f"<div class='sv-card'>"
+            # header
+            f"<div class='sv-ch'>"
+            f"<span class='sv-sym'>{_sym}</span>"
+            + (f"<span class='sv-sname'>{_sn}</span>" if _sn else '')
+            + f"<span class='sv-type' style='color:{accent};"
+            f"border-color:{accent}33;background:{accent}0A;'>{type_lbl}</span>"
+            f"<div class='sv-pills'>{_pills}</div>"
+            + _tags
+            + f"<span class='sv-date'>{_dt}</span>"
             f"</div>"
-            f"<div class='sp-stats'>"
-            f"<div class='sp-stat' style='border-top:2px solid {_wr_c};'>"
-            f"<div class='sp-stat-lbl'>Win Rate</div>"
-            f"<div class='sp-stat-val' style='color:{_wr_c};'>{_wr:.1f}%</div></div>"
-            f"<div class='sp-stat' style='border-top:2px solid {_pf_c};'>"
-            f"<div class='sp-stat-lbl'>Profit Factor</div>"
-            f"<div class='sp-stat-val' style='color:{_pf_c};'>{_pf:.2f}</div></div>"
-            f"<div class='sp-stat' style='border-top:2px solid {_ea_c};'>"
-            f"<div class='sp-stat-lbl'>Expectancy</div>"
-            f"<div class='sp-stat-val' style='color:{_ea_c};'>{_ea:+.2f}%</div></div>"
-            f"<div class='sp-stat' style='border-top:2px solid {_ag_c};'>"
-            f"<div class='sp-stat-lbl'>Avg Gain</div>"
-            f"<div class='sp-stat-val' style='color:{_ag_c};'>+{_ag:.2f}%</div></div>"
-            f"<div class='sp-stat' style='border-top:2px solid #ef5350;'>"
-            f"<div class='sp-stat-lbl'>Avg Loss</div>"
-            f"<div class='sp-stat-val' style='color:#ef5350;'>{_al:.2f}%</div></div>"
-            f"<div class='sp-stat' style='border-top:2px solid #616161;'>"
-            f"<div class='sp-stat-lbl'>Signals</div>"
-            f"<div class='sp-stat-val' style='color:#9e9e9e;'>{_sig}</div></div>"
+            # stats grid
+            f"<div class='sv-sg'>"
+            f"<div class='sv-si'>"
+            f"<div style='position:absolute;top:0;left:0;right:0;height:2px;background:{_wc};'></div>"
+            f"<div class='sv-sl'>Win Rate</div>"
+            f"<div class='sv-sv' style='color:{_wc};'>{_wr:.1f}%</div></div>"
+            f"<div class='sv-si'>"
+            f"<div style='position:absolute;top:0;left:0;right:0;height:2px;background:{_pc};'></div>"
+            f"<div class='sv-sl'>Profit Factor</div>"
+            f"<div class='sv-sv' style='color:{_pc};'>{_pf:.2f}</div></div>"
+            f"<div class='sv-si'>"
+            f"<div style='position:absolute;top:0;left:0;right:0;height:2px;background:{_ec};'></div>"
+            f"<div class='sv-sl'>Expectancy</div>"
+            f"<div class='sv-sv' style='color:{_ec};'>{_ea:+.2f}%</div></div>"
+            f"<div class='sv-si'>"
+            f"<div style='position:absolute;top:0;left:0;right:0;height:2px;background:{_ac};'></div>"
+            f"<div class='sv-sl'>Avg Gain</div>"
+            f"<div class='sv-sv' style='color:{_ac};'>+{_ag:.2f}%</div></div>"
+            f"<div class='sv-si'>"
+            f"<div style='position:absolute;top:0;left:0;right:0;height:2px;background:#ef5350;'></div>"
+            f"<div class='sv-sl'>Avg Loss</div>"
+            f"<div class='sv-sv' style='color:#ef5350;'>{_al:.2f}%</div></div>"
+            f"<div class='sv-si'>"
+            f"<div style='position:absolute;top:0;left:0;right:0;height:2px;background:#505050;'></div>"
+            f"<div class='sv-sl'>Signals</div>"
+            f"<div class='sv-sv' style='color:#9e9e9e;'>{_sig}</div></div>"
             f"</div></div>"
         )
-        _cc1, _cc2 = st.columns([13, 1])
-        with _cc1:
-            st.markdown(_html, unsafe_allow_html=True)
-        with _cc2:
-            if st.button("✕", key=f"sp_del_{f_idx}", width="stretch"):
-                _user = st.session_state.get('auth_username', '')
-                delete_favorite(_user, fav.get('id', ''))
-                st.session_state.favorites = [x for x in favs if x.get('id') != fav.get('id')]
-                st.rerun()
+        _c1, _c2 = st.columns([14, 1])
+        with _c1:
+            st.markdown(_h, unsafe_allow_html=True)
+        with _c2:
+            with st.container(key=f"sv_del_{idx}"):
+                if st.button("✕", key=f"sv_rm_{idx}", width="stretch"):
+                    _user = st.session_state.get('auth_username', '')
+                    delete_favorite(_user, fav.get('id', ''))
+                    st.session_state.favorites = [x for x in favs if x.get('id') != fav.get('id')]
+                    st.rerun()
 
-    _global_idx = 0
+    # ── render sections ───────────────────────────────────────────────────
+    _gidx = 0
+    _active = st.session_state.get('sp_filter', 'all')
 
-    def _section(title, color, fav_list, type_label, type_color):
-        nonlocal _global_idx
-        if not fav_list:
+    def _section(title, color, flist, tlbl):
+        nonlocal _gidx
+        if not flist:
             return
         st.markdown(
-            f"<div class='sp-section-hdr'>"
-            f"<div class='sp-section-bar' style='background:{color};'></div>"
-            f"<span class='sp-section-title' style='color:{color};'>{title}</span>"
-            f"<span class='sp-section-cnt'>({len(fav_list)})</span>"
-            f"</div>",
+            f"<div class='sv-sec'>"
+            f"<div class='sv-sec-bar' style='background:{color};'></div>"
+            f"<span class='sv-sec-t' style='color:{color};'>{title}</span>"
+            f"<span class='sv-sec-n'>({len(flist)})</span></div>",
             unsafe_allow_html=True)
-        for _fav in _sort_favs(fav_list):
-            _sp_card(_global_idx, _fav, color, type_label, type_color)
-            _global_idx += 1
+        for _f in _sort(flist):
+            _card(_gidx, _f, color, tlbl)
+            _gidx += 1
 
-    _active = st.session_state.get('sp_filter', 'all')
     if _active in ('all', 'indicator'):
-        _section("Saved Indicators", "#4caf50", _ind_favs, "Indicator", "#4caf50")
+        _section("Indicators", "#4caf50", _ind_favs, "Indicator")
     if _active in ('all', 'combo'):
-        _section("Saved Combinations", "#FFD700", _combo_favs, "Combo", "#FFD700")
-    if _active in ('all', 'strategy'):
-        _section("Saved Strategies", "#f472b6", _strat_favs, "Strategy", "#f472b6")
+        _section("Combinations", "#FFD700", _combo_favs, "Combination")

@@ -6,9 +6,9 @@ from favorites_tab import render_save_button, render_save_indicator_button, rend
 from ui_helpers import insight_toggle
 
 
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─────────────────────────────────────────────────────────────────────────────
 # DESIGN TOKENS
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─────────────────────────────────────────────────────────────────────────────
 BULL = "#4caf50"
 BEAR = "#f44336"
 NEUT = "#ff9800"
@@ -48,7 +48,7 @@ def signal_analysis_tab(df, info_icon):
     text_col  = theme_palette.get("text",      "#ffffff")
     muted     = theme_palette.get("muted",     "#9e9e9e")
 
-    # â”€â”€ CSS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── CSS ──────────────────────────────────────────────────────────────────
     st.markdown("""
     <style>
     .sa-kpi-grid {
@@ -85,7 +85,7 @@ def signal_analysis_tab(df, info_icon):
     </style>
     """, unsafe_allow_html=True)
 
-    # â”€â”€ Controls row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── Controls row ──────────────────────────────────────────────────────────
     c1, c2, c3, c4 = st.columns([2, 2, 2, 2])
     with c1:
         st.markdown(
@@ -137,8 +137,8 @@ def signal_analysis_tab(df, info_icon):
     rr_ratio      = reward_val / risk_val
     profit_target = stop_loss * rr_ratio
 
-    # â”€â”€ Run engines â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    with st.spinner("Running signal analysisâ€¦"):
+    # ── Run engines ───────────────────────────────────────────────────────────
+    with st.spinner("Running signal analysis…"):
         signals_df = detect_signals(df)
         results, successful_signals, all_signal_details = evaluate_signal_success(
             df, signals_df, profit_target, holding_period, stop_loss
@@ -149,7 +149,7 @@ def signal_analysis_tab(df, info_icon):
         )
         monthly_performance = calculate_monthly_performance(all_signal_details)
 
-    # â”€â”€ Aggregate stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── Aggregate stats ───────────────────────────────────────────────────────
     total_signals    = sum(d["total_signals"] for d in results.values())
     total_successful = len(successful_signals)
     overall_success  = (total_successful / total_signals * 100) if total_signals > 0 else 0.0
@@ -180,7 +180,7 @@ def signal_analysis_tab(df, info_icon):
         "A positive expectancy means the strategy has a mathematical edge over time.</p>"
     )
     
-    # â”€â”€ Wilson lower-bound helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── Wilson lower-bound helper ─────────────────────────────────────────────
     def _wilson(n, pct):
         if n == 0:
             return 0.0
@@ -191,9 +191,9 @@ def signal_analysis_tab(df, info_icon):
         spread = z * ((p * (1 - p) / n + z * z / (4 * n * n)) ** 0.5)
         return (centre - spread) / denom * 100
 
-    # â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
+    # ══════════════════════════════════════════════════════════════════════════
     # 1. KPI ROW  (6 tiles)
-    # â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
+    # ══════════════════════════════════════════════════════════════════════════
     sc      = BULL if overall_success >= 50 else BEAR
     pf_col  = BULL if pf_overall >= 1.5 else NEUT if pf_overall >= 1.0 else BEAR
     exp_col = BULL if expectancy_all > 0 else BEAR
@@ -233,15 +233,15 @@ def signal_analysis_tab(df, info_icon):
     </div>
     """, unsafe_allow_html=True)
 
-    # â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
+    # ══════════════════════════════════════════════════════════════════════════
     # SUB-TABS
-    # â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
+    # ══════════════════════════════════════════════════════════════════════════
     tab_ind, tab_combo = st.tabs([
         "Indicator Leaderboard",
         "Indicator Combinations",
     ])
 
-    # â”€â”€ indicator map (key â†’ name, category, chart_fn) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── indicator map (key → name, category, chart_fn) ───────────────────────
     indicator_map = {
         "EMA":   ("EMA (20/50/200)",       "Trend Following",     create_ema_chart),
         "SMA":   ("SMA (50/200)",           "Trend Following",     None),
@@ -264,7 +264,7 @@ def signal_analysis_tab(df, info_icon):
         "ADX":   ("ADX (14) +DI/-DI",      "Trend Strength",      create_adx_chart),
     }
 
-    # â”€â”€ build per-indicator stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── build per-indicator stats ─────────────────────────────────────────────
     succ_by_ind = {}
     for s in successful_signals:
         succ_by_ind.setdefault(s["indicator"], []).append(s["gain"])
@@ -311,36 +311,20 @@ def signal_analysis_tab(df, info_icon):
             "wilson": _wilson(total, win_rate),
         })
 
-    # Remove indicators with 100% win rate â€” statistically unreliable (too few signals or data artifact)
+    # Remove indicators with 100% win rate — statistically unreliable (too few signals or data artifact)
     indicator_performance = [x for x in indicator_performance if x["win_rate"] < 100]
     indicator_performance.sort(key=lambda x: (x["expectancy"], x["total"]), reverse=True)
     card_accents = [BULL, INFO, NEUT, PURP, "#F472B6", GOLD]
 
-    # â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
-    # TAB 1 â€” INDICATOR LEADERBOARD
-    # â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
+    # ══════════════════════════════════════════════════════════════════════════
+    # TAB 1 — INDICATOR LEADERBOARD
+    # ══════════════════════════════════════════════════════════════════════════
     with tab_ind:
         if not indicator_performance:
             st.info("No indicator data available for the selected period.")
         else:
-            # full leaderboard table
-            _lb_df = pd.DataFrame([{
-                "Rank":           i + 1,
-                "Indicator":      p["name"],
-                "Category":       p["category"],
-                "Signals":        p["total"],
-                "Win %":          round(p["win_rate"], 1),
-                "Avg Gain %":     round(p["avg_gain"], 2),
-                "Avg Loss %":     round(p["avg_loss"], 2),
-                "Profit Factor":  p["profit_factor"],
-                "Expectancy %":   p["expectancy"],
-                "Best Regime":    p["best_regime"] or "â€”",
-            } for i, p in enumerate(indicator_performance)])
-            with st.expander("Full Leaderboard Table", expanded=False):
-                st.dataframe(_lb_df.set_index("Rank"), use_container_width=True)
-
-            # top-4 detail cards
-            for idx, ind in enumerate(indicator_performance[:4]):
+            # All indicator cards
+            for idx, ind in enumerate(indicator_performance):
                 accent   = card_accents[idx % len(card_accents)]
                 br_color = regime_color_map.get(ind["best_regime"], accent)
                 win_pct  = ind["win_rate"]
@@ -445,16 +429,16 @@ def signal_analysis_tab(df, info_icon):
 
                 st.markdown("<div style='margin-bottom:1.5rem;'></div>", unsafe_allow_html=True)
 
-    # â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
-    # TAB 2 â€” DEEP COMBINATION EXPLORER
-    # â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
+    # ══════════════════════════════════════════════════════════════════════════
+    # TAB 2 — DEEP COMBINATION EXPLORER
+    # ══════════════════════════════════════════════════════════════════════════
     with tab_combo:
         _all_names = {p["key"]: p["name"] for p in indicator_performance}
         _all_accs  = {p["key"]: card_accents[i % len(card_accents)]
                       for i, p in enumerate(indicator_performance)}
         combo_accent_cycle = [BULL, INFO, NEUT, PURP, "#F472B6", GOLD]
 
-        # â”€â”€ Filter / sort controls â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # ── Filter / sort controls ────────────────────────────────────────────
         fc1, = st.columns([1])
         with fc1:
             st.markdown(
@@ -467,12 +451,12 @@ def signal_analysis_tab(df, info_icon):
         _sort_key = "win_rate"
         _cc_top_per_group = 5
 
-        # â”€â”€ Resolve size filter â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # ── Resolve size filter ───────────────────────────────────────────────
         _size_filter = None
         if _cc_size != "All sizes":
             _size_filter = int(_cc_size.split("-")[0])
 
-        # â”€â”€ Build all_combo_data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # ── Build all_combo_data ──────────────────────────────────────────────
         all_combo_data = []
         if combo_results:
             for combo_key, cd in combo_results.items():
@@ -1052,19 +1036,20 @@ def signal_analysis_tab(df, info_icon):
 
             # ── Deep Cards (continues in same Combinations tab) ────────────────────────────
             with ctab1:
+                # Section header
                 st.markdown(
-                    f"<div style='display:flex;align-items:center;gap:0.6rem;"
-                    f"margin:1.8rem 0 1rem 0;'>"
-                    f"<div style='flex:1;height:1px;background:#272727;'></div>"
-                    f"<span style='font-size:0.65rem;font-weight:800;text-transform:uppercase;"
-                    f"letter-spacing:1.2px;color:#606060;padding:0 0.6rem;'>Deep Analysis by Combo Size</span>"
-                    f"<div style='flex:1;height:1px;background:#272727;'></div>"
+                    f"<div style='display:flex;align-items:center;gap:0.7rem;"
+                    f"margin:2rem 0 0.6rem 0;'>"
+                    f"<div style='width:3px;height:18px;border-radius:2px;background:#6366f1;"
+                    f"box-shadow:0 0 8px rgba(99,102,241,0.4);'></div>"
+                    f"<span style='font-size:0.85rem;font-weight:800;text-transform:uppercase;"
+                    f"letter-spacing:1px;color:#e0e0e0;'>Deep Analysis by Combo Size</span>"
                     f"</div>",
                     unsafe_allow_html=True,
                 )
                 insight_toggle(
                     "combo_deepcards",
-                    "What does 2-Way / 3-Way / 4-Way mean? (click to understand)",
+                    "What does 2-Way / 3-Way / 4-Way mean?",
                     "<h4 style='margin:0 0 0.6rem 0;color:#fff;font-size:0.9rem;'>What is a N-Way Combination?</h4>"
                     "<p>A <strong>combination</strong> means: multiple indicators all agreed at the same moment and a trade signal fired. "
                     "The number tells you how many indicators had to agree together:</p>"
@@ -1072,71 +1057,118 @@ def signal_analysis_tab(df, info_icon):
                     "<div style='background:rgba(33,150,243,0.08);border:1px solid rgba(33,150,243,0.25);border-radius:8px;padding:0.6rem 0.8rem;'>"
                     "<div style='font-size:1.1rem;font-weight:900;color:#90caf9;'>2-Way</div>"
                     "<div style='font-size:0.72rem;color:#e0e0e0;line-height:1.5;margin-top:0.25rem;'>"
-                    "Two indicators fired at the same bar. Example: RSI went oversold <strong>AND</strong> MACD crossed bullish at the same candle. "
-                    "More signals, easier to trigger.</div></div>"
+                    "Two indicators fired at the same bar. More signals, easier to trigger.</div></div>"
                     "<div style='background:rgba(76,175,80,0.08);border:1px solid rgba(76,175,80,0.25);border-radius:8px;padding:0.6rem 0.8rem;'>"
                     "<div style='font-size:1.1rem;font-weight:900;color:#81c784;'>3-Way</div>"
                     "<div style='font-size:0.72rem;color:#e0e0e0;line-height:1.5;margin-top:0.25rem;'>"
-                    "Three indicators all agreed. Example: RSI oversold <strong>AND</strong> MACD bullish cross <strong>AND</strong> price above EMA. "
-                    "Rarer signal but higher conviction.</div></div>"
+                    "Three indicators all agreed. Rarer signal but higher conviction.</div></div>"
                     "<div style='background:rgba(255,215,0,0.06);border:1px solid rgba(255,215,0,0.25);border-radius:8px;padding:0.6rem 0.8rem;'>"
                     "<div style='font-size:1.1rem;font-weight:900;color:#FFD700;'>4-Way</div>"
                     "<div style='font-size:0.72rem;color:#e0e0e0;line-height:1.5;margin-top:0.25rem;'>"
-                    "Four indicators in agreement simultaneously. Very rare but extremely high confidence when it happens. "
-                    "Fewer total trades but often a better win rate.</div></div>"
+                    "Four indicators in agreement. Very rare but extremely high confidence.</div></div>"
                     "<div style='background:rgba(156,39,176,0.08);border:1px solid rgba(156,39,176,0.25);border-radius:8px;padding:0.6rem 0.8rem;'>"
                     "<div style='font-size:1.1rem;font-weight:900;color:#ce93d8;'>5 / 6-Way</div>"
                     "<div style='font-size:0.72rem;color:#e0e0e0;line-height:1.5;margin-top:0.25rem;'>"
-                    "Five or six indicators must all align. Extremely rare signals -- only appears a handful of times per year. "
-                    "Use these as ultra-high-confidence confirmation only.</div></div>"
+                    "Five or six indicators must all align. Ultra-rare, ultra-high confidence.</div></div>"
                     "</div>"
-                    "<p style='margin-top:0.5rem;'><strong style='color:#FFD700;'>The trade-off:</strong> more indicators = fewer signals but higher quality. "
-                    "Fewer indicators = more signals but more noise. Compare the win rates across sizes in the Leaderboard tab to find your sweet spot.</p>"
-                    "<hr style='border:none;border-top:1px solid #303030;margin:0.8rem 0;'>"
-                    "<p style='font-weight:700;color:#fff;margin-bottom:0.4rem;'>Each card below shows the full picture for one combination:</p>"
-                    "<ul>"
-                    "<li><strong>Win % bar</strong> -- green = wins, red = losses, split proportionally.</li>"
-                    "<li><strong>Avg Gain / Avg Loss</strong> -- average size of winning vs losing trades.</li>"
-                    "<li><strong>Avg Hold</strong> -- average number of days the trade was open before closing.</li>"
-                    "<li><strong>Profit Factor</strong> -- total profit divided by total loss. Above 1.5 is strong.</li>"
-                    "<li><strong>Expectancy</strong> -- average money made per trade. Positive = edge exists.</li>"
-                    "<li><strong>Wilson Score</strong> -- confidence-adjusted win rate that penalises small sample sizes.</li>"
-                    "<li><strong>Max W-Streak / L-Streak</strong> -- longest consecutive winning or losing run.</li>"
-                    "<li><strong>Signals/100</strong> -- how frequently this combination fires (per 100 price bars).</li>"
-                    "<li><strong>Consistency (Std Dev)</strong> -- how stable the monthly win rate is. Lower = more reliable all year.</li>"
-                    "</ul>"
+                    "<p style='margin-top:0.5rem;'><strong style='color:#FFD700;'>The trade-off:</strong> more indicators = fewer signals but higher quality.</p>"
                 )
+
+                # Size color mapping
+                _sz_colors = {2: "#2196f3", 3: "#4caf50", 4: "#FFD700", 5: "#9c27b0", 6: "#f44336"}
                 _sz_names = {
-                    2: "2-Way Pairs", 3: "3-Way Triples", 4: "4-Way Quadruples",
-                    5: "5-Way Quintuples", 6: "6-Way Combinations",
+                    2: "2-Way Pairs", 3: "3-Way Triples", 4: "4-Way Quads",
+                    5: "5-Way Quints", 6: "6-Way Combos",
                 }
-                for _sv in sorted(set(x["size"] for x in all_combo_data)):
+                _sz_icons = {2: "II", 3: "III", 4: "IV", 5: "V", 6: "VI"}
+                _all_sizes = sorted(set(x["size"] for x in all_combo_data))
+
+                # Overview strip — one card per combo size
+                _n_sz = len(_all_sizes)
+                if _n_sz > 0:
+                    _ov_html = (
+                        f"<div style='display:grid;grid-template-columns:repeat({_n_sz},1fr);"
+                        f"gap:0.5rem;margin-bottom:1rem;'>"
+                    )
+                    for _sv in _all_sizes:
+                        _sc = [x for x in all_combo_data if x["size"] == _sv]
+                        _sn = _sz_names.get(_sv, f"{_sv}-Way")
+                        _scol = _sz_colors.get(_sv, "#888")
+                        _sicon = _sz_icons.get(_sv, str(_sv))
+                        _bwr = _sc[0]["win_rate"] if _sc else 0
+                        _avg_wr = sum(x["win_rate"] for x in _sc) / len(_sc) if _sc else 0
+                        _avg_exp = sum(x["expectancy"] for x in _sc) / len(_sc) if _sc else 0
+                        _, _bwr_col = _wr_color(_bwr)
+                        _ov_html += (
+                            f"<div style='background:#1b1b1b;border:1px solid #272727;"
+                            f"border-radius:12px;overflow:hidden;'>"
+                            f"<div style='height:3px;background:linear-gradient(90deg,{_scol},{_scol}88);'></div>"
+                            f"<div style='padding:0.85rem 0.7rem;text-align:center;'>"
+                            f"<div style='font-size:0.9rem;font-weight:900;color:{_scol};"
+                            f"margin-bottom:0.15rem;'>{_sicon}</div>"
+                            f"<div style='font-size:0.62rem;color:#606060;text-transform:uppercase;"
+                            f"letter-spacing:0.6px;font-weight:700;margin-bottom:0.5rem;'>{_sn}</div>"
+                            f"<div style='font-size:1.5rem;font-weight:900;color:{_bwr_col};"
+                            f"line-height:1;'>{_bwr:.0f}%</div>"
+                            f"<div style='font-size:0.55rem;color:#555;margin-top:0.15rem;'>Best Win Rate</div>"
+                            f"<div style='display:flex;justify-content:center;gap:0.8rem;margin-top:0.5rem;"
+                            f"padding-top:0.45rem;border-top:1px solid #272727;'>"
+                            f"<div style='text-align:center;'>"
+                            f"<div style='font-size:0.85rem;font-weight:800;color:#e0e0e0;'>{len(_sc)}</div>"
+                            f"<div style='font-size:0.48rem;color:#555;text-transform:uppercase;'>Combos</div></div>"
+                            f"<div style='text-align:center;'>"
+                            f"<div style='font-size:0.85rem;font-weight:800;"
+                            f"color:{'#4caf50' if _avg_exp > 0 else '#f44336'};'>{_avg_exp:+.1f}%</div>"
+                            f"<div style='font-size:0.48rem;color:#555;text-transform:uppercase;'>Avg Exp</div></div>"
+                            f"</div></div></div>"
+                        )
+                    _ov_html += "</div>"
+                    st.markdown(_ov_html, unsafe_allow_html=True)
+
+                # Per-size expanders
+                for _sv in _all_sizes:
                     _sc   = [x for x in all_combo_data if x["size"] == _sv]
                     _sn   = _sz_names.get(_sv, f"{_sv}-Way")
+                    _scol = _sz_colors.get(_sv, "#888")
                     _bwr  = _sc[0]["win_rate"] if _sc else 0
                     _bex  = _sc[0]["expectancy"] if _sc else 0
                     with st.expander(
-                        f"{_sn}  --  {len(_sc)} combos  |  Best WR {_bwr:.0f}%  |  Best Exp {_bex:+.2f}%",
+                        f"{_sn}  ·  {len(_sc)} combos  ·  Best WR {_bwr:.0f}%  ·  Exp {_bex:+.2f}%",
                         expanded=(_sv == 2),
                     ):
                         # Top-5 mini strip
                         _ns3 = min(5, len(_sc))
                         _ss3 = (
                             f"<div style='display:grid;grid-template-columns:repeat({_ns3},1fr);"
-                            f"gap:0.28rem;margin-bottom:0.65rem;'>"
+                            f"gap:0.4rem;margin-bottom:0.8rem;'>"
                         )
                         for _xi, _xr in enumerate(_sc[:_ns3]):
                             _, _xs_wr_col = _wr_color(_xr['win_rate'])
+                            _xs_exp_col = "#4caf50" if _xr['expectancy'] > 0 else "#f44336"
+                            _bar_w = min(100, max(4, _xr['win_rate']))
                             _ss3 += (
                                 f"<div style='background:#1b1b1b;border:1px solid #272727;"
-                                f"border-radius:7px;padding:0.65rem 0.4rem;text-align:center;'>"
-                                f"<div style='font-size:0.7rem;color:#606060;margin-bottom:0.2rem;'>#{_xi+1}</div>"
-                                f"<div style='font-size:0.9rem;font-weight:700;color:#e0e0e0;line-height:1.35;margin-bottom:0.25rem;'>"
+                                f"border-radius:10px;overflow:hidden;'>"
+                                f"<div style='height:2px;background:{_scol};'></div>"
+                                f"<div style='padding:0.7rem 0.55rem;text-align:center;'>"
+                                f"<div style='display:flex;justify-content:space-between;align-items:center;"
+                                f"margin-bottom:0.35rem;'>"
+                                f"<span style='font-size:0.58rem;color:#555;font-weight:700;'>#{_xi+1}</span>"
+                                f"<span style='font-size:0.58rem;color:#555;'>{_xr['total']} signals</span></div>"
+                                f"<div style='font-size:0.78rem;font-weight:700;color:#e0e0e0;"
+                                f"line-height:1.3;margin-bottom:0.4rem;min-height:2.1rem;"
+                                f"display:flex;align-items:center;justify-content:center;'>"
                                 + " + ".join(_all_names.get(p, p) for p in _xr["indicators"])
                                 + f"</div>"
-                                f"<div style='font-size:1.15rem;font-weight:800;color:{_xs_wr_col};'>{_xr['win_rate']:.0f}%</div>"
-                                f"<div style='font-size:0.7rem;color:#606060;'>{_xr['total']} signals</div>"
-                                f"</div>"
+                                f"<div style='font-size:1.3rem;font-weight:900;color:{_xs_wr_col};"
+                                f"line-height:1;'>{_xr['win_rate']:.0f}%</div>"
+                                f"<div style='background:#1a1a1a;border-radius:3px;height:4px;"
+                                f"margin:0.35rem 0 0.25rem;overflow:hidden;'>"
+                                f"<div style='width:{_bar_w:.0f}%;height:100%;background:{_xs_wr_col};"
+                                f"border-radius:3px;box-shadow:0 0 6px {_xs_wr_col}44;'></div></div>"
+                                f"<div style='font-size:0.65rem;color:{_xs_exp_col};font-weight:700;'>"
+                                f"Exp {_xr['expectancy']:+.2f}%</div>"
+                                f"</div></div>"
                             )
                         _ss3 += "</div>"
                         st.markdown(_ss3, unsafe_allow_html=True)

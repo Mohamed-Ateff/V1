@@ -5,108 +5,111 @@ _INSIGHT_CSS = """
 <style>
 /* ── Insight Toggle Expander ─────────────────────────────────────── */
 details.insight-toggle {
-    background: #1a1a1a;
+    background: linear-gradient(135deg, #1e1e1e, #1a1a1a);
     border: 1px solid #2a2a2a;
-    border-radius: 10px;
-    margin: 0.6rem 0 1.2rem 0;
+    border-radius: 12px;
+    margin: 0.5rem 0 1rem 0;
     overflow: hidden;
-    transition: border-color 0.2s;
+    transition: border-color 0.25s, box-shadow 0.25s;
 }
 details.insight-toggle:hover {
     border-color: #3a3a3a;
 }
 details.insight-toggle[open] {
-    border-color: rgba(38,166,154,0.3);
-    box-shadow: 0 2px 12px rgba(38,166,154,0.06);
+    border-color: rgba(99,102,241,0.35);
+    box-shadow: 0 2px 16px rgba(99,102,241,0.08);
 }
 details.insight-toggle summary {
     display: flex;
     align-items: center;
-    gap: 0.6rem;
-    padding: 0.75rem 1.1rem;
+    gap: 0.55rem;
+    padding: 0.65rem 1rem;
     cursor: pointer;
     list-style: none;
-    font-size: 0.74rem;
+    font-size: 0.72rem;
     font-weight: 600;
-    color: #808080;
+    color: #707070;
     letter-spacing: 0.2px;
     user-select: none;
     transition: background 0.15s, color 0.15s;
 }
 details.insight-toggle summary:hover {
-    background: rgba(255,255,255,0.02);
-    color: #26A69A;
+    background: rgba(99,102,241,0.04);
+    color: #9e9e9e;
 }
 details.insight-toggle[open] summary {
-    color: #26A69A;
-    background: rgba(38,166,154,0.04);
+    color: #a5b4fc;
+    background: rgba(99,102,241,0.06);
     border-bottom: 1px solid #2a2a2a;
 }
 details.insight-toggle summary::-webkit-details-marker { display: none; }
 details.insight-toggle summary .itog-icon {
-    font-size: 0.95rem;
+    font-size: 0.85rem;
     line-height: 1;
     flex-shrink: 0;
-    opacity: 0.7;
+    opacity: 0.55;
 }
 details.insight-toggle[open] summary .itog-icon {
-    opacity: 1;
+    opacity: 0.9;
+    color: #a5b4fc;
 }
-details.insight-toggle summary .itog-arrow {
-    margin-left: auto;
-    font-size: 0.6rem;
-    opacity: 0.35;
-    transition: transform 0.25s, opacity 0.2s;
-}
-details.insight-toggle[open] summary .itog-arrow {
-    transform: rotate(180deg);
-    opacity: 0.6;
-}
+
 details.insight-toggle .itog-body {
-    padding: 0.9rem 1.2rem 1.1rem;
+    padding: 0.85rem 1.1rem 1rem;
+    background: #161616;
 }
 details.insight-toggle .itog-body p {
-    font-size: 0.76rem;
-    color: #b0b0b0;
-    line-height: 1.75;
-    margin: 0.5rem 0 0 0;
+    font-size: 0.74rem;
+    color: #999;
+    line-height: 1.7;
+    margin: 0.4rem 0 0 0;
 }
 details.insight-toggle .itog-body strong {
-    color: #e0e0e0;
+    color: #d0d0d0;
     font-weight: 700;
+}
+details.insight-toggle .itog-body ul {
+    padding-left: 1.2rem;
+    margin: 0.5rem 0 0 0;
+}
+details.insight-toggle .itog-body li {
+    font-size: 0.72rem;
+    color: #999;
+    line-height: 1.7;
+    margin-bottom: 0.25rem;
+}
+details.insight-toggle .itog-body li strong {
+    color: #d0d0d0;
 }
 details.insight-toggle .itog-body .itog-row {
     display: flex;
     align-items: flex-start;
     gap: 0.55rem;
-    margin: 0.5rem 0;
-    font-size: 0.75rem;
-    color: #a0a0a0;
+    margin: 0.45rem 0;
+    font-size: 0.73rem;
+    color: #999;
     line-height: 1.6;
 }
 details.insight-toggle .itog-body .itog-dot {
     width: 5px; height: 5px;
     border-radius: 50%;
-    background: #26A69A;
+    background: #6366f1;
     flex-shrink: 0;
-    margin-top: 0.5rem;
-    box-shadow: 0 0 4px rgba(38,166,154,0.4);
+    margin-top: 0.45rem;
+    box-shadow: 0 0 6px rgba(99,102,241,0.4);
 }
 </style>
 """
 
 def insight_toggle(key: str, label: str, body_html: str):
     """Render a click-to-expand insight card. Call after any section header."""
-    # Inject CSS once per session
-    if "_insight_css_injected" not in st.session_state:
-        st.markdown(_INSIGHT_CSS, unsafe_allow_html=True)
-        st.session_state["_insight_css_injected"] = True
+    # Inject CSS every render so it's never missing
+    st.markdown(_INSIGHT_CSS, unsafe_allow_html=True)
     st.markdown(
         f"""<details class="insight-toggle" id="insight-{key}">
   <summary>
     <span class="itog-icon">ⓘ</span>
     <span>{label}</span>
-    <span class="itog-arrow">▼</span>
   </summary>
   <div class="itog-body">{body_html}</div>
 </details>""",

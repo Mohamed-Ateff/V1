@@ -531,13 +531,23 @@ def _score_engine(df, cp):
     bull_n = sum(1 for f in factors if f["dir"] > 0)
     bear_n = sum(1 for f in factors if f["dir"] < 0)
 
-    if pct >= 50:
+    # Count-based ratio boost: when signal count is heavily skewed,
+    # nudge pct toward the dominant side to break WAIT deadlocks.
+    total_dir = bull_n + bear_n
+    if total_dir > 0:
+        ratio = bull_n / total_dir          # 0..1
+        if ratio >= 0.70:                   # ≥70% bullish signals
+            pct += (ratio - 0.5) * 30       # up to +15 bonus
+        elif ratio <= 0.30:                 # ≥70% bearish signals
+            pct -= (0.5 - ratio) * 30       # up to -15 penalty
+
+    if pct >= 35:
         verdict = "BUY";       confidence = min(95, int(40 + pct * 0.6))
-    elif pct >= 25:
+    elif pct >= 15:
         verdict = "LEAN BULL"; confidence = min(70, int(30 + pct * 0.7))
-    elif pct <= -45:
+    elif pct <= -35:
         verdict = "SELL";      confidence = min(95, int(40 + abs(pct) * 0.6))
-    elif pct <= -20:
+    elif pct <= -15:
         verdict = "LEAN BEAR"; confidence = min(70, int(30 + abs(pct) * 0.7))
     else:
         verdict = "WAIT";      confidence = min(80, 40 + min(bull_n, bear_n) * 5)
@@ -870,7 +880,7 @@ def _fallback_horizon(days, d):
 
 def render_decision_tab(df, symbol_input, stock_name, current_price):
     # Inject Inter font
-    st.markdown("""<style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');.stApp *{font-family:'Inter',system-ui,-apple-system,sans-serif!important;}</style>""", unsafe_allow_html=True)
+    # Font is set globally in app.py
 
     d    = _score_engine(df, current_price)
 
@@ -905,6 +915,21 @@ def render_decision_tab(df, symbol_input, stock_name, current_price):
     # ══════════════════════════════════════════════════════════════════════════
     #  1. HERO CARD — Clean minimal design
     # ══════════════════════════════════════════════════════════════════════════
+    insight_toggle(
+        "signal_strength",
+        "How is Signal Strength calculated?",
+        f"<p>The platform scores <strong>{total_sigs} independent indicator groups</strong> — each one examines the market from a different angle:</p>"
+        "<div class='itog-row'><span class='itog-dot'></span><span><strong>EMA Stack</strong> — Are prices above or below the 20/50/200-day moving averages? Full alignment = strongest trend signal.</span></div>"
+        "<div class='itog-row'><span class='itog-dot'></span><span><strong>MACD</strong> — Is momentum increasing bullishly or bearishly? Is the MACD line crossing its signal line?</span></div>"
+        "<div class='itog-row'><span class='itog-dot'></span><span><strong>RSI</strong> — Is the stock oversold (below 35, bounce potential) or overbought (above 70, pullback risk)?</span></div>"
+        "<div class='itog-row'><span class='itog-dot'></span><span><strong>Stochastic</strong> — Fast line crossing from oversold or overbought territory signals potential reversals.</span></div>"
+        "<div class='itog-row'><span class='itog-dot'></span><span><strong>Bollinger Bands</strong> — Is price near or outside the lower band (oversold) or upper band (stretched)?</span></div>"
+        "<div class='itog-row'><span class='itog-dot'></span><span><strong>ADX + Directional Index</strong> — Is there a strong trend direction? Is +DI (bullish momentum) or &minus;DI (bearish) dominant?</span></div>"
+        "<div class='itog-row'><span class='itog-dot'></span><span><strong>Volume &amp; OBV</strong> — Is smart money flowing in (accumulation) or out (distribution)?</span></div>"
+        "<div class='itog-row'><span class='itog-dot'></span><span><strong>Market Regime</strong> — Is the market Trending, Range-bound, or Volatile? Signals perform differently in each state.</span></div>"
+        "<p><strong>Signal Strength % = Bullish votes &divide; Total votes &times; 100.</strong> "
+        "Above 60% means most groups agree on a bullish setup. The Composite Score bar weights how strong each vote is, not just the count.</p>"
+    )
     st.markdown(
         f"<div style='background:#1b1b1b;border:1px solid #272727;"
         f"border-radius:14px;overflow:hidden;margin-bottom:1.4rem;"
@@ -959,29 +984,8 @@ def render_decision_tab(df, symbol_input, stock_name, current_price):
         f"text-transform:uppercase;letter-spacing:0.5px;'>Score</div></div>"
         f"</div>"
 
-        # Progress bar
-        f"<div style='display:flex;justify-content:space-between;font-size:0.7rem;"
-        f"color:#888;margin-bottom:0.4rem;font-weight:600;'>"
-        f"<span>Conviction</span>"
-        f"<span style='color:{vc};font-weight:800;'>{score_pct}%</span></div>"
-        + _glowbar(score_pct, vc) +
         f"</div></div>",
         unsafe_allow_html=True,
-    )
-    insight_toggle(
-        "signal_strength",
-        "How is Signal Strength calculated?",
-        f"<p>The platform scores <strong>{total_sigs} independent indicator groups</strong> — each one examines the market from a different angle:</p>"
-        "<div class='itog-row'><span class='itog-dot'></span><span><strong>EMA Stack</strong> — Are prices above or below the 20/50/200-day moving averages? Full alignment = strongest trend signal.</span></div>"
-        "<div class='itog-row'><span class='itog-dot'></span><span><strong>MACD</strong> — Is momentum increasing bullishly or bearishly? Is the MACD line crossing its signal line?</span></div>"
-        "<div class='itog-row'><span class='itog-dot'></span><span><strong>RSI</strong> — Is the stock oversold (below 35, bounce potential) or overbought (above 70, pullback risk)?</span></div>"
-        "<div class='itog-row'><span class='itog-dot'></span><span><strong>Stochastic</strong> — Fast line crossing from oversold or overbought territory signals potential reversals.</span></div>"
-        "<div class='itog-row'><span class='itog-dot'></span><span><strong>Bollinger Bands</strong> — Is price near or outside the lower band (oversold) or upper band (stretched)?</span></div>"
-        "<div class='itog-row'><span class='itog-dot'></span><span><strong>ADX + Directional Index</strong> — Is there a strong trend direction? Is +DI (bullish momentum) or &minus;DI (bearish) dominant?</span></div>"
-        "<div class='itog-row'><span class='itog-dot'></span><span><strong>Volume &amp; OBV</strong> — Is smart money flowing in (accumulation) or out (distribution)?</span></div>"
-        "<div class='itog-row'><span class='itog-dot'></span><span><strong>Market Regime</strong> — Is the market Trending, Range-bound, or Volatile? Signals perform differently in each state.</span></div>"
-        "<p><strong>Signal Strength % = Bullish votes &divide; Total votes &times; 100.</strong> "
-        "Above 60% means most groups agree on a bullish setup. The Composite Score bar weights how strong each vote is, not just the count.</p>"
     )
     
 

@@ -78,6 +78,10 @@ st.markdown("""
 
 <style>
 
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+    .stApp, .stApp * { font-family: 'Inter', system-ui, -apple-system, sans-serif !important; }
+
     #MainMenu, footer, header,
 
     [data-testid="stToolbar"], [data-testid="stDecoration"],
@@ -145,6 +149,29 @@ st.markdown("""
     .warning-card { background: transparent; padding: 0; border-radius: 0; margin-bottom: 0.5rem; border: none; }
 
     .info-card { background: transparent; padding: 0; border-radius: 0; margin-bottom: 0.5rem; border: none; }
+
+    /* ── Hero info card design system ───────────────────────────────── */
+    .hero-wrap { background:#1b1b1b; border:1px solid #272727; border-radius:14px;
+                 overflow:hidden; margin-bottom:1.4rem; box-shadow:0 4px 24px rgba(0,0,0,0.3); }
+    .hero-inner { padding:1.6rem 1.8rem; }
+    .hero-hdr { display:flex; justify-content:space-between; align-items:center;
+                flex-wrap:wrap; gap:0.6rem; margin-bottom:1.1rem; }
+    .hero-name { font-size:1.5rem; font-weight:800; color:#e0e0e0; line-height:1.2; }
+    .hero-sub { font-size:0.78rem; color:#606060; margin-top:0.28rem; font-weight:600; }
+    .hero-divider { border-top:1px solid #272727; margin-bottom:0.9rem; }
+    .hero-grid5 { display:grid; grid-template-columns:repeat(5,1fr); gap:0.7rem; margin-bottom:0.7rem; }
+    .hero-grid3 { display:grid; grid-template-columns:repeat(3,1fr); gap:0.7rem; }
+    .hero-tile { background:#161616; border:1px solid #272727; border-radius:10px;
+                 padding:1rem 1.1rem; overflow:hidden; }
+    .hero-tile-lbl { font-size:0.62rem; color:#606060; text-transform:uppercase;
+                     letter-spacing:1px; font-weight:700; margin-bottom:0.5rem;
+                     display:flex; align-items:center; }
+    .hero-tile-val { font-size:1.15rem; font-weight:800; color:#e0e0e0; line-height:1.1; }
+    .hero-tile-val.lg { font-size:1.5rem; }
+    .hero-tile-sub { font-size:0.68rem; margin-top:0.35rem; font-weight:600; }
+    .hero-tip { display:inline-flex; align-items:center; justify-content:center;
+                width:14px; height:14px; border-radius:50%; background:#272727; color:#606060;
+                font-size:0.48rem; font-weight:700; margin-left:0.4rem; cursor:help; }
 
     /* Recommendations tab styling */
 
@@ -611,7 +638,6 @@ def main():
                 gap: 8px;
                 padding: 0 16px;
                 transition: all 0.2s ease;
-                font-family: 'Segoe UI', -apple-system, sans-serif;
                 line-height: 1;
                 letter-spacing: 0.2px;
                 white-space: nowrap;
@@ -764,7 +790,7 @@ def main():
                     'border-radius:10px;' +
                     'color:' + col + ';' +
                     'font-size:.8rem;font-weight:' + fw + ';' +
-                    'font-family:Segoe UI,system-ui,sans-serif;cursor:pointer;white-space:nowrap;' +
+                    'cursor:pointer;white-space:nowrap;' +
                     'height:calc(100% - 16px);align-self:center;flex-shrink:0;letter-spacing:.2px;' +
                     'transition:color .2s,background .2s,border-color .2s,transform .15s;">' +
                     '<span class="sqnb-ico" style="display:inline-flex;align-items:center;opacity:' + (on ? '1' : '.45') + ';transition:opacity .2s;pointer-events:none;">' + tab.v + '</span>' +
@@ -1364,8 +1390,6 @@ def main():
             font-size: 1.05rem; font-weight: 800;
 
             color: {cp_text1}; line-height: 1;
-
-            font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
 
             white-space: nowrap;
 
@@ -2797,6 +2821,17 @@ def main():
             padding: 0 !important;
         }}
 
+        /* ── Brand header ──────────────────────────────────────────────── */
+        .lp-brand {{
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: #ffffff;
+            letter-spacing: 0.5px;
+            text-align: center;
+            padding: 0.4rem 0;
+            margin: 0;
+        }}
+
         /* ── Left panel (status + buttons) ───────────────────────────────── */
         .st-key-left_panel > div > [data-testid="stVerticalBlockBorderWrapper"],
         .st-key-left_panel > div > [data-testid="stVerticalBlock"] {{
@@ -3272,6 +3307,9 @@ def main():
             # ── LEFT PANEL: branding + buttons + market stats ──────────────
             with left_col:
                 with st.container(key="left_panel"):
+
+                    # Brand header
+                    st.markdown('<div class="lp-brand">Tadawul</div>', unsafe_allow_html=True)
 
                     # Period state + labels (used throughout left panel)
                     _ap = st.session_state.get('mkt_period', '1d')
@@ -3811,7 +3849,7 @@ def main():
 
         /* Top picks */
         .msr-hline { height:1px; background:rgba(255,255,255,0.07); margin:0.9rem 0 0.8rem; }
-        .msr-pick  { border-radius:14px; overflow:hidden; font-family:'Inter',system-ui,sans-serif; }
+        .msr-pick  { border-radius:14px; overflow:hidden; }
         .msr-pick.gold   { background:rgba(255,215,0,0.03);  border:1px solid rgba(255,215,0,0.2); }
         .msr-pick.silver { background:rgba(192,192,192,0.025); border:1px solid rgba(192,192,192,0.15); }
         .msr-pick.bronze { background:rgba(205,127,50,0.03);  border:1px solid rgba(205,127,50,0.18); }
@@ -3844,7 +3882,7 @@ def main():
         /* ── Stock cards ─────────────────────────────────────────── */
         .sc { border-radius:14px; overflow:hidden; margin-bottom:0.5rem;
               background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.07);
-              font-family:'Inter',system-ui,sans-serif; transition:background 0.15s; }
+              transition:background 0.15s; }
         .sc:hover { background:rgba(255,255,255,0.038); }
 
         /* Header */
@@ -5268,27 +5306,22 @@ def main():
                 sub_color = "#888"
 
             tip_html = (
-                f"<span title='{tooltip}' style='display:inline-flex;align-items:center;"
-                f"justify-content:center;width:14px;height:14px;border-radius:50%;"
-                f"background:#272727;color:#606060;font-size:0.48rem;font-weight:700;"
-                f"margin-left:0.4rem;cursor:help;vertical-align:middle;'>?</span>"
+                f"<span title='{tooltip}' class='hero-tip'>?</span>"
             ) if tooltip else ""
+
+            _lg = " lg" if val_size == "1.5rem" else ""
 
             return (
 
-                f"<div style='background:#161616; border:1px solid #272727;"
+                f"<div class='hero-tile'>"
 
-                f" border-radius:10px; padding:1rem 1.1rem; overflow:hidden;'>"
+                f"<div class='hero-tile-lbl'>{label}{tip_html}</div>"
 
-                f"<div style='font-size:0.62rem; color:#606060; text-transform:uppercase;"
-
-                f" letter-spacing:1px; font-weight:700; margin-bottom:0.5rem;'>{label}{tip_html}</div>"
-
-                f"<div style='font-size:{val_size}; font-weight:800; color:{val_color}; line-height:1.1;"
+                f"<div class='hero-tile-val{_lg}' style='color:{val_color};"
 
                 f" text-shadow:0 0 18px {accent}33;'>{value}</div>"
 
-                f"<div style='font-size:0.68rem; color:{sub_color}; margin-top:0.35rem; font-weight:600;'>{sub}</div>"
+                f"<div class='hero-tile-sub' style='color:{sub_color};'>{sub}</div>"
 
                 f"</div>"
 
@@ -5471,25 +5504,21 @@ def main():
 
         hero_html = (
 
-            "<div style='background:#1b1b1b; border:1px solid #272727; border-radius:14px;"
-
-            " overflow:hidden; margin-bottom:1.4rem; box-shadow:0 4px 24px rgba(0,0,0,0.3);'>"
+            "<div class='hero-wrap'>"
 
 
 
-            "<div style='padding:1.6rem 1.8rem;'>"
+            "<div class='hero-inner'>"
 
 
 
-            "<div style='display:flex; justify-content:space-between; align-items:center;"
-
-            " flex-wrap:wrap; gap:0.6rem; margin-bottom:1.1rem;'>"
+            "<div class='hero-hdr'>"
 
             "<div>"
 
-            "<div style='font-size:1.5rem; font-weight:800; color:#e0e0e0; line-height:1.2;'>" + stock_name + "</div>"
+            "<div class='hero-name'>" + stock_name + "</div>"
 
-            "<div style='font-size:0.78rem; color:#606060; margin-top:0.28rem; font-weight:600;'>"
+            "<div class='hero-sub'>"
 
             + symbol_input + "&nbsp;&nbsp;&#183;&nbsp;&nbsp;" + _period_label +
 
@@ -5503,11 +5532,11 @@ def main():
 
 
 
-            "<div style='border-top:1px solid #272727; margin-bottom:0.9rem;'></div>"
+            "<div class='hero-divider'></div>"
 
 
 
-            "<div style='display:grid; grid-template-columns:repeat(5,1fr); gap:0.7rem; margin-bottom:0.7rem;'>"
+            "<div class='hero-grid5'>"
 
             + tiles_top +
 
@@ -5515,7 +5544,7 @@ def main():
 
 
 
-            "<div style='display:grid; grid-template-columns:repeat(3,1fr); gap:0.7rem;'>"
+            "<div class='hero-grid3'>"
 
             + tiles_bot +
 

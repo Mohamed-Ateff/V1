@@ -227,9 +227,7 @@ def logout():
 
 _AUTH_CSS = """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-
-* { font-family: 'Inter', sans-serif !important; box-sizing: border-box; }
+* { box-sizing: border-box; }
 
 #MainMenu, footer, header,
 [data-testid="stToolbar"], [data-testid="stDecoration"],
