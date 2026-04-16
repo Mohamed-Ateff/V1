@@ -284,9 +284,12 @@ def trade_validator_tab(df, latest, current_price):
     cp = float(current_price)
 
     # ── Step 1: Get auto-decision from Decision Intelligence engine ──────────
+    # Reuse cached result from Decision tab if available (avoids duplicate computation)
     try:
-        from decision_tab import _score_engine
-        d = _score_engine(df, cp)
+        d = st.session_state.get("_score_engine_d")
+        if d is None:
+            from decision_tab import _score_engine
+            d = _score_engine(df, cp)
     except Exception as e:
         st.error(f"Decision engine error — {e}")
         return

@@ -5604,7 +5604,8 @@ def main():
         from trade_validator_tab import trade_validator_tab
         from elliott_wave_tab import elliott_wave_tab
 
-        # AI cache pre-warm removed — tabs compute on demand (Streamlit lazy-loads tab content)
+        # Each tab wrapped in @st.fragment so interactions within one tab
+        # do NOT re-render ALL 9 tabs (huge performance win on reruns).
 
         tab_dec, tab0, tab1, tab2, tab_vp, tab_smc, tab_ew, tab4, tab_tv = st.tabs([
             "Decision",
@@ -5619,53 +5620,88 @@ def main():
         ])
 
         with tab_dec:
-            render_decision_tab(df, symbol_input, stock_name, current_price)
+            @st.fragment
+            def _frag_decision():
+                render_decision_tab(df, symbol_input, stock_name, current_price)
+            _frag_decision()
 
         with tab0:
-            render_regime_analysis_tab(df, info_icon, create_regime_distribution_chart)
+            @st.fragment
+            def _frag_regime():
+                render_regime_analysis_tab(df, info_icon, create_regime_distribution_chart)
+            _frag_regime()
 
         with tab1:
-            signal_analysis_tab(df, info_icon)
+            @st.fragment
+            def _frag_signals():
+                signal_analysis_tab(df, info_icon)
+            _frag_signals()
 
         with tab2:
-            price_action_analysis_tab(df, info_icon)
-            patterns_tab(df)
+            @st.fragment
+            def _frag_patterns():
+                price_action_analysis_tab(df, info_icon)
+                patterns_tab(df)
+            _frag_patterns()
 
         with tab_vp:
-            volume_profile_tab(df, current_price)
+            @st.fragment
+            def _frag_vp():
+                volume_profile_tab(df, current_price)
+            _frag_vp()
 
         with tab_smc:
-            smc_tab(df, current_price)
+            @st.fragment
+            def _frag_smc():
+                smc_tab(df, current_price)
+            _frag_smc()
 
         with tab_ew:
-            elliott_wave_tab(df, current_price)
+            @st.fragment
+            def _frag_ew():
+                elliott_wave_tab(df, current_price)
+            _frag_ew()
 
         with tab4:
-            insight_toggle(
-                "ai_analysis_info",
-                "How AI Analysis works",
-                "<p>This tab uses a <strong>12-factor scoring engine</strong> to evaluate the current market setup.</p>"
-                "<p><strong>AI Score (0–100):</strong> Every factor — momentum, trend strength, RSI positioning, MACD divergence, "
-                "Bollinger Band compression, volume dynamics, ATR volatility, support/resistance proximity — casts a bullish or bearish vote. "
-                "The score aggregates them. <strong style='color:#4caf50'>70+</strong> = bullish setup, "
-                "<strong style='color:#f44336'>30−</strong> = bearish, <strong style='color:#ff9800'>30–70</strong> = neutral/wait.</p>"
-                "<p><strong>Trade Setups:</strong> Entry, stop loss, and profit target are calculated from current ATR and nearest support/resistance levels. "
-                "Risk/reward ratios are computed for each setup.</p>"
-                "<p><strong>ML Predictions:</strong> Three independent models forecast 5-day, 10-day, and 20-day price moves using historical pattern matching "
-                "and feature regression on hundreds of prior similar market conditions.</p>"
-                "<p><strong>Historical Analogies:</strong> Searches for the 25 most similar past price patterns and shows their average forward return.</p>"
-                "<p style='color:#9e9e9e;font-size:0.85em'>Analysis tool only — not financial advice. Always apply your own risk management.</p>",
-            )
-            gemini_tab(
-                df, symbol_input, stock_name, latest,
-                current_price, period_change, period_high, period_low,
-                annual_vol, current_regime, adx_current, rsi_current,
-                atr_pct, price_vs_ema20, price_vs_ema200,
-                recent_5d_change, recent_20d_change,
-            )
+            @st.fragment
+            def _frag_ai():
+                insight_toggle(
+                    "ai_analysis_info",
+                    "How AI Analysis works",
+                    "<p>This tab uses a <strong>12-factor scoring engine</strong> to evaluate the current market setup.</p>"
+                    "<p><strong>AI Score (0–100):</strong> Every factor — momentum, trend strength, RSI positioning, MACD divergence, "
+                    "Bollinger Band compression, volume dynamics, ATR volatility, support/resistance proximity — casts a bullish or bearish vote. "
+                    "The score aggregates them. <strong style='color:#4caf50'>70+</strong> = bullish setup, "
+                    "<strong style='color:#f44336'>30−</strong> = bearish, <strong style='color:#ff9800'>30–70</strong> = neutral/wait.</p>"
+                    "<p><strong>Trade Setups:</strong> Entry, stop loss, and profit target are calculated from current ATR and nearest support/resistance levels. "
+                    "Risk/reward ratios are computed for each setup.</p>"
+                    "<p><strong>ML Predictions:</strong> Three independent models forecast 5-day, 10-day, and 20-day price moves using historical pattern matching "
+                    "and feature regression on hundreds of prior similar market conditions.</p>"
+                    "<p><strong>Historical Analogies:</strong> Searches for the 25 most similar past price patterns and shows their average forward return.</p>"
+                    "<p style='color:#9e9e9e;font-size:0.85em'>Analysis tool only — not financial advice. Always apply your own risk management.</p>",
+                )
+                # AI Analysis is heavy (trains 15 ML models). Defer until user visits this tab.
+                _ai_key = f"_ai_loaded_{symbol_input}"
+                if st.session_state.get(_ai_key):
+                    gemini_tab(
+                        df, symbol_input, stock_name, latest,
+                        current_price, period_change, period_high, period_low,
+                        annual_vol, current_regime, adx_current, rsi_current,
+                        atr_pct, price_vs_ema20, price_vs_ema200,
+                        recent_5d_change, recent_20d_change,
+                    )
+                else:
+                    st.info("Click **Run AI Analysis** to generate ML predictions, historical analogies, and Monte Carlo simulations.")
+                    if st.button("🤖 Run AI Analysis", key="_btn_run_ai", type="primary"):
+                        st.session_state[_ai_key] = True
+                        st.rerun()
+            _frag_ai()
 
         with tab_tv:
-            trade_validator_tab(df, latest, current_price)
+            @st.fragment
+            def _frag_tv():
+                trade_validator_tab(df, latest, current_price)
+            _frag_tv()
 
 
 

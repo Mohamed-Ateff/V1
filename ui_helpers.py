@@ -43,6 +43,8 @@ details.insight-toggle[open] summary {
     border-bottom: 1px solid #2a2a2a;
 }
 details.insight-toggle summary::-webkit-details-marker { display: none; }
+details.insight-toggle summary::marker { display: none; content: ''; font-size: 0; }
+details.insight-toggle summary { list-style-type: none; }
 details.insight-toggle summary .itog-icon {
     font-size: 0.85rem;
     line-height: 1;

@@ -506,6 +506,43 @@ def _score_engine(df, cp):
         elif cci > 150:
             F(f"CCI overbought ({cci:.0f})", -2, 2, "Momentum", -1)
 
+    # ── RSI divergence detection (bullish & bearish) ────────────────────
+    # Look back ~20 bars for price vs RSI divergence
+    if n >= 25 and "RSI_14" in df.columns:
+        _rsi_s = df["RSI_14"].dropna().astype(float)
+        if len(_rsi_s) >= 20:
+            _p_lo1 = float(low.iloc[-20:-10].min())
+            _p_lo2 = float(low.iloc[-10:].min())
+            _r_lo1 = float(_rsi_s.iloc[-20:-10].min())
+            _r_lo2 = float(_rsi_s.iloc[-10:].min())
+            _p_hi1 = float(high.iloc[-20:-10].max())
+            _p_hi2 = float(high.iloc[-10:].max())
+            _r_hi1 = float(_rsi_s.iloc[-20:-10].max())
+            _r_hi2 = float(_rsi_s.iloc[-10:].max())
+            # Bullish divergence: price lower low, RSI higher low
+            if _p_lo2 < _p_lo1 and _r_lo2 > _r_lo1 + 2:
+                F("RSI bullish divergence — price lower low but RSI higher low", 5, 5, "Divergence", 1)
+            # Bearish divergence: price higher high, RSI lower high
+            elif _p_hi2 > _p_hi1 and _r_hi2 < _r_hi1 - 2:
+                F("RSI bearish divergence — price higher high but RSI lower high", -5, 5, "Divergence", -1)
+
+    # ── MACD divergence detection ───────────────────────────────────────
+    if n >= 25 and "MACDh_12_26_9" in df.columns:
+        _mh_s = df["MACDh_12_26_9"].dropna().astype(float)
+        if len(_mh_s) >= 20:
+            _p_lo1 = float(low.iloc[-20:-10].min())
+            _p_lo2 = float(low.iloc[-10:].min())
+            _mh_lo1 = float(_mh_s.iloc[-20:-10].min())
+            _mh_lo2 = float(_mh_s.iloc[-10:].min())
+            _p_hi1 = float(high.iloc[-20:-10].max())
+            _p_hi2 = float(high.iloc[-10:].max())
+            _mh_hi1 = float(_mh_s.iloc[-20:-10].max())
+            _mh_hi2 = float(_mh_s.iloc[-10:].max())
+            if _p_lo2 < _p_lo1 and _mh_lo2 > _mh_lo1:
+                F("MACD bullish divergence — hidden buying pressure building", 5, 5, "Divergence", 1)
+            elif _p_hi2 > _p_hi1 and _mh_hi2 < _mh_hi1:
+                F("MACD bearish divergence — momentum fading despite higher prices", -5, 5, "Divergence", -1)
+
     if w52_pos >= 85 and p20d > 0:
         F(f"Near 52W high ({w52_pos:.0f}th pct) with positive momentum", 3, 3, "Momentum", 1)
     elif w52_pos <= 15:
@@ -513,16 +550,24 @@ def _score_engine(df, cp):
     elif w52_pos >= 85 and p20d < 0:
         F(f"Near 52W high but losing momentum — potential top", -2, 3, "Momentum", -1)
 
-    running_score = sum(f["pts"] for f in factors)
+    # ── Regime overlay — INDEPENDENT signal based on regime + ADX/trend ──
+    # Uses EMA alignment (not running_score) to avoid self-reinforcement.
     if regime == "TREND":
-        if running_score > 0:
-            F("TRENDING regime — trend-following has highest win rate now", 3, 3, "Regime", 1)
+        if above_all or above_2:
+            F("TRENDING regime + bullish EMA alignment — trend continuation favoured", 3, 3, "Regime", 1)
+        elif below_all or below_2:
+            F("TRENDING regime + bearish EMA alignment — downtrend continuation", -3, 3, "Regime", -1)
         else:
-            F("TRENDING regime — confirms current downtrend direction", -3, 3, "Regime", -1)
+            F("TRENDING regime but EMAs mixed — trend may be transitioning", 0, 3, "Regime", 0)
     elif regime == "RANGE":
-        F("RANGE regime — mean reversion valid, extremes favour reversal", 1, 3, "Regime", 0)
+        if rsi < 35 or bb_pct < 0.15:
+            F("RANGE regime near support — mean reversion BUY favoured", 2, 3, "Regime", 1)
+        elif rsi > 65 or bb_pct > 0.85:
+            F("RANGE regime near resistance — mean reversion SELL favoured", -2, 3, "Regime", -1)
+        else:
+            F("RANGE regime — no edge at midrange, wait for extremes", 0, 3, "Regime", 0)
     else:
-        F("VOLATILE regime — mixed signals, expect whipsaws", -1, 3, "Regime", 0)
+        F("VOLATILE regime — reduce position size, expect whipsaws", -1, 3, "Regime", 0)
 
     total_pts = sum(f["pts"] for f in factors)
     total_max = sum(f["max"] for f in factors)
@@ -531,15 +576,17 @@ def _score_engine(df, cp):
     bull_n = sum(1 for f in factors if f["dir"] > 0)
     bear_n = sum(1 for f in factors if f["dir"] < 0)
 
-    # Count-based ratio boost: when signal count is heavily skewed,
-    # nudge pct toward the dominant side to break WAIT deadlocks.
-    total_dir = bull_n + bear_n
-    if total_dir > 0:
-        ratio = bull_n / total_dir          # 0..1
-        if ratio >= 0.70:                   # ≥70% bullish signals
-            pct += (ratio - 0.5) * 30       # up to +15 bonus
-        elif ratio <= 0.30:                 # ≥70% bearish signals
-            pct -= (0.5 - ratio) * 30       # up to -15 penalty
+    # Magnitude-weighted ratio boost: instead of counting signals,
+    # use actual point values to determine dominance.
+    bull_pts_abs = sum(f["pts"] for f in factors if f["dir"] > 0)
+    bear_pts_abs = sum(abs(f["pts"]) for f in factors if f["dir"] < 0)
+    total_pts_abs = bull_pts_abs + bear_pts_abs
+    if total_pts_abs > 0:
+        mag_ratio = bull_pts_abs / total_pts_abs  # 0..1
+        if mag_ratio >= 0.72:
+            pct += (mag_ratio - 0.5) * 20       # up to +10 max
+        elif mag_ratio <= 0.28:
+            pct -= (0.5 - mag_ratio) * 20       # up to -10 max
 
     if pct >= 35:
         verdict = "BUY";       confidence = min(95, int(40 + pct * 0.6))
@@ -580,6 +627,28 @@ def _score_engine(df, cp):
         rr1      = 1.6; rr2 = 2.6
         entry_quality = ""; eq_col = ""
 
+    # ── R:R quality adjustment — reward good setups, penalize poor ones ───
+    _rr_quality = "FAIR"
+    _rr_adj = 0
+    if rr1 >= 3.0:
+        _rr_quality = "EXCELLENT"
+        _rr_adj = 8    # excellent R:R boosts confidence
+    elif rr1 >= 2.0:
+        _rr_quality = "GOOD"
+        _rr_adj = 4
+    elif rr1 >= 1.5:
+        _rr_quality = "FAIR"
+        _rr_adj = 0
+    elif rr1 >= 1.0:
+        _rr_quality = "POOR"
+        _rr_adj = -5   # poor R:R penalizes
+    else:
+        _rr_quality = "BAD"
+        _rr_adj = -10  # terrible R:R — major penalty
+
+    # Apply R:R adjustment to confidence (not to pct — affects display only)
+    confidence = max(10, min(95, confidence + _rr_adj))
+
     return {
         "verdict": verdict, "confidence": confidence,
         "is_actionable": is_actionable, "is_lean": is_lean, "is_bullish": is_bullish,
@@ -597,6 +666,7 @@ def _score_engine(df, cp):
         "e20": round(e20, 2), "e50": round(e50, 2), "e200": round(e200, 2),
         "w52h": round(w52h, 2), "w52l": round(w52l, 2), "cp": round(cp, 2),
         "entry_quality": entry_quality, "eq_col": eq_col,
+        "rr_quality": _rr_quality,
     }
 
 
@@ -882,7 +952,8 @@ _EXT_TABS = [
     ("Volume Profile", "volume_profile_tab", "get_vp_signal"),
     ("Chart Patterns", "patterns_tab",       "get_patterns_signal"),
     ("Smart Money",    "smc_tab",            "get_smc_signal"),
-    ("AI Analysis",    "gemini_tab",         "get_ai_signal"),
+    # AI Analysis excluded — trains 15 ML models, adds 10-25s.
+    # AI tab renders independently; its signal is too heavy for the Decision cascade.
 ]
 
 @st.cache_data(ttl=300, show_spinner=False)
@@ -916,6 +987,21 @@ def render_decision_tab(df, symbol_input, stock_name, current_price):
 
     d    = _score_engine(df, current_price)
 
+    # Store for Trade Validator to reuse (avoids duplicate computation)
+    st.session_state["_score_engine_d"] = d
+
+    # ── Run probability engine for historical validation (cached in session_state) ──
+    _prob_key = f"_prob_{symbol_input}_{len(df)}_{round(float(df['Close'].iloc[-1]),4)}"
+    if _prob_key in st.session_state:
+        _prob_data = st.session_state[_prob_key]
+    else:
+        _prob_data = _probability_engine(df, d)
+        st.session_state[_prob_key] = _prob_data
+    _prob_10d = _prob_data.get(10, {})
+    _win_rate = _prob_10d.get("prob_up", 50.0)
+    _n_analogs = _prob_10d.get("n_analogs", 0)
+    _ev = _prob_10d.get("ev", 0.0)
+
     V       = d["verdict"]
     cp      = current_price
     is_bull = d["is_bullish"]
@@ -932,11 +1018,11 @@ def render_decision_tab(df, symbol_input, stock_name, current_price):
     _ti_reasons = [f["name"] for f in sorted(d["factors"], key=lambda x: abs(x["pts"]), reverse=True)[:3]]
     _tab_scores.append(("Technical Indicators", "&#128200;", _ti_score, _ti_lbl, _ti_col, _ti_reasons, True))
 
-    # 2-6. External tab signals — @st.cache_data (survives refresh, 5 min TTL)
+    # 2-5. External tab signals — @st.cache_data (survives refresh, 5 min TTL)
+    # AI Analysis excluded from collection — too heavy (trains 15 ML models).
     _ext_icons = {
         "Price Action": "&#128201;", "Volume Profile": "&#128202;",
         "Chart Patterns": "&#128300;", "Smart Money": "&#128176;",
-        "AI Analysis": "&#129302;",
     }
     _tail = df["Close"].tail(5).tolist()
     _df_hash = f"{symbol_input}_{round(cp,2)}_{len(df)}_{[round(float(x),4) for x in _tail]}"
@@ -974,417 +1060,21 @@ def render_decision_tab(df, symbol_input, stock_name, current_price):
         _master_score = int(sum(s * w for s, w in _weights) / sum(w for _, w in _weights))
     else:
         _master_score = _ti_score  # fallback to TI only
+
+    # ── Probability engine adjustment ───────────────────────────────────
+    # Blend historical win rate into master score (20% weight) if we have
+    # enough analog matches to be statistically meaningful.
+    if _n_analogs >= 8:
+        _prob_score = int(_win_rate)  # 0-100 scale, same as master
+        _master_score = int(_master_score * 0.80 + _prob_score * 0.20)
+
     _master_score = max(0, min(100, _master_score))
 
-    # ── Final Verdict Logic ─────────────────────────────────────────────────
-    # This is the most important logic in the entire app. Rules:
-    #
-    # BUY HIGH:     Engine=BUY + MasterScore>=60 + >=2 active bull + TI bullish + 0 active bearish
-    # BUY MOD:      Engine=BUY + MasterScore>=55 + >=1 active bull + TI not bearish + 0 active bearish
-    # SELL HIGH:    Engine=SELL + MasterScore<35 + TI bearish + 0 active bull
-    # SELL MOD:     Engine=SELL/LEAN BEAR + MasterScore<42 + TI bearish
-    # WAIT:         Everything else — the only safe default
-    #
-    # KEY PRINCIPLES:
-    # - Inactive modules NEVER count for or against
-    # - Only ACTIVE signals can confirm or deny
-    # - TI is the backbone (always active) — must agree with verdict
-    # - External tabs provide CONFIRMATION, not contradiction
-
-    _ti_bullish = _ti_score >= 55
-    _ti_bearish = _ti_score < 40
-    _ti_neutral = not _ti_bullish and not _ti_bearish
-
-    if (V == "BUY" and _master_score >= 60
-            and _bull_tabs >= 2 and _bear_real == 0 and _ti_bullish):
-        display_v = "BUY"
-        vc = BULL
-        dir_icon = "&#9650;"
-        _verdict_confidence = "HIGH"
-        vsub = f"{_bull_tabs} active modules confirm — Strong bullish confluence"
-
-    elif (V == "BUY" and _master_score >= 55
-            and _bull_tabs >= 1 and _bear_real == 0 and not _ti_bearish):
-        display_v = "BUY"
-        vc = BULL
-        dir_icon = "&#9650;"
-        _verdict_confidence = "MODERATE"
-        vsub = f"{_bull_tabs} active module{'s' if _bull_tabs > 1 else ''} bullish — Entry with caution"
-
-    elif (V == "SELL" and _master_score < 35
-            and _ti_bearish and _bull_tabs == 0):
-        display_v = "SELL"
-        vc = BEAR
-        dir_icon = "&#9660;"
-        _verdict_confidence = "HIGH"
-        vsub = f"Technical indicators strongly bearish — No bullish confirmation anywhere"
-
-    elif (V in ("SELL", "LEAN BEAR") and _master_score < 42
-            and _ti_bearish):
-        display_v = "SELL"
-        vc = BEAR
-        dir_icon = "&#9660;"
-        _verdict_confidence = "MODERATE"
-        vsub = f"Bearish bias — TI bearish, {_bull_tabs} bull confirmations"
-
-    else:
-        display_v = "WAIT"
-        vc = "#FFC107"
-        dir_icon = "&#9670;"
-        if V in ("BUY", "LEAN BULL") and _ti_bullish and _bull_tabs == 0:
-            _verdict_confidence = "LOW"
-            vsub = f"TI bullish but no other module confirms — wait for confirmation"
-        elif V in ("BUY", "LEAN BULL") and _ti_neutral:
-            _verdict_confidence = "LOW"
-            vsub = f"Leaning bullish but TI is neutral — signals too weak"
-        elif V in ("SELL", "LEAN BEAR") and _bull_tabs > 0:
-            _verdict_confidence = "LOW"
-            vsub = f"Leaning bearish but {_bull_tabs} module{'s' if _bull_tabs > 1 else ''} still bullish — conflicting"
-        elif _ti_neutral and _bull_tabs == 0:
-            _verdict_confidence = "NEUTRAL"
-            vsub = f"No strong signals in any direction — sit tight"
-        else:
-            _verdict_confidence = "NEUTRAL"
-            vsub = f"Mixed signals ({_bull_tabs} bull, {_bear_real} bear, {_inactive} inactive) — no clear edge"
-
-    # ── Build "WHY" reasons ─────────────────────────────────────────────────
-    _why_reasons = []
-    # Top factors from _score_engine (strongest signals)
-    _sorted_factors = sorted(d["factors"], key=lambda x: abs(x["pts"]), reverse=True)
-    for _f in _sorted_factors[:3]:
-        _dir_emoji = "&#9989;" if _f["dir"] > 0 else ("&#10060;" if _f["dir"] < 0 else "&#11036;")
-        _why_reasons.append((_dir_emoji, _f["name"], _f["cat"]))
-
-    # Add reasons from active tab signals
-    for _n, _ic, _sc, _lb, _cl, _rs, _act in _tab_scores[1:]:  # skip TI (already covered)
-        if _act and _sc >= 55 and _rs:
-            _why_reasons.append(("&#9989;", f"{_n}: {_rs[0]}", _n))
-        elif _act and _sc < 35 and _rs:
-            _why_reasons.append(("&#10060;", f"{_n}: {_rs[0]}", _n))
-    _why_reasons = _why_reasons[:6]  # cap at 6
-
-    # Signal strength
-    total_sigs   = d["bull_n"] + d["bear_n"]
-    sig_strength = int(d["bull_n"] / max(1, total_sigs) * 100)
-    conf_c       = BULL if sig_strength >= 60 else NEUT if sig_strength >= 40 else BEAR
-
-    # Master score color
-    _ms_col = BULL if _master_score >= 60 else ("#FFC107" if _master_score >= 40 else BEAR)
-
-    # Verdict confidence color
-    _vc_conf_col = BULL if _verdict_confidence == "HIGH" else ("#FFC107" if _verdict_confidence in ("MODERATE", "LOW") else "#555")
-
-    # ══════════════════════════════════════════════════════════════════════════
-    #  1. HERO CARD — Master scoring system from all tabs
-    # ══════════════════════════════════════════════════════════════════════════
-
-    # Tooltip + Hero CSS
-    st.markdown("""<style>
-    .dec-tip-wrap { position:relative; cursor:help; display:inline-flex; align-items:center; justify-content:center; }
-    .dec-tip-icon {
-        display:inline-flex;align-items:center;justify-content:center;
-        width:13px;height:13px;border-radius:50%;background:rgba(255,255,255,0.05);
-        border:1px solid #333;font-size:0.45rem;color:#666;font-weight:700;
-        margin-left:0.3rem;
-    }
-    .dec-tip-box {
-        visibility:hidden;opacity:0;position:absolute;bottom:140%;left:50%;
-        transform:translateX(-50%);background:#222;color:#ccc;border:1px solid #333;
-        border-radius:6px;padding:0.4rem 0.6rem;font-size:0.58rem;font-weight:500;
-        line-height:1.45;white-space:normal;width:190px;text-align:left;z-index:100;
-        pointer-events:none;transition:opacity 0.15s ease;
-        box-shadow:0 4px 14px rgba(0,0,0,0.5);text-transform:none;letter-spacing:0;
-    }
-    .dec-tip-box::after {
-        content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);
-        border:5px solid transparent;border-top-color:#333;
-    }
-    .dec-tip-wrap:hover .dec-tip-box { visibility:visible; opacity:1; }
-    </style>""", unsafe_allow_html=True)
-
-    insight_toggle(
-        "signal_strength",
-        "How does the Master Score work?",
-        "<p style='margin:0 0 0.6rem 0;'>The <strong>Master Score</strong> combines results from "
-        "<strong>6 independent analysis modules</strong> — each one looks at the market differently. "
-        "Technical Indicators gets <strong>2x weight</strong> because it provides full bullish + bearish analysis. "
-        "The final score is a weighted average (0–100).</p>"
-        "<div style='display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin:0.6rem 0;'>"
-        "<div style='background:rgba(33,150,243,0.08);border:1px solid rgba(33,150,243,0.2);border-radius:8px;padding:0.5rem 0.7rem;'>"
-        "<div style='font-weight:800;color:#90caf9;font-size:0.78rem;'>&#128200; Technical Indicators</div>"
-        "<div style='font-size:0.68rem;color:#bbb;line-height:1.5;margin-top:0.15rem;'>"
-        "EMA trends, RSI, MACD, Stochastic, Bollinger Bands, ADX, Volume — <strong>2x weight</strong></div></div>"
-        "<div style='background:rgba(76,175,80,0.08);border:1px solid rgba(76,175,80,0.2);border-radius:8px;padding:0.5rem 0.7rem;'>"
-        "<div style='font-weight:800;color:#81c784;font-size:0.78rem;'>&#128201; Price Action</div>"
-        "<div style='font-size:0.68rem;color:#bbb;line-height:1.5;margin-top:0.15rem;'>"
-        "Support/resistance, trend structure, swing highs/lows</div></div>"
-        "<div style='background:rgba(156,39,176,0.08);border:1px solid rgba(156,39,176,0.2);border-radius:8px;padding:0.5rem 0.7rem;'>"
-        "<div style='font-weight:800;color:#ce93d8;font-size:0.78rem;'>&#128202; Volume Profile</div>"
-        "<div style='font-size:0.68rem;color:#bbb;line-height:1.5;margin-top:0.15rem;'>"
-        "Where most trading happened — POC, value area, VWAP</div></div>"
-        "<div style='background:rgba(255,152,0,0.08);border:1px solid rgba(255,152,0,0.2);border-radius:8px;padding:0.5rem 0.7rem;'>"
-        "<div style='font-weight:800;color:#ffb74d;font-size:0.78rem;'>&#128300; Chart Patterns</div>"
-        "<div style='font-size:0.68rem;color:#bbb;line-height:1.5;margin-top:0.15rem;'>"
-        "Candlestick and chart patterns like engulfing, head &amp; shoulders</div></div>"
-        "<div style='background:rgba(0,188,212,0.08);border:1px solid rgba(0,188,212,0.2);border-radius:8px;padding:0.5rem 0.7rem;'>"
-        "<div style='font-weight:800;color:#80deea;font-size:0.78rem;'>&#128176; Smart Money</div>"
-        "<div style='font-size:0.68rem;color:#bbb;line-height:1.5;margin-top:0.15rem;'>"
-        "Order blocks, liquidity zones, institutional trading patterns</div></div>"
-        "<div style='background:rgba(244,67,54,0.08);border:1px solid rgba(244,67,54,0.2);border-radius:8px;padding:0.5rem 0.7rem;'>"
-        "<div style='font-weight:800;color:#ef9a9a;font-size:0.78rem;'>&#129302; AI Analysis</div>"
-        "<div style='font-size:0.68rem;color:#bbb;line-height:1.5;margin-top:0.15rem;'>"
-        "AI-powered deep analysis of all conditions combined</div></div>"
-        "</div>"
-        "<p style='font-size:0.72rem;color:#aaa;margin-top:0.5rem;'>"
-        "<strong>The decision:</strong> "
-        "BUY = Master Score 55+ AND the engine confirms AND 3+ modules agree. "
-        "SELL = Score below 40 AND bearish engine AND 3+ modules weak. "
-        "WAIT = Not enough agreement or mixed signals. "
-        "The &ldquo;Why&rdquo; section shows exactly which signals drove the decision.</p>"
-    )
-
-    # ── Build tab score rows HTML ───────────────────────────────────────────
-    _tab_tips = {
-        "Technical Indicators": "EMA, MACD, RSI, Stochastic, Bollinger, ADX, Volume, OBV — weighted 2x in master score",
-        "Price Action": "Support/resistance levels, trend direction, swing structure — buy setups only",
-        "Volume Profile": "POC, value area, VWAP positioning — identifies where real demand sits",
-        "Chart Patterns": "Candlestick + chart patterns in last 10 sessions — net bullish/bearish count",
-        "Smart Money": "Order blocks, liquidity sweeps, CHoCH/BOS — institutional flow detection",
-        "AI Analysis": "ML ensemble + historical analogy + 12-indicator AI scoring — highest bar for confirmation",
-    }
-    _tab_rows_html = ""
-    for _tname, _ticon, _tscore, _tlbl, _tcol, _trsns, _tact in _tab_scores:
-        _bar_col = BULL if _tscore >= 60 else ("#FFC107" if _tscore >= 40 else BEAR)
-        _ttip = _tab_tips.get(_tname, "")
-        _tip_html = (
-            f"<span class='dec-tip-wrap'><span class='dec-tip-icon'>?</span>"
-            f"<span class='dec-tip-box'>{_ttip}</span></span>"
-        ) if _ttip else ""
-        # Status dot
-        _dot_col = BULL if _tscore >= 55 else ("#FFC107" if _tscore >= 40 else BEAR if _tscore < 35 else "#555")
-        _tab_rows_html += (
-            f"<div style='display:flex;align-items:center;gap:0.7rem;padding:0.65rem 0;"
-            f"border-bottom:1px solid #1e1e1e;'>"
-            f"<div style='font-size:0.95rem;width:26px;text-align:center;'>{_ticon}</div>"
-            f"<div style='flex:1;'>"
-            f"<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:0.35rem;'>"
-            f"<span style='font-size:0.72rem;font-weight:700;color:#e0e0e0;display:flex;align-items:center;'>"
-            f"{_tname}{_tip_html}</span>"
-            f"<span style='font-size:0.56rem;font-weight:700;color:{_tcol};padding:0.15rem 0.5rem;"
-            f"border-radius:4px;background:{_tcol}14;border:1px solid {_tcol}22;'>{_tlbl}</span></div>"
-            f"<div style='background:#1a1a1a;border-radius:999px;height:5px;overflow:hidden;'>"
-            f"<div style='width:{_tscore}%;height:100%;border-radius:999px;"
-            f"background:linear-gradient(90deg,{_bar_col}cc,{_bar_col});"
-            f"box-shadow:0 0 6px {_bar_col}44;'></div></div>"
-            f"</div>"
-            f"<div style='font-size:1.05rem;font-weight:900;color:{_bar_col};min-width:36px;"
-            f"text-align:right;font-variant-numeric:tabular-nums;'>{_tscore}</div>"
-            f"</div>"
-        )
-
-    # ── Build "Why" reasons HTML ────────────────────────────────────────────
-    _why_html = ""
-    for _emoji, _reason, _cat in _why_reasons:
-        _why_html += (
-            f"<div style='display:flex;align-items:flex-start;gap:0.55rem;padding:0.5rem 0.7rem;"
-            f"background:#141414;border:1px solid #222;border-radius:8px;margin-bottom:0.4rem;'>"
-            f"<div style='font-size:0.75rem;margin-top:0.05rem;flex-shrink:0;'>{_emoji}</div>"
-            f"<div style='flex:1;'>"
-            f"<div style='font-size:0.68rem;color:#d0d0d0;line-height:1.5;font-weight:500;'>{_reason}</div>"
-            f"<div style='font-size:0.5rem;color:#444;margin-top:0.15rem;font-weight:600;"
-            f"text-transform:uppercase;letter-spacing:0.5px;'>{_cat}</div>"
-            f"</div></div>"
-        )
-
-    # RGB of vc for gradient
-    _vc_rgb = ','.join(str(int(vc[i:i+2], 16)) for i in (1, 3, 5))
-
-    # ── Score ring SVG ──────────────────────────────────────────────────────
-    _ring_pct = max(0, min(100, _master_score))
-    _ring_dash = round(251.2 * _ring_pct / 100, 1)  # circumference = 2*pi*40 ≈ 251.2
-    _ring_svg = (
-        f"<svg width='110' height='110' viewBox='0 0 110 110' style='display:block;'>"
-        f"<circle cx='55' cy='55' r='40' fill='none' stroke='#1a1a1a' stroke-width='7'/>"
-        f"<circle cx='55' cy='55' r='40' fill='none' stroke='{_ms_col}' stroke-width='7' "
-        f"stroke-linecap='round' stroke-dasharray='{_ring_dash} 251.2' "
-        f"transform='rotate(-90 55 55)' style='filter:drop-shadow(0 0 6px {_ms_col}55);'/>"
-        f"<text x='55' y='50' text-anchor='middle' fill='{_ms_col}' "
-        f"font-size='24' font-weight='900' font-family='Inter,sans-serif'>{_master_score}</text>"
-        f"<text x='55' y='68' text-anchor='middle' fill='#555' "
-        f"font-size='9' font-weight='700' font-family='Inter,sans-serif'>SCORE</text>"
-        f"</svg>"
-    )
-
-    # ── Agreement gauge ─────────────────────────────────────────────────────
-    _agree_pct = int(_bull_tabs / max(1, _active_count) * 100)
-
-    st.markdown(
-        f"<div style='background:#1b1b1b;border:1px solid #272727;"
-        f"border-radius:16px;overflow:hidden;margin-bottom:1.4rem;"
-        f"box-shadow:0 4px 30px rgba(0,0,0,0.4);'>"
-
-        # ── TOP GLOW BAR (thin accent) ──────────────────────────────────────
-        f"<div style='height:3px;background:linear-gradient(90deg,{vc}00,{vc},{vc}00);'></div>"
-
-        # ── HEADER: Verdict + Score Ring ────────────────────────────────────
-        f"<div style='padding:1.6rem 1.8rem 1.2rem;display:flex;justify-content:space-between;"
-        f"align-items:center;'>"
-
-        # Left: verdict
-        f"<div style='display:flex;align-items:center;gap:1rem;'>"
-        f"<div style='width:52px;height:52px;border-radius:14px;"
-        f"background:rgba({_vc_rgb},0.10);border:1px solid rgba({_vc_rgb},0.2);"
-        f"display:flex;align-items:center;justify-content:center;"
-        f"font-size:1.5rem;color:{vc};'>{dir_icon}</div>"
-        f"<div>"
-        f"<div style='display:flex;align-items:center;gap:0.6rem;'>"
-        f"<span style='font-size:2rem;font-weight:900;color:{vc};letter-spacing:-1px;"
-        f"line-height:1;text-shadow:0 0 24px {vc}33;'>{display_v}</span>"
-        f"<span style='font-size:0.52rem;font-weight:700;color:{_vc_conf_col};"
-        f"padding:0.15rem 0.5rem;border-radius:4px;border:1px solid {_vc_conf_col}33;"
-        f"background:{_vc_conf_col}11;text-transform:uppercase;letter-spacing:0.8px;"
-        f"'>{_verdict_confidence} CONF"
-        f"<span class='dec-tip-wrap'><span class='dec-tip-icon'>?</span>"
-        f"<span class='dec-tip-box'>HIGH = Engine + master score + 3+ modules agree. "
-        f"MODERATE = Engine agrees but fewer modules confirm. "
-        f"LOW/NEUTRAL = Mixed signals, proceed with caution.</span></span>"
-        f"</span></div>"
-        f"<div style='font-size:0.7rem;color:#888;margin-top:0.3rem;font-weight:500;"
-        f"line-height:1.4;max-width:340px;'>{vsub}</div>"
-        f"</div></div>"
-
-        # Right: score ring
-        f"<div style='text-align:center;'>{_ring_svg}</div>"
-        f"</div>"
-
-        # ── DIVIDER ────────────────────────────────────────────────────────
-        f"<div style='height:1px;margin:0 1.8rem;"
-        f"background:linear-gradient(90deg,transparent,#2a2a2a,transparent);'></div>"
-
-        # ── BODY ───────────────────────────────────────────────────────────
-        f"<div style='padding:1.2rem 1.8rem 1.5rem;'>"
-
-        # ── Stats row ──────────────────────────────────────────────────────
-        f"<div style='display:grid;grid-template-columns:repeat(4,1fr);gap:0.6rem;margin-bottom:1.2rem;'>"
-
-        # Stat 1: Bullish Modules
-        f"<div style='text-align:center;padding:0.7rem 0.4rem;background:#141414;"
-        f"border:1px solid #222;border-radius:10px;'>"
-        f"<div style='font-size:1.2rem;font-weight:900;color:{BULL};'>{_bull_tabs}</div>"
-        f"<div style='font-size:0.5rem;color:#555;margin-top:0.1rem;font-weight:700;"
-        f"text-transform:uppercase;letter-spacing:0.5px;display:flex;align-items:center;"
-        f"justify-content:center;gap:0.15rem;'>Bullish"
-        f"<span class='dec-tip-wrap'><span class='dec-tip-icon'>?</span>"
-        f"<span class='dec-tip-box'>Active modules scoring 55+ (confirmed buy signal)</span></span>"
-        f"</div></div>"
-
-        # Stat 2: Bearish Modules
-        f"<div style='text-align:center;padding:0.7rem 0.4rem;background:#141414;"
-        f"border:1px solid #222;border-radius:10px;'>"
-        f"<div style='font-size:1.2rem;font-weight:900;color:{BEAR};'>{_bear_real}</div>"
-        f"<div style='font-size:0.5rem;color:#555;margin-top:0.1rem;font-weight:700;"
-        f"text-transform:uppercase;letter-spacing:0.5px;display:flex;align-items:center;"
-        f"justify-content:center;gap:0.15rem;'>Bearish"
-        f"<span class='dec-tip-wrap'><span class='dec-tip-icon'>?</span>"
-        f"<span class='dec-tip-box'>Active modules scoring below 40 (confirmed bearish signal). Inactive modules do NOT count here.</span></span>"
-        f"</div></div>"
-
-        # Stat 3: Agreement
-        f"<div style='text-align:center;padding:0.7rem 0.4rem;background:#141414;"
-        f"border:1px solid #222;border-radius:10px;'>"
-        f"<div style='font-size:1.2rem;font-weight:900;color:{conf_c};'>{_agree_pct}%</div>"
-        f"<div style='font-size:0.5rem;color:#555;margin-top:0.1rem;font-weight:700;"
-        f"text-transform:uppercase;letter-spacing:0.5px;display:flex;align-items:center;"
-        f"justify-content:center;gap:0.15rem;'>Agreement"
-        f"<span class='dec-tip-wrap'><span class='dec-tip-icon'>?</span>"
-        f"<span class='dec-tip-box'>% of ACTIVE modules that are bullish. "
-        f"Inactive modules don't count. 50%+ = majority agree.</span></span>"
-        f"</div></div>"
-
-        # Stat 4: TI Composite
-        f"<div style='text-align:center;padding:0.7rem 0.4rem;background:#141414;"
-        f"border:1px solid #222;border-radius:10px;'>"
-        f"<div style='font-size:1.2rem;font-weight:900;color:{vc};'>{d['pct']:+.0f}%</div>"
-        f"<div style='font-size:0.5rem;color:#555;margin-top:0.1rem;font-weight:700;"
-        f"text-transform:uppercase;letter-spacing:0.5px;display:flex;align-items:center;"
-        f"justify-content:center;gap:0.15rem;'>TI Score"
-        f"<span class='dec-tip-wrap'><span class='dec-tip-icon'>?</span>"
-        f"<span class='dec-tip-box'>Technical Indicators weighted composite: "
-        f"positive = net bullish, negative = net bearish. "
-        f"Based on {d['bull_n']} bullish and {d['bear_n']} bearish factors.</span></span>"
-        f"</div></div>"
-
-        f"</div>"
-
-        # ── WHY THIS DECISION ──────────────────────────────────────────────
-        f"<div style='margin-bottom:1.2rem;'>"
-        f"<div style='font-size:0.55rem;color:#444;text-transform:uppercase;"
-        f"letter-spacing:1px;font-weight:700;margin-bottom:0.5rem;display:flex;"
-        f"align-items:center;gap:0.3rem;'>"
-        f"&#128269; Why {display_v}?"
-        f"<span class='dec-tip-wrap'><span class='dec-tip-icon'>?</span>"
-        f"<span class='dec-tip-box'>The strongest signals that drove this decision, "
-        f"ranked by impact. Green = bullish factor, Red = bearish factor.</span></span>"
-        f"</div>"
-        + _why_html
-        + f"</div>"
-
-        # ── MODULE BREAKDOWN ───────────────────────────────────────────────
-        f"<div style='margin-bottom:0.4rem;'>"
-        f"<div style='font-size:0.55rem;color:#444;text-transform:uppercase;"
-        f"letter-spacing:1px;font-weight:700;margin-bottom:0.5rem;display:flex;"
-        f"align-items:center;gap:0.3rem;'>"
-        f"&#128202; Score by Analysis Module"
-        f"<span class='dec-tip-wrap'><span class='dec-tip-icon'>?</span>"
-        f"<span class='dec-tip-box'>Each module scores 0–100 independently. "
-        f"55+ = bullish, 40–54 = neutral, below 40 = bearish/inactive. "
-        f"Technical Indicators is weighted 2x in the master score.</span></span>"
-        f"</div>"
-        + _tab_rows_html
-        + f"</div>"
-
-        # ── MASTER SCORE BAR ───────────────────────────────────────────────
-        f"<div style='margin-top:0.3rem;'>"
-        f"<div style='display:flex;justify-content:space-between;align-items:baseline;margin-bottom:0.3rem;'>"
-        f"<span style='font-size:0.5rem;color:#444;text-transform:uppercase;"
-        f"letter-spacing:0.7px;font-weight:700;'>Weighted Master Score</span>"
-        f"<span style='font-size:0.75rem;font-weight:900;color:{_ms_col};'>{_master_score}/100</span></div>"
-        f"<div style='background:#1a1a1a;border-radius:999px;height:8px;overflow:hidden;'>"
-        f"<div style='width:{_master_score}%;height:100%;border-radius:999px;"
-        f"background:linear-gradient(90deg,{_ms_col}cc,{_ms_col});"
-        f"box-shadow:0 0 10px {_ms_col}55;'></div></div></div>"
-
-        f"</div>"  # end body
-
-        # ── BOTTOM GLOW BAR ────────────────────────────────────────────────
-        f"<div style='height:2px;background:linear-gradient(90deg,{vc}00,{vc}66,{vc}00);'></div>"
-
-        f"</div>",  # end card
-        unsafe_allow_html=True,
-    )
-    
-
-    # ══════════════════════════════════════════════════════════════════════════
-    #  2. PRICE LADDER  (BUY signal only)
-    # ══════════════════════════════════════════════════════════════════════════
-    if V == "BUY":
-        from _levels import price_ladder_html as _plh
-        st.markdown(
-            _plh(d["entry"], d["stop"], d["t1"], d["t2"], d["t3"], True,
-                 d.get("entry_quality", ""), d.get("eq_col", ""),
-                 d.get("entry_zone_lo"), d.get("entry_zone_hi")),
-            unsafe_allow_html=True,
-        )
-
-    # ══════════════════════════════════════════════════════════════════════════
-    #  3. LIVE BUY SIGNALS FROM ALL TABS
-    # ══════════════════════════════════════════════════════════════════════════
-    st.markdown(_sec("Live Buy Signals", BULL), unsafe_allow_html=True)
-
-
-    # ── Multi-timeframe D1 filter ─────────────────────────────────────────────
-    _d1_filter_ok   = True   # default: pass
+    # ── D1 multi-timeframe filter — check BEFORE verdict logic ──────────
+    # If daily trend is firmly against the signal, downgrade confidence.
+    _d1_filter_ok   = True
     _d1_filter_warn = ""
+    _d1_trend_bull  = None   # None = unknown, True = D1 bullish, False = D1 bearish
     try:
         import yfinance as _yf
         _sym_d1 = symbol_input.strip()
@@ -1413,19 +1103,386 @@ def render_decision_tab(df, symbol_input, stock_name, current_price):
             _d1_rising = _d1_e50 > _d1_prev5
             if _d1_cp < _d1_e50 and not _d1_rising:
                 _d1_filter_ok   = False
+                _d1_trend_bull  = False
                 _d1_filter_warn = (
                     f"&#128200; <b>Daily D1 bearish</b>: price is below the 50-day EMA "
                     f"({_d1_e50:.2f}) and the EMA is declining. "
                     f"Intraday BUY signals are counter-trend — trade with reduced size."
                 )
             elif _d1_cp < _d1_e50:
+                _d1_trend_bull = False
                 _d1_filter_warn = (
                     f"&#8595; <b>Daily D1 caution</b>: price is below the 50-day EMA "
                     f"({_d1_e50:.2f}). Trend is recovering but not yet confirmed."
                 )
+            elif _d1_cp > _d1_e50 and _d1_rising:
+                _d1_trend_bull = True
     except Exception:
         pass
 
+    # ── Final Verdict Logic ─────────────────────────────────────────────────
+    # BUY requires: bullish engine + high master score + module agreement
+    # LEAN BULL can upgrade to BUY if master score & modules strongly confirm
+    # SELL requires: bearish engine + low master score + bearish TI
+    # Everything else → WAIT
+
+    _ti_bullish = _ti_score >= 55
+    _ti_bearish = _ti_score < 40
+    _ti_neutral = not _ti_bullish and not _ti_bearish
+
+    if (V in ("BUY", "LEAN BULL") and _master_score >= 60
+            and _bull_tabs >= 2 and _bear_real == 0 and _ti_bullish):
+        display_v = "BUY"
+        vc = BULL
+        _verdict_confidence = "HIGH"
+        vsub = f"{_bull_tabs} modules confirm — Strong bullish confluence"
+
+    elif (V in ("BUY", "LEAN BULL") and _master_score >= 55
+            and _bull_tabs >= 1 and _bear_real == 0 and _ti_bullish):
+        display_v = "BUY"
+        vc = BULL
+        _verdict_confidence = "MODERATE"
+        vsub = f"{_bull_tabs} module{'s' if _bull_tabs > 1 else ''} bullish — Entry with caution"
+
+    elif (V in ("BUY", "LEAN BULL") and _master_score >= 50
+            and _bull_tabs >= 1 and _bear_real == 0 and not _ti_bearish):
+        display_v = "BUY"
+        vc = BULL
+        _verdict_confidence = "LOW"
+        vsub = f"Leaning bullish — {_bull_tabs} module{'s' if _bull_tabs > 1 else ''} confirm but signals not strong"
+
+    elif (V == "SELL" and _master_score < 35
+            and _ti_bearish and _bull_tabs == 0):
+        display_v = "SELL"
+        vc = BEAR
+        _verdict_confidence = "HIGH"
+        vsub = f"Technical indicators strongly bearish — No bullish confirmation"
+
+    elif (V in ("SELL", "LEAN BEAR") and _master_score < 42
+            and _ti_bearish):
+        display_v = "SELL"
+        vc = BEAR
+        _verdict_confidence = "MODERATE"
+        vsub = f"Bearish bias — TI bearish, {_bull_tabs} bull confirmation{'s' if _bull_tabs != 1 else ''}"
+
+    else:
+        display_v = "WAIT"
+        vc = "#FFC107"
+        if V in ("BUY", "LEAN BULL") and _ti_bullish and _bull_tabs == 0:
+            _verdict_confidence = "LOW"
+            vsub = f"TI bullish but no other module confirms — wait for confirmation"
+        elif V in ("BUY", "LEAN BULL") and _ti_bearish:
+            _verdict_confidence = "LOW"
+            vsub = f"Engine bullish but TI is bearish — conflicting signals"
+        elif V in ("SELL", "LEAN BEAR") and _bull_tabs > 0:
+            _verdict_confidence = "LOW"
+            vsub = f"Leaning bearish but {_bull_tabs} module{'s' if _bull_tabs > 1 else ''} still bullish"
+        elif _master_score >= 55 and _ti_neutral:
+            _verdict_confidence = "LOW"
+            vsub = f"Score is decent ({_master_score}) but TI neutral — wait for clearer signal"
+        elif _ti_neutral and _bull_tabs == 0:
+            _verdict_confidence = "NEUTRAL"
+            vsub = f"No strong signals in any direction — sit tight"
+        else:
+            _verdict_confidence = "NEUTRAL"
+            vsub = f"Mixed signals ({_bull_tabs} bull, {_bear_real} bear, {_inactive} no signal) — no clear edge"
+
+    # ── D1 filter: downgrade BUY when daily trend is bearish ────────────
+    if display_v == "BUY" and _d1_trend_bull is False and not _d1_filter_ok:
+        # Counter-trend BUY — downgrade to WAIT
+        display_v = "WAIT"
+        vc = "#FFC107"
+        dir_icon = "&#9670;"
+        _verdict_confidence = "LOW"
+        vsub = f"Bullish setup but D1 daily trend is bearish — wait for daily confirmation"
+    elif display_v == "BUY" and _d1_trend_bull is False:
+        # D1 cautious — downgrade confidence by one level
+        if _verdict_confidence == "HIGH":
+            _verdict_confidence = "MODERATE"
+            vsub += " (D1 caution — price below daily 50-EMA)"
+
+    # Signal strength
+    total_sigs   = d["bull_n"] + d["bear_n"]
+    sig_strength = int(d["bull_n"] / max(1, total_sigs) * 100)
+    conf_c       = BULL if sig_strength >= 60 else NEUT if sig_strength >= 40 else BEAR
+
+    # Master score color
+    _ms_col = BULL if _master_score >= 60 else ("#FFC107" if _master_score >= 40 else BEAR)
+
+    # Verdict confidence color
+    _vc_conf_col = BULL if _verdict_confidence == "HIGH" else ("#FFC107" if _verdict_confidence in ("MODERATE", "LOW") else "#555")
+
+    # ══════════════════════════════════════════════════════════════════════════
+    #  1. HERO CARD — Master scoring system from all tabs
+    # ══════════════════════════════════════════════════════════════════════════
+
+    # CSS
+    st.markdown("""<style>
+    .hero-tip{position:relative;cursor:help;display:inline-flex;align-items:center}
+    .hero-tip .tt{
+        visibility:hidden;opacity:0;position:absolute;bottom:140%;left:50%;
+        transform:translateX(-50%);background:#1e1e1e;color:#bbb;border:1px solid #333;
+        border-radius:6px;padding:0.4rem 0.6rem;font-size:0.75rem;font-weight:500;
+        line-height:1.5;white-space:normal;width:220px;text-align:left;z-index:100;
+        pointer-events:none;transition:opacity .15s;box-shadow:0 4px 14px rgba(0,0,0,.5);
+        text-transform:none;letter-spacing:0}
+    .hero-tip .tt::after{content:'';position:absolute;top:100%;left:50%;
+        transform:translateX(-50%);border:5px solid transparent;border-top-color:#333}
+    .hero-tip:hover .tt{visibility:visible;opacity:1}
+    .hero-q{display:inline-flex;align-items:center;justify-content:center;
+        width:14px;height:14px;border-radius:50%;border:1px solid #444;
+        font-size:0.5rem;color:#666;font-weight:700;margin-left:0.3rem}
+    </style>""", unsafe_allow_html=True)
+
+    insight_toggle(
+        "signal_strength",
+        "How does the Decision Score work?",
+        "<p>The <strong>Master Score</strong> combines 5 independent analysis modules. "
+        "Technical Indicators gets <strong>2× weight</strong>. Only active modules vote — "
+        "inactive ones are ignored, not counted as bearish.</p>"
+        "<p><strong>BUY</strong> = Score 50+ and engine bullish and modules agree. "
+        "<strong>SELL</strong> = Score below 42 and bearish signals dominate. "
+        "<strong>WAIT</strong> = Mixed or insufficient signals.</p>"
+    )
+
+    # RGB of verdict color for glows
+    _vc_rgb = ','.join(str(int(vc[i:i+2], 16)) for i in (1, 3, 5))
+
+    # ── Score ring SVG ──────────────────────────────────────────────────────
+    _ring_pct = max(0, min(100, _master_score))
+    _ring_dash = round(251.2 * _ring_pct / 100, 1)
+    _ring_svg = (
+        f"<svg width='120' height='120' viewBox='0 0 120 120' style='display:block;'>"
+        f"<circle cx='60' cy='60' r='46' fill='none' stroke='#1a1a1a' stroke-width='7'/>"
+        f"<circle cx='60' cy='60' r='46' fill='none' stroke='{_ms_col}' stroke-width='7' "
+        f"stroke-linecap='round' stroke-dasharray='{round(289.0 * _ring_pct / 100, 1)} 289' "
+        f"transform='rotate(-90 60 60)' style='filter:drop-shadow(0 0 8px {_ms_col}55);'/>"
+        f"<text x='60' y='56' text-anchor='middle' fill='{_ms_col}' "
+        f"font-size='28' font-weight='900' font-family='Inter,sans-serif'>{_master_score}</text>"
+        f"<text x='60' y='74' text-anchor='middle' fill='#555' "
+        f"font-size='10' font-weight='700' font-family='Inter,sans-serif'>SCORE</text>"
+        f"</svg>"
+    )
+
+    # ── D1 trend display
+    _d1_text  = "Bullish" if _d1_trend_bull is True else ("Bearish" if _d1_trend_bull is False else "N/A")
+    _d1_col   = BULL if _d1_trend_bull is True else (BEAR if _d1_trend_bull is False else "#555")
+
+    # ── R:R quality badge
+    _rr_col = BULL if d['rr1'] >= 2.0 else ("#FFC107" if d['rr1'] >= 1.5 else BEAR)
+
+    # ── Build reason chips (top 4 strongest factors + active modules) ───────
+    _chip_html = ""
+    _sorted_f = sorted(d["factors"], key=lambda x: abs(x["pts"]), reverse=True)
+    for _f in _sorted_f[:4]:
+        _fc = BULL if _f["dir"] > 0 else (BEAR if _f["dir"] < 0 else "#555")
+        _fi = "▲" if _f["dir"] > 0 else ("▼" if _f["dir"] < 0 else "—")
+        _chip_html += (
+            f"<div style='display:flex;align-items:center;gap:0.5rem;padding:0.55rem 0.75rem;"
+            f"background:{_fc}08;border:1px solid {_fc}18;border-radius:10px;'>"
+            f"<span style='font-size:0.85rem;font-weight:900;color:{_fc};'>{_fi}</span>"
+            f"<span style='font-size:0.82rem;color:#d0d0d0;font-weight:600;line-height:1.4;'>{_f['name']}</span>"
+            f"</div>"
+        )
+    for _n, _ic, _sc, _lb, _cl, _rs, _act in _tab_scores[1:]:
+        if _act and _sc >= 55 and _rs:
+            _chip_html += (
+                f"<div style='display:flex;align-items:center;gap:0.5rem;padding:0.55rem 0.75rem;"
+                f"background:{BULL}08;border:1px solid {BULL}18;border-radius:10px;'>"
+                f"<span style='font-size:0.85rem;font-weight:900;color:{BULL};'>▲</span>"
+                f"<span style='font-size:0.82rem;color:#d0d0d0;font-weight:600;line-height:1.4;'>{_n}: {_rs[0]}</span>"
+                f"</div>"
+            )
+
+    # ── Module score row — using the SAME names as the actual tabs ──────────
+    _mod_names = {
+        "Technical Indicators": "Decision",
+        "Price Action":         "Price Action",
+        "Volume Profile":       "Volume Profile",
+        "Chart Patterns":       "Patterns",
+        "Smart Money":          "SMC",
+    }
+    _mods_html = ""
+    for _n, _ic, _sc, _lb, _cl, _rs, _act in _tab_scores:
+        _mname = _mod_names.get(_n, _n)
+        _dot_bg = BULL if _act and _sc >= 55 else (BEAR if _act and _sc < 40 else "#444")
+        _dot_label = f"{_sc}" if _act else "—"
+        _status_text = "Bullish" if _act and _sc >= 55 else ("Bearish" if _act and _sc < 40 else ("Neutral" if _act else "No Signal"))
+        _mods_html += (
+            f"<div style='text-align:center;flex:1;padding:0.6rem 0.3rem;"
+            f"background:#111;border:1px solid {_dot_bg}22;border-radius:10px;'>"
+            f"<div style='font-size:1.3rem;font-weight:900;color:{_dot_bg};line-height:1;'>{_dot_label}</div>"
+            f"<div style='font-size:0.65rem;color:#888;font-weight:700;margin-top:0.25rem;'>{_mname}</div>"
+            f"<div style='font-size:0.55rem;color:{_dot_bg};font-weight:600;margin-top:0.1rem;'>{_status_text}</div>"
+            f"</div>"
+        )
+
+    st.markdown(
+        f"<div style='background:linear-gradient(180deg,#1c1c1c,#151515);border:1px solid #272727;"
+        f"border-radius:18px;overflow:hidden;margin-bottom:1.5rem;"
+        f"box-shadow:0 8px 40px rgba(0,0,0,0.5);'>"
+
+        # ── TOP ACCENT BAR ──────────────────────────────────────────────────
+        f"<div style='height:3px;background:linear-gradient(90deg,{vc}00,{vc},{vc}00);'></div>"
+
+        # ══════════════════════════════════════════════════════════════════════
+        # SECTION 1: THE VERDICT
+        # ══════════════════════════════════════════════════════════════════════
+        f"<div style='padding:2rem 2rem 1.2rem;display:flex;justify-content:space-between;"
+        f"align-items:center;'>"
+
+        f"<div>"
+        f"<div style='font-size:2.8rem;font-weight:900;color:{vc};letter-spacing:-1.5px;"
+        f"line-height:1;text-shadow:0 0 30px rgba({_vc_rgb},0.3);'>{display_v}</div>"
+        f"<div style='display:flex;align-items:center;gap:0.6rem;margin-top:0.5rem;'>"
+        f"<span style='font-size:0.7rem;font-weight:700;color:{_vc_conf_col};"
+        f"padding:0.18rem 0.55rem;border-radius:5px;border:1px solid {_vc_conf_col}33;"
+        f"background:{_vc_conf_col}11;text-transform:uppercase;letter-spacing:0.8px;'>"
+        f"{_verdict_confidence} CONFIDENCE</span>"
+        f"</div>"
+        f"<div style='font-size:0.85rem;color:#888;margin-top:0.6rem;font-weight:500;"
+        f"line-height:1.5;max-width:420px;'>{vsub}</div>"
+        f"</div>"
+
+        # Right: Score Ring
+        f"<div>{_ring_svg}</div>"
+        f"</div>"
+
+        # ══════════════════════════════════════════════════════════════════════
+        # SECTION 2: KEY NUMBERS — 4 columns
+        # ══════════════════════════════════════════════════════════════════════
+        f"<div style='padding:0 2rem;'>"
+        f"<div style='display:grid;grid-template-columns:repeat(4,1fr);gap:0.6rem;"
+        f"padding:1.1rem 0;border-top:1px solid #222;border-bottom:1px solid #222;'>"
+
+        # Win Probability
+        f"<div style='text-align:center;'>"
+        f"<div style='font-size:1.6rem;font-weight:900;color:"
+        f"{BULL if _win_rate >= 55 else (BEAR if _win_rate < 45 else '#FFC107')};line-height:1;'>"
+        f"{_win_rate:.0f}%</div>"
+        f"<div style='font-size:0.65rem;color:#666;font-weight:700;"
+        f"text-transform:uppercase;letter-spacing:0.5px;margin-top:0.3rem;'>"
+        f"Win Probability</div>"
+        f"</div>"
+
+        # Risk : Reward
+        f"<div style='text-align:center;'>"
+        f"<div style='font-size:1.6rem;font-weight:900;color:{_rr_col};line-height:1;'>"
+        f"1:{d['rr1']:.1f}</div>"
+        f"<div style='font-size:0.65rem;color:#666;font-weight:700;"
+        f"text-transform:uppercase;letter-spacing:0.5px;margin-top:0.3rem;'>"
+        f"R:R <span style='color:{_rr_col};'>({d['rr_quality']})</span></div>"
+        f"</div>"
+
+        # D1 Daily Trend
+        f"<div style='text-align:center;'>"
+        f"<div style='font-size:1.6rem;font-weight:900;color:{_d1_col};line-height:1;'>"
+        f"{'▲' if _d1_trend_bull is True else ('▼' if _d1_trend_bull is False else '—')} {_d1_text}</div>"
+        f"<div style='font-size:0.65rem;color:#666;font-weight:700;"
+        f"text-transform:uppercase;letter-spacing:0.5px;margin-top:0.3rem;'>Daily Trend</div>"
+        f"</div>"
+
+        # Agreement
+        f"<div style='text-align:center;'>"
+        f"<div style='font-size:1.6rem;font-weight:900;line-height:1;'>"
+        f"<span style='color:{BULL};'>{_bull_tabs}</span>"
+        f"<span style='color:#333;'> / </span>"
+        f"<span style='color:{BEAR};'>{_bear_real}</span>"
+        f"<span style='color:#333;'> / </span>"
+        f"<span style='color:#555;'>{_inactive}</span></div>"
+        f"<div style='font-size:0.65rem;color:#666;font-weight:700;"
+        f"text-transform:uppercase;letter-spacing:0.5px;margin-top:0.3rem;'>"
+        f"Bull / Bear / None</div>"
+        f"</div>"
+
+        f"</div></div>"
+
+        # ══════════════════════════════════════════════════════════════════════
+        # SECTION 3: KEY LEVELS
+        # ══════════════════════════════════════════════════════════════════════
+        f"<div style='padding:1.1rem 2rem;'>"
+        f"<div style='font-size:0.65rem;color:#555;text-transform:uppercase;"
+        f"letter-spacing:1.2px;font-weight:700;margin-bottom:0.6rem;'>KEY LEVELS</div>"
+        f"<div style='display:grid;grid-template-columns:repeat(5,1fr);gap:0.4rem;'>"
+
+        f"<div style='text-align:center;padding:0.7rem 0.3rem;background:#111;"
+        f"border:1px solid #282828;border-radius:10px;'>"
+        f"<div style='font-size:1.1rem;font-weight:900;color:#e0e0e0;'>{d['entry']:.2f}</div>"
+        f"<div style='font-size:0.55rem;color:#666;font-weight:700;text-transform:uppercase;"
+        f"letter-spacing:0.5px;margin-top:0.15rem;'>Entry</div></div>"
+
+        f"<div style='text-align:center;padding:0.7rem 0.3rem;background:#111;"
+        f"border:1px solid {BEAR}22;border-radius:10px;'>"
+        f"<div style='font-size:1.1rem;font-weight:900;color:{BEAR};'>{d['stop']:.2f}</div>"
+        f"<div style='font-size:0.55rem;color:{BEAR}99;font-weight:700;text-transform:uppercase;"
+        f"letter-spacing:0.5px;margin-top:0.15rem;'>Stop (−{d['risk_pct']:.1f}%)</div></div>"
+
+        f"<div style='text-align:center;padding:0.7rem 0.3rem;background:#111;"
+        f"border:1px solid {BULL}22;border-radius:10px;'>"
+        f"<div style='font-size:1.1rem;font-weight:900;color:{BULL};'>{d['t1']:.2f}</div>"
+        f"<div style='font-size:0.55rem;color:{BULL}99;font-weight:700;text-transform:uppercase;"
+        f"letter-spacing:0.5px;margin-top:0.15rem;'>T1 ({d['rr1']:.1f}R)</div></div>"
+
+        f"<div style='text-align:center;padding:0.7rem 0.3rem;background:#111;"
+        f"border:1px solid {BULL}22;border-radius:10px;'>"
+        f"<div style='font-size:1.1rem;font-weight:900;color:{BULL};'>{d['t2']:.2f}</div>"
+        f"<div style='font-size:0.55rem;color:{BULL}99;font-weight:700;text-transform:uppercase;"
+        f"letter-spacing:0.5px;margin-top:0.15rem;'>T2 ({d['rr2']:.1f}R)</div></div>"
+
+        f"<div style='text-align:center;padding:0.7rem 0.3rem;background:#111;"
+        f"border:1px solid {BULL}22;border-radius:10px;'>"
+        f"<div style='font-size:1.1rem;font-weight:900;color:{BULL};'>{d['t3']:.2f}</div>"
+        f"<div style='font-size:0.55rem;color:{BULL}99;font-weight:700;text-transform:uppercase;"
+        f"letter-spacing:0.5px;margin-top:0.15rem;'>T3</div></div>"
+
+        f"</div></div>"
+
+        # ══════════════════════════════════════════════════════════════════════
+        # SECTION 4: MODULE SCORES — matches tab names exactly
+        # ══════════════════════════════════════════════════════════════════════
+        f"<div style='padding:1rem 2rem;border-top:1px solid #1e1e1e;'>"
+        f"<div style='font-size:0.65rem;color:#555;text-transform:uppercase;"
+        f"letter-spacing:1.2px;font-weight:700;margin-bottom:0.6rem;'>MODULE SCORES</div>"
+        f"<div style='display:flex;gap:0.4rem;'>"
+        + _mods_html +
+        f"</div></div>"
+
+        # ══════════════════════════════════════════════════════════════════════
+        # SECTION 5: WHY
+        # ══════════════════════════════════════════════════════════════════════
+        f"<div style='padding:1rem 2rem 1.4rem;border-top:1px solid #1e1e1e;'>"
+        f"<div style='font-size:0.65rem;color:#555;text-transform:uppercase;"
+        f"letter-spacing:1.2px;font-weight:700;margin-bottom:0.6rem;'>WHY {display_v}</div>"
+        f"<div style='display:flex;flex-direction:column;gap:0.4rem;'>"
+        + _chip_html +
+        f"</div></div>"
+
+        # ── Bottom accent
+        f"<div style='height:2px;background:linear-gradient(90deg,{vc}00,{vc}66,{vc}00);'></div>"
+        f"</div>",
+        unsafe_allow_html=True,
+    )
+    
+
+    # ══════════════════════════════════════════════════════════════════════════
+    #  2. PRICE LADDER  (BUY signal only)
+    # ══════════════════════════════════════════════════════════════════════════
+    if V == "BUY":
+        from _levels import price_ladder_html as _plh
+        st.markdown(
+            _plh(d["entry"], d["stop"], d["t1"], d["t2"], d["t3"], True,
+                 d.get("entry_quality", ""), d.get("eq_col", ""),
+                 d.get("entry_zone_lo"), d.get("entry_zone_hi")),
+            unsafe_allow_html=True,
+        )
+
+    # ══════════════════════════════════════════════════════════════════════════
+    #  3. LIVE BUY SIGNALS FROM ALL TABS
+    # ══════════════════════════════════════════════════════════════════════════
+    st.markdown(_sec("Live Buy Signals", BULL), unsafe_allow_html=True)
+
+
+    # ── D1 filter warning banner (logic was done above, just display here) ──
     if _d1_filter_warn:
         _d1_col = BEAR if not _d1_filter_ok else NEUT
         st.markdown(

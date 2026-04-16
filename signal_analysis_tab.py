@@ -335,17 +335,33 @@ def signal_analysis_tab(df, info_icon):
                 gain_col = BULL if ind["avg_gain"] >= 1 else NEUT if ind["avg_gain"] > 0 else BEAR
                 loss_col = BEAR if ind["avg_loss"] < -1 else NEUT
 
+                # Tooltip hints for individual indicator stat cells
+                _ind_tips = {
+                    "Signals":     "Total number of times this indicator triggered a signal",
+                    "Wins":        "Number of signals that ended in a profitable trade",
+                    "Losses":      "Number of signals that resulted in a loss",
+                    "Avg Gain":    "Average profit on winning trades — higher means bigger wins",
+                    "Avg Loss":    "Average loss on losing trades — closer to 0 means better risk control",
+                    "Best Regime": "Market condition where this indicator performed best (Trend/Range/Volatile)",
+                }
                 def _sb(label, value, color, bg=None, sub=None):
                     _bg = bg or "#161616"
                     _sh = (
                         f"<div style='font-size:0.68rem;font-weight:700;color:{color};"
                         f"opacity:0.8;margin-top:0.2rem;'>{sub}</div>"
                     ) if sub else ""
+                    _tip = _ind_tips.get(label, "")
+                    _tip_html = (
+                        f"<span title='{_tip}' style='display:inline-flex;align-items:center;justify-content:center;"
+                        f"width:13px;height:13px;border-radius:50%;border:1px solid #444;"
+                        f"font-size:0.45rem;color:#666;font-weight:700;margin-left:0.25rem;"
+                        f"cursor:help;vertical-align:middle;'>?</span>"
+                    ) if _tip else ""
                     return (
                         f"<div style='background:{_bg};border:1px solid #272727;"
                         f"border-radius:10px;padding:0.85rem 0.7rem;text-align:center;'>"
                         f"<div style='font-size:0.6rem;color:#606060;text-transform:uppercase;"
-                        f"letter-spacing:1px;font-weight:700;margin-bottom:0.35rem;'>{label}</div>"
+                        f"letter-spacing:1px;font-weight:700;margin-bottom:0.35rem;'>{label}{_tip_html}</div>"
                         f"<div style='font-size:1.2rem;font-weight:900;color:{color};line-height:1;"
                         f"text-shadow:0 0 18px {color}33;'>{value}</div>"
                         f"{_sh}</div>"
@@ -536,12 +552,35 @@ def signal_analysis_tab(df, info_icon):
                 return _broad_cat.get(raw, "Other")
 
             # ── Stat mini-cell used inside combo cards ─────────────────────────
+            # Tooltip descriptions for every stat label
+            _stat_tips = {
+                "Signals":       "Total number of times this combination triggered in the backtest period",
+                "Winners":       "Number of signals that resulted in a profitable trade",
+                "Losers":        "Number of signals that resulted in a losing trade",
+                "Avg Gain":      "Average profit percentage on winning trades — higher is better",
+                "Avg Loss":      "Average loss percentage on losing trades — closer to 0 is better risk control",
+                "Avg Hold":      "Average number of days a trade was held before closing",
+                "Profit Factor": "Total gains ÷ total losses. Above 1.0 = profitable. Above 2.0 = strong edge",
+                "Expectancy":    "Average profit per trade (wins + losses). Positive = you make money per trade on average",
+                "Wilson Score":  "Confidence-adjusted win rate — penalizes combos with few signals. 3/4 wins (75%) scores lower than 60/100 (60%) because 100 trades is more reliable",
+                "Max W-Streak":  "Longest run of consecutive winning trades — shows best-case momentum",
+                "Max L-Streak":  "Longest run of consecutive losing trades — shows worst-case drawdown to prepare for",
+                "Signals/100":   "How often this combo fires per 100 price bars. Higher = more frequent opportunities",
+                "Consistency":   "How predictable the returns are. Low Std Dev = steady results. High = wild swings",
+            }
             def _st(lbl, val, col):
+                _tip = _stat_tips.get(lbl, "")
+                _tip_html = (
+                    f"<span title='{_tip}' style='display:inline-flex;align-items:center;justify-content:center;"
+                    f"width:13px;height:13px;border-radius:50%;border:1px solid #444;"
+                    f"font-size:0.45rem;color:#666;font-weight:700;margin-left:0.25rem;"
+                    f"cursor:help;vertical-align:middle;'>?</span>"
+                ) if _tip else ""
                 return (
                     f"<div style='background:#161616;border:1px solid #272727;"
                     f"border-radius:8px;padding:0.8rem 0.4rem;text-align:center;'>"
                     f"<div style='font-size:0.75rem;color:#606060;text-transform:uppercase;"
-                    f"letter-spacing:0.5px;margin-bottom:0.35rem;font-weight:600;'>{lbl}</div>"
+                    f"letter-spacing:0.5px;margin-bottom:0.35rem;font-weight:600;'>{lbl}{_tip_html}</div>"
                     f"<div style='font-size:1.15rem;font-weight:800;color:{col};line-height:1;"
                     f"text-shadow:0 0 18px {col}33;'>{val}</div>"
                     f"</div>"
@@ -658,7 +697,12 @@ def signal_analysis_tab(df, info_icon):
                     "</div>"
                     f"<div style='background:#161616;border:1px solid #272727;border-radius:8px;padding:0.65rem 0.75rem;'>"
                     f"<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:0.28rem;'>"
-                    f"<span style='font-size:0.75rem;color:#606060;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;'>Consistency</span>"
+                    f"<span style='font-size:0.75rem;color:#606060;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;'>Consistency"
+                    f"<span title='How steady the results are trade-to-trade. Low Std Dev = reliable, consistent returns. High = wild swings between big wins and big losses.' "
+                    f"style='display:inline-flex;align-items:center;justify-content:center;"
+                    f"width:13px;height:13px;border-radius:50%;border:1px solid #444;"
+                    f"font-size:0.45rem;color:#666;font-weight:700;margin-left:0.25rem;"
+                    f"cursor:help;vertical-align:middle;'>?</span></span>"
                     f"<span style='font-size:0.78rem;font-weight:800;color:{con_color};'>{con_label}</span></div>"
                     f"<div style='font-size:0.72rem;color:#606060;margin-bottom:0.22rem;'>"
                     f"Std dev <strong style='color:#e0e0e0;'>{con:.1f}%</strong> - lower is more reliable</div>"
@@ -825,102 +869,42 @@ def signal_analysis_tab(df, info_icon):
                     f"box-shadow:0 0 8px {BULL}55;'></div>"
                     f"<div style='width:{champ_lp:.1f}%;background:linear-gradient(90deg,#e53935,#ef5350);'></div>"
                     f"</div>"
-                    f"<div style='display:flex;justify-content:space-between;margin-bottom:0.85rem;'>"
+                    f"<div style='display:flex;justify-content:space-between;margin-bottom:0.2rem;'>"
                     f"<span style='font-size:0.78rem;color:{BULL};font-weight:700;'>{champ['wins']} wins ({champ_wr:.1f}%)</span>"
                     f"<span style='font-size:0.78rem;color:{BEAR};font-weight:700;'>{champ['losses']} losses ({champ_lp:.1f}%)</span>"
                     f"</div>"
-                    f"<div style='display:grid;grid-template-columns:repeat(5,1fr);gap:0.4rem;'>"
 
-                    # ── Box 1: Signals ──
-                    f"<div style='background:#161616;border:1px solid #272727;border-radius:8px;"
-                    f"padding:0.6rem 0.35rem;text-align:center;'>"
-                    f"<div style='font-size:0.72rem;color:#606060;text-transform:uppercase;"
-                    f"letter-spacing:0.5px;margin-bottom:0.3rem;'>Signals</div>"
-                    f"<div style='font-size:1.4rem;font-weight:800;color:#90caf9;line-height:1;'>{champ['total']}</div>"
-                    f"<div style='font-size:0.68rem;color:#555;margin-top:0.25rem;'>"
-                    f"{champ['wins']}W / {champ['losses']}L</div>"
+                    # inline stat row (replaces 5 boxes)
+                    f"<div style='display:flex;align-items:center;justify-content:space-between;"
+                    f"margin-top:0.6rem;padding:0.55rem 0.8rem;"
+                    f"background:#161616;border:1px solid #272727;border-radius:10px;'>"
+                    f"<div style='text-align:center;'>"
+                    f"<div style='font-size:0.95rem;font-weight:800;color:#90caf9;'>{champ['total']}</div>"
+                    f"<div style='font-size:0.42rem;color:#555;text-transform:uppercase;letter-spacing:0.5px;'>Signals</div></div>"
+                    f"<div style='width:1px;height:24px;background:#272727;'></div>"
+                    f"<div style='text-align:center;'>"
+                    f"<div style='font-size:0.95rem;font-weight:800;color:{ea_col};'>{champ_ea:+.2f}%</div>"
+                    f"<div style='font-size:0.42rem;color:#555;text-transform:uppercase;letter-spacing:0.5px;'>Expectancy</div></div>"
+                    f"<div style='width:1px;height:24px;background:#272727;'></div>"
+                    f"<div style='text-align:center;'>"
+                    f"<div style='font-size:0.95rem;font-weight:800;color:{pf_col};'>{champ_pf:.2f}</div>"
+                    f"<div style='font-size:0.42rem;color:#555;text-transform:uppercase;letter-spacing:0.5px;'>Profit Factor</div></div>"
+                    f"<div style='width:1px;height:24px;background:#272727;'></div>"
+                    f"<div style='text-align:center;'>"
+                    f"<div style='font-size:0.95rem;font-weight:800;color:#e0e0e0;'>{champ['size']}-Way</div>"
+                    f"<div style='font-size:0.42rem;color:#555;text-transform:uppercase;letter-spacing:0.5px;'>Size</div></div>"
+                    f"<div style='width:1px;height:24px;background:#272727;'></div>"
+                    f"<div style='text-align:center;'>"
+                    f"<div style='font-size:0.95rem;font-weight:800;color:{con_col};'>{champ_con:.1f}%</div>"
+                    f"<div style='font-size:0.42rem;color:#555;text-transform:uppercase;letter-spacing:0.5px;'>Consistency</div></div>"
                     f"</div>"
 
-                    # ── Box 2: Expectancy ──
-                    f"<div style='background:#161616;border:1px solid #272727;border-radius:8px;"
-                    f"padding:0.6rem 0.35rem;text-align:center;'>"
-                    f"<div style='font-size:0.72rem;color:#606060;text-transform:uppercase;"
-                    f"letter-spacing:0.5px;margin-bottom:0.3rem;'>Expectancy</div>"
-                    f"<div style='font-size:1.4rem;font-weight:800;color:{ea_col};line-height:1;'>{champ_ea:+.2f}%</div>"
-                    f"<div style='font-size:0.68rem;color:{ea_col};margin-top:0.25rem;'>"
-                    f"{_ea_tag}</div>"
-                    f"</div>"
-
-                    # ── Box 3: Profit Factor ──
-                    f"<div style='background:#161616;border:1px solid #272727;border-radius:8px;"
-                    f"padding:0.6rem 0.35rem;text-align:center;'>"
-                    f"<div style='font-size:0.72rem;color:#606060;text-transform:uppercase;"
-                    f"letter-spacing:0.5px;margin-bottom:0.3rem;'>Profit Factor</div>"
-                    f"<div style='font-size:1.4rem;font-weight:800;color:{pf_col};line-height:1;'>{champ_pf:.2f}</div>"
-                    f"<div style='font-size:0.68rem;color:{pf_col};margin-top:0.25rem;'>"
-                    f"{_pf_tag}</div>"
-                    f"</div>"
-
-                    # ── Box 4: Combo Size ──
-                    f"<div style='background:#161616;border:1px solid #272727;border-radius:8px;"
-                    f"padding:0.6rem 0.35rem;text-align:center;'>"
-                    f"<div style='font-size:0.72rem;color:#606060;text-transform:uppercase;"
-                    f"letter-spacing:0.5px;margin-bottom:0.3rem;'>Combo Size</div>"
-                    f"<div style='font-size:1.4rem;font-weight:800;color:#e0e0e0;line-height:1;'>{champ['size']}-Way</div>"
-                    f"<div style='font-size:0.68rem;color:#555;margin-top:0.25rem;'>indicators</div>"
-                    f"</div>"
-
-                    # ── Box 5: Consistency ──
-                    f"<div style='background:#161616;border:1px solid #272727;border-radius:8px;"
-                    f"padding:0.6rem 0.35rem;text-align:center;'>"
-                    f"<div style='font-size:0.72rem;color:#606060;text-transform:uppercase;"
-                    f"letter-spacing:0.5px;margin-bottom:0.3rem;'>Consistency</div>"
-                    f"<div style='font-size:1.4rem;font-weight:800;color:{con_col};line-height:1;'>{champ_con:.1f}%</div>"
-                    f"<div style='font-size:0.68rem;color:{con_col};margin-top:0.25rem;'>"
-                    f"{_con_tag}</div>"
-                    f"</div>"
-
-                    f"</div></div></div>"  # end stats grid, right col, 2-col grid
+                    f"</div></div></div>"  # end right col, 2-col grid
                     f"</div></div>",
                     unsafe_allow_html=True,
                 )
                 with st.container(key="combo_save_wrap_champ"):
                     render_save_combo_button(0, champ, _all_names, risk_val, reward_val, _period_label)
-                _strip_items = all_combo_data[:5]
-                if _strip_items:
-                    _sh = (
-                        f"<div style='display:grid;grid-template-columns:repeat({len(_strip_items)},1fr);"
-                        f"gap:0.6rem;margin-bottom:1rem;'>"
-                    )
-                    for _sti, _str in enumerate(_strip_items):
-                        _stac = combo_accent_cycle[_sti % len(combo_accent_cycle)]
-                        _, _swr_col = _wr_color(_str['win_rate'])
-                        _ea_col = "#81c784" if _str['expectancy'] > 0 else "#ef5350"
-                        _sh += (
-                            f"<div style='background:#1b1b1b;border:1px solid #272727;"
-                            f"border-radius:10px;overflow:hidden;"
-                            f"padding:1.1rem 0.6rem;text-align:center;'>"
-                            f"<div style='font-size:0.6rem;color:#606060;text-transform:uppercase;"
-                            f"letter-spacing:0.8px;margin-bottom:0.45rem;font-weight:700;'>"
-                            f"#{_sti+1} &nbsp;&middot;&nbsp; {_str['size']}-Way</div>"
-                            f"<div style='font-size:0.8rem;font-weight:700;color:#e0e0e0;line-height:1.55;"
-                            f"margin-bottom:0.55rem;'>"
-                            + "<br>".join(_all_names.get(p, p) for p in _str["indicators"])
-                            + f"</div>"
-                            f"<div style='font-size:2.1rem;font-weight:900;color:{_swr_col};line-height:1;"
-                            f"margin-bottom:0.15rem;'>{_str['win_rate']:.0f}%</div>"
-                            f"<div style='font-size:0.62rem;color:#606060;text-transform:uppercase;"
-                            f"letter-spacing:0.5px;margin-bottom:0.45rem;'>Win Rate</div>"
-                            f"<div style='font-size:0.82rem;font-weight:700;color:{_ea_col};'>"
-                            f"exp {_str['expectancy']:+.1f}%</div>"
-                            f"<div style='font-size:0.68rem;color:#606060;margin-top:0.2rem;'>"
-                            f"{_str['total']} signals</div>"
-                            f"</div>"
-                        )
-                    _sh += "</div>"
-                    st.markdown(_sh, unsafe_allow_html=True)
-
-                st.markdown("<div style='margin-bottom:0.5rem;'></div>", unsafe_allow_html=True)
 
                 # Full sortable table
                 _tbl_rows = []
@@ -945,8 +929,68 @@ def signal_analysis_tab(df, info_icon):
                         "Best Regime":    _tr["best_regime"] or "--",
                     })
                 _tbl_df = pd.DataFrame(_tbl_rows).set_index("Rank")
+
+                # Column glossary — explains every metric in the table
+                insight_toggle(
+                    "combo_table_glossary",
+                    "What does each column mean?",
+                    "<div style='display:grid;grid-template-columns:1fr 1fr;gap:0.3rem 1.5rem;'>"
+
+                    "<div class='itog-row'><div class='itog-dot'></div>"
+                    "<div><strong>Combination</strong> — The specific set of indicators that all fired a signal at the same time.</div></div>"
+
+                    "<div class='itog-row'><div class='itog-dot'></div>"
+                    "<div><strong>Size</strong> — How many indicators had to agree together (2-Way = 2 indicators, 3-Way = 3, etc).</div></div>"
+
+                    "<div class='itog-row'><div class='itog-dot'></div>"
+                    "<div><strong>Signals</strong> — Total number of times this combination triggered in the backtest period.</div></div>"
+
+                    "<div class='itog-row'><div class='itog-dot'></div>"
+                    "<div><strong>Wins / Losses</strong> — How many of those signals ended in a profitable trade vs a losing trade.</div></div>"
+
+                    "<div class='itog-row'><div class='itog-dot'></div>"
+                    "<div><strong>Win %</strong> — Percentage of signals that were profitable. Above 50% = more winners than losers.</div></div>"
+
+                    "<div class='itog-row'><div class='itog-dot'></div>"
+                    "<div><strong>Avg Gain %</strong> — The average profit percentage on winning trades. Higher = bigger wins.</div></div>"
+
+                    "<div class='itog-row'><div class='itog-dot'></div>"
+                    "<div><strong>Avg Loss %</strong> — The average loss percentage on losing trades. Smaller (closer to 0) = tighter risk control.</div></div>"
+
+                    "<div class='itog-row'><div class='itog-dot'></div>"
+                    "<div><strong>Profit Factor</strong> — Total gains ÷ total losses. Above 1.0 = profitable system. Above 2.0 = strong edge.</div></div>"
+
+                    "<div class='itog-row'><div class='itog-dot'></div>"
+                    "<div><strong>Expectancy %</strong> — Average profit per trade (including wins AND losses). Positive = you make money on average per trade. Negative = you lose money on average.</div></div>"
+
+                    "<div class='itog-row'><div class='itog-dot'></div>"
+                    "<div><strong>Wilson Score</strong> — A statistical confidence-adjusted win rate. It penalizes combos with very few signals. "
+                    "A combo with 3 wins out of 4 trades (75%) will score lower than one with 60 wins out of 100 (60%) "
+                    "because the second one is more statistically reliable. Higher = more trustworthy edge.</div></div>"
+
+                    "<div class='itog-row'><div class='itog-dot'></div>"
+                    "<div><strong>Std Dev</strong> — Standard Deviation of returns. Measures how wildly your results swing from trade to trade. "
+                    "Low Std Dev = consistent, predictable results. High Std Dev = some trades win big, others lose big — less reliable.</div></div>"
+
+                    "<div class='itog-row'><div class='itog-dot'></div>"
+                    "<div><strong>Max W-Streak</strong> — Maximum consecutive winning trades in a row. Shows the best streak this combo achieved.</div></div>"
+
+                    "<div class='itog-row'><div class='itog-dot'></div>"
+                    "<div><strong>Max L-Streak</strong> — Maximum consecutive losing trades in a row. Important for risk management — "
+                    "shows how many losses in a row you should mentally prepare for.</div></div>"
+
+                    "<div class='itog-row'><div class='itog-dot'></div>"
+                    "<div><strong>Sig/100 Bars</strong> — How often this combination triggers, normalized per 100 price bars. "
+                    "Higher = more frequent trading opportunities. Lower = rare but potentially higher-quality signals.</div></div>"
+
+                    "<div class='itog-row'><div class='itog-dot'></div>"
+                    "<div><strong>Best Regime</strong> — Which market condition (Trend, Range, or Volatile) gave this combination its best performance.</div></div>"
+
+                    "</div>"
+                )
+
                 st.markdown(
-                    f"<div style='font-size:0.7rem;color:#606060;margin-bottom:0.35rem;font-weight:600;'>"
+                    f"<div style='font-size:0.75rem;color:#606060;margin-bottom:0.35rem;font-weight:600;'>"
                     f"Click any column header to sort &nbsp;&bull;&nbsp; {total_combos:,} combinations:</div>",
                     unsafe_allow_html=True,
                 )
@@ -1027,7 +1071,27 @@ def signal_analysis_tab(df, info_icon):
                                 "Wilson Score":    round(_rtr["wilson"], 1),
                                 "Std Dev":         round(_rtr.get("consistency", 0), 1),
                             })
-                        with st.expander(f"Top {len(_rtbl)} combos for {_rgn}", expanded=False):
+                        with st.expander(f"📋 Top {len(_rtbl)} combos for {_rgn}", expanded=False):
+                            insight_toggle(
+                                f"regime_tbl_glossary_{_rgn}",
+                                "What does each column mean?",
+                                "<div class='itog-row'><div class='itog-dot'></div>"
+                                "<div><strong>{0} Win %</strong> — Win rate measured ONLY during {0} market conditions. "
+                                "This is the regime-specific performance.</div></div>"
+                                "<div class='itog-row'><div class='itog-dot'></div>"
+                                "<div><strong>Overall Win %</strong> — Win rate across ALL market conditions combined.</div></div>"
+                                "<div class='itog-row'><div class='itog-dot'></div>"
+                                "<div><strong>Signals</strong> — Total number of times this combo triggered.</div></div>"
+                                "<div class='itog-row'><div class='itog-dot'></div>"
+                                "<div><strong>Profit Factor</strong> — Total gains ÷ total losses. Above 1.0 = profitable. Above 2.0 = strong.</div></div>"
+                                "<div class='itog-row'><div class='itog-dot'></div>"
+                                "<div><strong>Expectancy %</strong> — Average profit per trade. Positive = money-making system.</div></div>"
+                                "<div class='itog-row'><div class='itog-dot'></div>"
+                                "<div><strong>Wilson Score</strong> — Confidence-adjusted win rate. Penalizes combos with few signals. Higher = more trustworthy.</div></div>"
+                                "<div class='itog-row'><div class='itog-dot'></div>"
+                                "<div><strong>Std Dev</strong> — How wildly results vary trade-to-trade. Low = consistent. High = unpredictable.</div></div>"
+                                .format(_rgn)
+                            )
                             st.dataframe(pd.DataFrame(_rtbl).set_index("Rank"), use_container_width=True)
                     st.markdown(
                         f"<hr style='border:none;border-top:1px solid #272727;margin:0.55rem 0;'>",
@@ -1036,15 +1100,37 @@ def signal_analysis_tab(df, info_icon):
 
             # ── Deep Cards (continues in same Combinations tab) ────────────────────────────
             with ctab1:
-                # Section header
+                # Section header — premium
+                _all_sizes = sorted(set(x["size"] for x in all_combo_data))
+                _total_deep = len(all_combo_data)
+                _avg_deep_wr = sum(x['win_rate'] for x in all_combo_data) / _total_deep if _total_deep else 0
+                _, _adwr_col = _wr_color(_avg_deep_wr)
                 st.markdown(
-                    f"<div style='display:flex;align-items:center;gap:0.7rem;"
-                    f"margin:2rem 0 0.6rem 0;'>"
-                    f"<div style='width:3px;height:18px;border-radius:2px;background:#6366f1;"
-                    f"box-shadow:0 0 8px rgba(99,102,241,0.4);'></div>"
-                    f"<span style='font-size:0.85rem;font-weight:800;text-transform:uppercase;"
-                    f"letter-spacing:1px;color:#e0e0e0;'>Deep Analysis by Combo Size</span>"
-                    f"</div>",
+                    f"<div style='margin:1.5rem 0 0.5rem;padding:1rem 1.4rem;"
+                    f"background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(99,102,241,0.02),transparent);"
+                    f"border:1px solid rgba(99,102,241,0.18);border-radius:14px;'>"
+                    f"<div style='display:flex;align-items:center;justify-content:space-between;gap:1rem;'>"
+                    # left: icon + title
+                    f"<div style='display:flex;align-items:center;gap:0.7rem;'>"
+                    f"<div style='width:34px;height:34px;border-radius:9px;"
+                    f"background:rgba(99,102,241,0.15);display:flex;align-items:center;"
+                    f"justify-content:center;font-size:1rem;'>&#128269;</div>"
+                    f"<div>"
+                    f"<div style='font-size:0.95rem;font-weight:900;color:#e0e0e0;"
+                    f"letter-spacing:0.5px;'>Deep Analysis by Combo Size</div>"
+                    f"<div style='font-size:0.62rem;color:#555;margin-top:0.15rem;'>"
+                    f"{_total_deep} combinations across {len(_all_sizes)} size groups</div>"
+                    f"</div></div>"
+                    # right: summary pills
+                    f"<div style='display:flex;gap:1.2rem;align-items:center;'>"
+                    f"<div style='text-align:center;'>"
+                    f"<div style='font-size:1.05rem;font-weight:900;color:{_adwr_col};line-height:1.1;'>{_avg_deep_wr:.0f}%</div>"
+                    f"<div style='font-size:0.45rem;color:#555;text-transform:uppercase;letter-spacing:0.5px;'>Avg WR</div></div>"
+                    f"<div style='width:1px;height:22px;background:#272727;'></div>"
+                    f"<div style='text-align:center;'>"
+                    f"<div style='font-size:1.05rem;font-weight:900;color:#e0e0e0;line-height:1.1;'>{len(_all_sizes)}</div>"
+                    f"<div style='font-size:0.45rem;color:#555;text-transform:uppercase;letter-spacing:0.5px;'>Sizes</div></div>"
+                    f"</div></div></div>",
                     unsafe_allow_html=True,
                 )
                 insight_toggle(
@@ -1080,126 +1166,151 @@ def signal_analysis_tab(df, info_icon):
                     2: "2-Way Pairs", 3: "3-Way Triples", 4: "4-Way Quads",
                     5: "5-Way Quints", 6: "6-Way Combos",
                 }
-                _sz_icons = {2: "II", 3: "III", 4: "IV", 5: "V", 6: "VI"}
-                _all_sizes = sorted(set(x["size"] for x in all_combo_data))
 
-                # Overview strip — one card per combo size
-                _n_sz = len(_all_sizes)
-                if _n_sz > 0:
-                    _ov_html = (
-                        f"<div style='display:grid;grid-template-columns:repeat({_n_sz},1fr);"
-                        f"gap:0.5rem;margin-bottom:1rem;'>"
+                # ── Premium size selector (full-width pills) ──
+                _sz_emojis = {2: "🔷", 3: "🔶", 4: "💎", 5: "⭐", 6: "🏆"}
+                _sz_short  = {2: "Pairs", 3: "Triples", 4: "Quads", 5: "Quints", 6: "Sextets"}
+
+                # Precompute per-size stats
+                _sz_stats = {}
+                for _sv_tmp in _all_sizes:
+                    _sc_tmp = [x for x in all_combo_data if x["size"] == _sv_tmp]
+                    _sz_stats[_sv_tmp] = {
+                        "count": len(_sc_tmp),
+                        "best_wr":  _sc_tmp[0]["win_rate"]    if _sc_tmp else 0,
+                        "best_exp": _sc_tmp[0]["expectancy"]  if _sc_tmp else 0,
+                        "avg_wr":   sum(x["win_rate"]    for x in _sc_tmp) / len(_sc_tmp) if _sc_tmp else 0,
+                        "avg_exp":  sum(x["expectancy"]  for x in _sc_tmp) / len(_sc_tmp) if _sc_tmp else 0,
+                    }
+
+                # CSS to stretch pills full-width
+                st.markdown(
+                    "<style>"
+                    "div[data-testid='stPills'] {width:100%;}"
+                    "div[data-testid='stPills'] > div {width:100%;}"
+                    "div[data-testid='stPills'] > div > div {width:100%;display:flex !important;}"
+                    "div[data-testid='stPills'] > div > div > button {flex:1;}"
+                    "</style>",
+                    unsafe_allow_html=True,
+                )
+
+                # Build pill labels
+                _pill_map = {}
+                for _sv_tmp in _all_sizes:
+                    _lbl = f"{_sz_emojis.get(_sv_tmp, '📊')} {_sz_short.get(_sv_tmp, str(_sv_tmp))}  ({_sz_stats[_sv_tmp]['count']})"
+                    _pill_map[_lbl] = _sv_tmp
+                _pill_labels = list(_pill_map.keys())
+
+                _selected_pill = st.pills(
+                    "Size", _pill_labels, default=_pill_labels[0],
+                    label_visibility="collapsed",
+                )
+                _sv = _pill_map.get(_selected_pill, _all_sizes[0])
+
+                _sc   = [x for x in all_combo_data if x["size"] == _sv]
+                _sn   = _sz_names.get(_sv, f"{_sv}-Way")
+                _scol = _sz_colors.get(_sv, "#888")
+                _sst  = _sz_stats[_sv]
+
+                # Stats banner — compact row with dividers
+                _, _bwr_col = _wr_color(_sst["best_wr"])
+                _exp_col     = "#4caf50" if _sst["best_exp"] > 0 else "#f44336"
+                _avg_exp_col = "#4caf50" if _sst["avg_exp"]  > 0 else "#f44336"
+                _avg_wr_col2 = "#4caf50" if _sst["avg_wr"] >= 50 else "#f44336"
+                st.markdown(
+                    f"<div style='display:flex;align-items:center;justify-content:space-between;"
+                    f"margin:0.3rem 0 0.9rem;padding:0.7rem 1.2rem;"
+                    f"background:#161616;border:1px solid {_scol}22;border-radius:12px;"
+                    f"border-top:2px solid {_scol};'>"
+                    # left: emoji + name
+                    f"<div style='display:flex;align-items:center;gap:0.6rem;'>"
+                    f"<span style='font-size:1.4rem;'>{_sz_emojis.get(_sv, '📊')}</span>"
+                    f"<div>"
+                    f"<div style='font-size:0.88rem;font-weight:900;color:{_scol};'>{_sn}</div>"
+                    f"<div style='font-size:0.55rem;color:#555;'>{len(_sc)} combos analyzed</div>"
+                    f"</div></div>"
+                    # stats row
+                    f"<div style='display:flex;align-items:center;gap:0;'>"
+                    # Best WR
+                    f"<div style='text-align:center;padding:0 1rem;'>"
+                    f"<div style='font-size:1.1rem;font-weight:900;color:{_bwr_col};line-height:1.1;'>{_sst['best_wr']:.0f}%</div>"
+                    f"<div style='font-size:0.42rem;color:#555;text-transform:uppercase;letter-spacing:0.6px;'>Best WR</div></div>"
+                    f"<div style='width:1px;height:28px;background:#272727;'></div>"
+                    # Avg WR
+                    f"<div style='text-align:center;padding:0 1rem;'>"
+                    f"<div style='font-size:1.1rem;font-weight:900;color:{_avg_wr_col2};line-height:1.1;'>{_sst['avg_wr']:.0f}%</div>"
+                    f"<div style='font-size:0.42rem;color:#555;text-transform:uppercase;letter-spacing:0.6px;'>Avg WR</div></div>"
+                    f"<div style='width:1px;height:28px;background:#272727;'></div>"
+                    # Best Exp
+                    f"<div style='text-align:center;padding:0 1rem;'>"
+                    f"<div style='font-size:1.1rem;font-weight:900;color:{_exp_col};line-height:1.1;'>{_sst['best_exp']:+.2f}%</div>"
+                    f"<div style='font-size:0.42rem;color:#555;text-transform:uppercase;letter-spacing:0.6px;'>Best Exp</div></div>"
+                    f"<div style='width:1px;height:28px;background:#272727;'></div>"
+                    # Avg Exp
+                    f"<div style='text-align:center;padding:0 1rem;'>"
+                    f"<div style='font-size:1.1rem;font-weight:900;color:{_avg_exp_col};line-height:1.1;'>{_sst['avg_exp']:+.2f}%</div>"
+                    f"<div style='font-size:0.42rem;color:#555;text-transform:uppercase;letter-spacing:0.6px;'>Avg Exp</div></div>"
+                    f"</div></div>",
+                    unsafe_allow_html=True,
+                )
+
+                # Detail cards
+                _top_n = _sc[:int(_cc_top_per_group)]
+                _rest2 = _sc[int(_cc_top_per_group):]
+                for _ci, _cr in enumerate(_top_n):
+                    _cac4 = combo_accent_cycle[_ci % len(combo_accent_cycle)]
+                    _make_combo_card(_cr, f"#{_ci + 1}", _cac4)
+                    with st.container(key=f"combo_save_wrap_{_sv}_{_ci}"):
+                        render_save_combo_button(
+                            _ci + _sv * 100, _cr, _all_names, risk_val, reward_val, _period_label
+                        )
+
+                # Remaining in table
+                if _rest2:
+                    _rest_rows2 = [{
+                        "Rank":          int(_cc_top_per_group) + _ri + 1,
+                        "Combination":   _rr["label"],
+                        "Signals":       _rr["total"],
+                        "Win %":         round(_rr["win_rate"], 1),
+                        "Avg Gain %":    round(_rr["avg_gain"], 2),
+                        "Profit Factor": round(_rr["profit_factor"], 2),
+                        "Expectancy %":  round(_rr["expectancy"], 2),
+                        "Wilson Score":  round(_rr["wilson"], 1),
+                        "Std Dev":       round(_rr.get("consistency", 0), 1),
+                        "Max W-Streak":  _rr.get("max_consec_wins", 0),
+                        "Max L-Streak":  _rr.get("max_consec_losses", 0),
+                        "Signals/100":   round(_rr.get("signal_freq", 0), 1),
+                        "Best Regime":   _rr["best_regime"] or "--",
+                    } for _ri, _rr in enumerate(_rest2)]
+                    st.markdown(
+                        f"<div style='font-size:0.75rem;color:#666;font-weight:600;margin:0.8rem 0 0.3rem;'>"
+                        f"📋 Remaining {len(_rest2)} {_sn} combinations:</div>",
+                        unsafe_allow_html=True,
                     )
-                    for _sv in _all_sizes:
-                        _sc = [x for x in all_combo_data if x["size"] == _sv]
-                        _sn = _sz_names.get(_sv, f"{_sv}-Way")
-                        _scol = _sz_colors.get(_sv, "#888")
-                        _sicon = _sz_icons.get(_sv, str(_sv))
-                        _bwr = _sc[0]["win_rate"] if _sc else 0
-                        _avg_wr = sum(x["win_rate"] for x in _sc) / len(_sc) if _sc else 0
-                        _avg_exp = sum(x["expectancy"] for x in _sc) / len(_sc) if _sc else 0
-                        _, _bwr_col = _wr_color(_bwr)
-                        _ov_html += (
-                            f"<div style='background:#1b1b1b;border:1px solid #272727;"
-                            f"border-radius:12px;overflow:hidden;'>"
-                            f"<div style='height:3px;background:linear-gradient(90deg,{_scol},{_scol}88);'></div>"
-                            f"<div style='padding:0.85rem 0.7rem;text-align:center;'>"
-                            f"<div style='font-size:0.9rem;font-weight:900;color:{_scol};"
-                            f"margin-bottom:0.15rem;'>{_sicon}</div>"
-                            f"<div style='font-size:0.62rem;color:#606060;text-transform:uppercase;"
-                            f"letter-spacing:0.6px;font-weight:700;margin-bottom:0.5rem;'>{_sn}</div>"
-                            f"<div style='font-size:1.5rem;font-weight:900;color:{_bwr_col};"
-                            f"line-height:1;'>{_bwr:.0f}%</div>"
-                            f"<div style='font-size:0.55rem;color:#555;margin-top:0.15rem;'>Best Win Rate</div>"
-                            f"<div style='display:flex;justify-content:center;gap:0.8rem;margin-top:0.5rem;"
-                            f"padding-top:0.45rem;border-top:1px solid #272727;'>"
-                            f"<div style='text-align:center;'>"
-                            f"<div style='font-size:0.85rem;font-weight:800;color:#e0e0e0;'>{len(_sc)}</div>"
-                            f"<div style='font-size:0.48rem;color:#555;text-transform:uppercase;'>Combos</div></div>"
-                            f"<div style='text-align:center;'>"
-                            f"<div style='font-size:0.85rem;font-weight:800;"
-                            f"color:{'#4caf50' if _avg_exp > 0 else '#f44336'};'>{_avg_exp:+.1f}%</div>"
-                            f"<div style='font-size:0.48rem;color:#555;text-transform:uppercase;'>Avg Exp</div></div>"
-                            f"</div></div></div>"
-                        )
-                    _ov_html += "</div>"
-                    st.markdown(_ov_html, unsafe_allow_html=True)
-
-                # Per-size expanders
-                for _sv in _all_sizes:
-                    _sc   = [x for x in all_combo_data if x["size"] == _sv]
-                    _sn   = _sz_names.get(_sv, f"{_sv}-Way")
-                    _scol = _sz_colors.get(_sv, "#888")
-                    _bwr  = _sc[0]["win_rate"] if _sc else 0
-                    _bex  = _sc[0]["expectancy"] if _sc else 0
-                    with st.expander(
-                        f"{_sn}  ·  {len(_sc)} combos  ·  Best WR {_bwr:.0f}%  ·  Exp {_bex:+.2f}%",
-                        expanded=(_sv == 2),
-                    ):
-                        # Top-5 mini strip
-                        _ns3 = min(5, len(_sc))
-                        _ss3 = (
-                            f"<div style='display:grid;grid-template-columns:repeat({_ns3},1fr);"
-                            f"gap:0.4rem;margin-bottom:0.8rem;'>"
-                        )
-                        for _xi, _xr in enumerate(_sc[:_ns3]):
-                            _, _xs_wr_col = _wr_color(_xr['win_rate'])
-                            _xs_exp_col = "#4caf50" if _xr['expectancy'] > 0 else "#f44336"
-                            _bar_w = min(100, max(4, _xr['win_rate']))
-                            _ss3 += (
-                                f"<div style='background:#1b1b1b;border:1px solid #272727;"
-                                f"border-radius:10px;overflow:hidden;'>"
-                                f"<div style='height:2px;background:{_scol};'></div>"
-                                f"<div style='padding:0.7rem 0.55rem;text-align:center;'>"
-                                f"<div style='display:flex;justify-content:space-between;align-items:center;"
-                                f"margin-bottom:0.35rem;'>"
-                                f"<span style='font-size:0.58rem;color:#555;font-weight:700;'>#{_xi+1}</span>"
-                                f"<span style='font-size:0.58rem;color:#555;'>{_xr['total']} signals</span></div>"
-                                f"<div style='font-size:0.78rem;font-weight:700;color:#e0e0e0;"
-                                f"line-height:1.3;margin-bottom:0.4rem;min-height:2.1rem;"
-                                f"display:flex;align-items:center;justify-content:center;'>"
-                                + " + ".join(_all_names.get(p, p) for p in _xr["indicators"])
-                                + f"</div>"
-                                f"<div style='font-size:1.3rem;font-weight:900;color:{_xs_wr_col};"
-                                f"line-height:1;'>{_xr['win_rate']:.0f}%</div>"
-                                f"<div style='background:#1a1a1a;border-radius:3px;height:4px;"
-                                f"margin:0.35rem 0 0.25rem;overflow:hidden;'>"
-                                f"<div style='width:{_bar_w:.0f}%;height:100%;background:{_xs_wr_col};"
-                                f"border-radius:3px;box-shadow:0 0 6px {_xs_wr_col}44;'></div></div>"
-                                f"<div style='font-size:0.65rem;color:{_xs_exp_col};font-weight:700;'>"
-                                f"Exp {_xr['expectancy']:+.2f}%</div>"
-                                f"</div></div>"
-                            )
-                        _ss3 += "</div>"
-                        st.markdown(_ss3, unsafe_allow_html=True)
-
-                        # Detail cards
-                        _top_n = _sc[:int(_cc_top_per_group)]
-                        _rest2 = _sc[int(_cc_top_per_group):]
-                        for _ci, _cr in enumerate(_top_n):
-                            _cac4 = combo_accent_cycle[_ci % len(combo_accent_cycle)]
-                            _make_combo_card(_cr, f"#{_ci + 1}", _cac4)
-                            with st.container(key=f"combo_save_wrap_{_sv}_{_ci}"):
-                                render_save_combo_button(
-                                    _ci + _sv * 100, _cr, _all_names, risk_val, reward_val, _period_label
-                                )
-
-                        # Remaining in table
-                        if _rest2:
-                            _rest_rows2 = [{
-                                "Rank":          int(_cc_top_per_group) + _ri + 1,
-                                "Combination":   _rr["label"],
-                                "Signals":       _rr["total"],
-                                "Win %":         round(_rr["win_rate"], 1),
-                                "Avg Gain %":    round(_rr["avg_gain"], 2),
-                                "Profit Factor": round(_rr["profit_factor"], 2),
-                                "Expectancy %":  round(_rr["expectancy"], 2),
-                                "Wilson Score":  round(_rr["wilson"], 1),
-                                "Std Dev":       round(_rr.get("consistency", 0), 1),
-                                "Max W-Streak":  _rr.get("max_consec_wins", 0),
-                                "Max L-Streak":  _rr.get("max_consec_losses", 0),
-                                "Signals/100":   round(_rr.get("signal_freq", 0), 1),
-                                "Best Regime":   _rr["best_regime"] or "--",
-                            } for _ri, _rr in enumerate(_rest2)]
-                            with st.expander(f"Remaining {len(_rest2)} {_sn} combinations", expanded=False):
-                                st.dataframe(pd.DataFrame(_rest_rows2).set_index("Rank"), use_container_width=True)
+                    insight_toggle(
+                        f"deep_tbl_glossary_{_sv}",
+                        "What does each column mean?",
+                        "<div style='display:grid;grid-template-columns:1fr 1fr;gap:0.3rem 1.5rem;'>"
+                        "<div class='itog-row'><div class='itog-dot'></div>"
+                        "<div><strong>Win %</strong> — Percentage of signals that were profitable. Above 50% = more wins than losses.</div></div>"
+                        "<div class='itog-row'><div class='itog-dot'></div>"
+                        "<div><strong>Avg Gain %</strong> — Average profit on winning trades.</div></div>"
+                        "<div class='itog-row'><div class='itog-dot'></div>"
+                        "<div><strong>Profit Factor</strong> — Total gains ÷ total losses. Above 1.0 = profitable. Above 2.0 = strong edge.</div></div>"
+                        "<div class='itog-row'><div class='itog-dot'></div>"
+                        "<div><strong>Expectancy %</strong> — Average profit per trade (wins + losses combined). Positive = money-making.</div></div>"
+                        "<div class='itog-row'><div class='itog-dot'></div>"
+                        "<div><strong>Wilson Score</strong> — Confidence-adjusted win rate. Penalizes combos with few signals. Higher = more trustworthy.</div></div>"
+                        "<div class='itog-row'><div class='itog-dot'></div>"
+                        "<div><strong>Std Dev</strong> — How wildly results vary. Low = consistent performance. High = unpredictable swings.</div></div>"
+                        "<div class='itog-row'><div class='itog-dot'></div>"
+                        "<div><strong>Max W-Streak</strong> — Longest run of consecutive winning trades.</div></div>"
+                        "<div class='itog-row'><div class='itog-dot'></div>"
+                        "<div><strong>Max L-Streak</strong> — Longest run of consecutive losing trades. Shows worst-case drawdown pattern.</div></div>"
+                        "<div class='itog-row'><div class='itog-dot'></div>"
+                        "<div><strong>Signals/100</strong> — How often this combo fires per 100 bars. Higher = more opportunities.</div></div>"
+                        "<div class='itog-row'><div class='itog-dot'></div>"
+                        "<div><strong>Best Regime</strong> — Market condition where this combo performs best (Trend/Range/Volatile).</div></div>"
+                        "</div>"
+                    )
+                    st.dataframe(pd.DataFrame(_rest_rows2).set_index("Rank"), use_container_width=True)
