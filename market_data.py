@@ -632,8 +632,8 @@ def run_market_analysis(tickers_list, period="6mo", min_score=2, sector_filter=N
                 if start and end:
                     _part = yf.download(
                         list(_chunk),
-                        start=str(start),
-                        end=str(end),
+                        start=str(start)[:10],
+                        end=str(end)[:10],
                         progress=False,
                         threads=True,
                         group_by='ticker',
@@ -670,7 +670,7 @@ def run_market_analysis(tickers_list, period="6mo", min_score=2, sector_filter=N
         for _tasi_sym in ["^TASI", "^TASI.SR"]:
             try:
                 if start and end:
-                    _td = yf.download(_tasi_sym, start=str(start), end=str(end),
+                    _td = yf.download(_tasi_sym, start=str(start)[:10], end=str(end)[:10],
                                       progress=False, timeout=10)
                 else:
                     _td = yf.download(_tasi_sym, period="1y", progress=False, timeout=10)
@@ -1159,6 +1159,17 @@ def run_market_analysis(tickers_list, period="6mo", min_score=2, sector_filter=N
                 target2  = round(max(_raw_t2, cp + _risk_dist * 2.5), 2)
                 if target2 <= target1:
                     target2 = round(target1 + _risk_dist, 2)
+
+                # ── Resistance proximity / Entry quality ──────────────────
+                # headroom = real % distance from price to the ACTUAL 20-bar
+                # resistance (not the inflated target).  A stock that already
+                # rallied to its recent high has no room to run.
+                _real_resist  = high_20
+                _headroom_pct = round((_real_resist - cp) / cp * 100, 2) if cp > 0 else 99
+                _support_pct  = round((cp - struct_low) / cp * 100, 2)  if cp > 0 else 0
+                # range_pos: where price sits inside its 20-bar range (0 = bottom, 100 = top)
+                _range_span = high_20 - struct_low
+                _range_pos  = round((cp - struct_low) / _range_span * 100, 1) if _range_span > 0 else 50
             else:             # SELL side
                 struct_high = float(high.iloc[-20:].max())
                 raw_stop    = struct_high + cur_atr * 0.3
@@ -1173,11 +1184,44 @@ def run_market_analysis(tickers_list, period="6mo", min_score=2, sector_filter=N
                 low_60   = float(low.iloc[-60:].min()) if len(low) >= 60 else low_20
                 target1  = round(low_20, 2) if low_20 < cp * 0.995 else round(cp - cur_atr * 2.0, 2)
                 target2  = round(low_60, 2) if low_60 < target1 * 0.99 else round(cp - cur_atr * 4.0, 2)
+                # sell-side headroom: how far price is above support (room to fall)
+                _real_resist  = low_20
+                _headroom_pct = round((cp - low_20) / cp * 100, 2) if cp > 0 else 99
+                _support_pct  = round((struct_high - cp) / cp * 100, 2) if cp > 0 else 0
+                _range_span   = struct_high - low_20
+                _range_pos    = round((cp - low_20) / _range_span * 100, 1) if _range_span > 0 else 50
 
             risk_amt  = abs(cp - stop_loss)
             rr_ratio  = abs(target2 - cp) / risk_amt if risk_amt > 0 else 0
             potential = (abs(target1 - cp) / cp * 100) if cp > 0 else 0
             risk_pct  = (risk_amt / cp * 100) if cp > 0 else 0
+
+            # ── Entry quality — penalise near-resistance entries ──────────
+            # For BUY: near resistance = bad. For SELL: near support = bad.
+            if score >= 0:
+                # BUY: "headroom" = room to run before hitting resistance
+                if _headroom_pct < 1.0:
+                    _entry_quality = "Poor"          # within 1% of resistance
+                elif _headroom_pct < 2.5:
+                    _entry_quality = "Fair"           # within 2.5%
+                elif _range_pos < 40:
+                    _entry_quality = "Excellent"      # bottom 40% of range
+                elif _range_pos < 65:
+                    _entry_quality = "Good"
+                else:
+                    _entry_quality = "Fair"
+            else:
+                # SELL: mirror — "headroom" = room to fall
+                if _headroom_pct < 1.0:
+                    _entry_quality = "Poor"
+                elif _headroom_pct < 2.5:
+                    _entry_quality = "Fair"
+                elif _range_pos > 60:
+                    _entry_quality = "Excellent"
+                elif _range_pos > 35:
+                    _entry_quality = "Good"
+                else:
+                    _entry_quality = "Fair"
 
             # Stock name / sector
             ticker_key  = ticker if ticker.endswith('.SR') else ticker + '.SR'
@@ -1301,13 +1345,24 @@ def run_market_analysis(tickers_list, period="6mo", min_score=2, sector_filter=N
             cp_d   = round(cp, 2)
             e20_d  = round(e20, 2)
             sigs_n = len(signals)
-            if cur_rsi < 35 or sk < 25:
+            _resist_d = round(_real_resist, 2)
+            if score >= 0 and _entry_quality == "Poor":
+                entry_strategy = (f"DO NOT ENTER — price {cp_d} is only {_headroom_pct}% below "
+                                  f"resistance at {_resist_d}. Wait for a pullback toward "
+                                  f"EMA20 ({e20_d}) or support before buying")
+            elif score >= 0 and _entry_quality == "Fair" and _range_pos > 70:
+                entry_strategy = (f"WAIT FOR PULLBACK — price {cp_d} is in the top {int(_range_pos)}% "
+                                  f"of its range, only {_headroom_pct}% from resistance ({_resist_d}). "
+                                  f"Set alert near EMA20 ({e20_d}) for better entry")
+            elif cur_rsi < 35 or sk < 25:
                 entry_strategy = f"ENTER NOW — RSI {rsi_i}/Stoch {sk_i} both oversold, optimal entry risk/reward at {cp_d}"
             elif perf_5d < -3 and score > 0:
                 p5d_d = round(abs(perf_5d), 1)
                 entry_strategy = f"SCALE IN — down {p5d_d}% this week; buy 50% now at {cp_d}, add rest on green daily candle above EMA20 ({e20_d})"
             elif abs(cp - e20) / max(cp, 0.01) < 0.015:
                 entry_strategy = f"ENTER ON HOLD — price testing EMA20 ({e20_d}) support; confirm hold before full position, stop just below"
+            elif score >= 0 and _entry_quality == "Excellent":
+                entry_strategy = f"ENTER NOW — price near support ({_headroom_pct}% room to resistance), {sigs_n} indicators aligned at {cp_d}"
             else:
                 entry_strategy = f"ENTER AT MARKET — {cp_d} SAR, {sigs_n} indicators aligned; waiting risks missing the move"
 
@@ -1328,15 +1383,29 @@ def run_market_analysis(tickers_list, period="6mo", min_score=2, sector_filter=N
                 t2_txt = (f"Full target {t2_d} (-{pot_t2_d}%) — "
                           f"60-day structural support, full downside target ≈ {_rr_r}:1 R:R")
 
-            # Risk classification
-            risk_class = ("Low"  if (risk_pct < 3.0 and rr_ratio >= 2.0) else
-                          "High" if (risk_pct > 7.0 or cur_adx < 15)    else "Medium")
+            # Risk classification — incorporate entry quality
+            if _entry_quality == "Poor":
+                risk_class = "High"
+            elif risk_pct < 3.0 and rr_ratio >= 2.0 and _entry_quality in ("Excellent", "Good"):
+                risk_class = "Low"
+            elif risk_pct > 7.0 or cur_adx < 15:
+                risk_class = "High"
+            else:
+                risk_class = "Medium"
 
             # Position sizing: 1% portfolio risk rule  (size = 1% / stop_distance%)
             pos_size_pct = min(25, int(100.0 / max(1.0, risk_pct))) if risk_pct > 0 else 10
 
             # Priority score (for ranking top picks)
-            priority_score = round(conviction * 0.5 + min(rr_ratio, 5.0) * 12 + abs(score) * 2, 1)
+            # Penalise near-resistance entries so they rank lower
+            _eq_bonus = {"Excellent": 15, "Good": 5, "Fair": 0, "Poor": -25}
+            priority_score = round(
+                conviction * 0.5
+                + min(rr_ratio, 5.0) * 12
+                + abs(score) * 2
+                + _eq_bonus.get(_entry_quality, 0),
+                1,
+            )
 
             # Sector filter
             if sector_filter and sector_filter != "All Sectors" and sector_name != sector_filter:
@@ -1397,15 +1466,33 @@ def run_market_analysis(tickers_list, period="6mo", min_score=2, sector_filter=N
                 # Sub-scores for 3-section display
                 'ind_score':        ind_score_final,
                 'pa_score':         pa_score_final,
+                # Entry quality — resistance proximity
+                'headroom_pct':     _headroom_pct,
+                'support_pct':      _support_pct,
+                'range_pos':        _range_pos,
+                'entry_quality':    _entry_quality,
+                'support_price':    round(struct_low if score >= 0 else low_20, 2),
+                'resistance_price': round(high_20 if score >= 0 else struct_high, 2),
             }
 
             if score >= min_score:
-                # Hard gate: if weekly trend is bearish, only strong signals pass.
-                # Moderate setups against the weekly trend are demoted to hold —
-                # buying against the higher-timeframe bias is low-probability.
+                # Hard gate 1: weekly trend is bearish → demote moderate buys
                 if weekly_bullish is False and score < 8:
                     results['hold'].append(result)
+                # Hard gate 2: price right at resistance AND weak signal → demote
+                # Strong signals (score >= 5) stay as buy with a warning
+                elif _entry_quality == "Poor" and score < 5:
+                    result['why_reasons'] = [
+                        f"⚠ Near resistance — price is {_headroom_pct}% from the 20-day high. "
+                        f"Indicators are bullish but entry is risky here. Wait for a pullback."
+                    ] + (result.get('why_reasons') or [])
+                    results['hold'].append(result)
                 else:
+                    # Keep in buy but prepend warning if near resistance
+                    if _entry_quality == "Poor":
+                        result['why_reasons'] = [
+                            f"⚠ Near resistance — only {_headroom_pct}% room. Consider waiting for a pullback."
+                        ] + (result.get('why_reasons') or [])
                     results['buy'].append(result)
             elif score <= -min_score:
                 results['sell'].append(result)

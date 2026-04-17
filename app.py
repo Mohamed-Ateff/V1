@@ -301,13 +301,15 @@ st.markdown("""
 
         -webkit-backdrop-filter: blur(12px) !important;
 
+        flex-wrap: wrap !important;
+
     }
 
     div[role="tablist"] button {
 
         position: relative !important;
 
-        flex: 1 1 0 !important;
+        flex: 0 0 auto !important;
 
         color: #9e9e9e !important;
 
@@ -317,9 +319,9 @@ st.markdown("""
 
         border-radius: 8px !important;
 
-        padding: 0.55rem 0.75rem !important;
+        padding: 0.45rem 0.6rem !important;
 
-        font-size: 0.8rem !important;
+        font-size: 0.72rem !important;
 
         font-weight: 500 !important;
 
@@ -593,6 +595,8 @@ def main():
 
 
 
+
+
     # ?? Load favorites from DB once per session ???????????????????????????
 
     if 'favorites' not in st.session_state:
@@ -732,7 +736,7 @@ def main():
         var doc = window.parent.document;
         var win = window.parent;
         var GHO = 'sqnb_ghost';
-        var NH  = 54;
+        var NH  = 'auto';
         var cssOk = false, moOk = false, scrollOk = false;
         var tabsTop = 9999;
 
@@ -756,6 +760,9 @@ def main():
              v:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.636 5.636l1.414 1.414M16.95 16.95l1.414 1.414M5.636 18.364l1.414-1.414M16.95 7.05l1.414-1.414"/></svg>'},
             {l:'Validator',
              v:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>'},
+            {l:'Backtest',
+             v:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/><polyline points="12 7 12 12 16 14"/></svg>',
+             badge:'NEW'},
         ];
 
         function getTL() {
@@ -787,12 +794,12 @@ def main():
                 var col = on ? '#e2e8f0' : '#4a5568';
                 var fw  = on ? '650' : '500';
                 h += '<button class="sqnb-btn" data-i="' + i + '" style="' +
-                    'display:flex;align-items:center;gap:7px;padding:0 1.1rem;margin:0 3px;' +
+                    'display:flex;align-items:center;gap:5px;padding:0 0.75rem;margin:0 2px;' +
                     'background:' + bg + ';' +
                     'border:' + bdr + ';' +
                     'border-radius:10px;' +
                     'color:' + col + ';' +
-                    'font-size:.8rem;font-weight:' + fw + ';' +
+                    'font-size:.72rem;font-weight:' + fw + ';' +
                     'cursor:pointer;white-space:nowrap;' +
                     'height:calc(100% - 16px);align-self:center;flex-shrink:0;letter-spacing:.2px;' +
                     'transition:color .2s,background .2s,border-color .2s,transform .15s;">' +
@@ -848,12 +855,12 @@ def main():
             var g = doc.createElement('div');
             g.id = GHO;
             g.style.cssText =
-                'position:fixed;top:0;left:0;right:0;height:' + NH + 'px;z-index:999999;' +
+                'position:fixed;top:0;left:0;right:0;z-index:999999;' +
                 'background:rgba(14,17,22,.97);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);' +
                 'border-bottom:1px solid rgba(38,166,154,0.12);' +
                 'box-shadow:0 1px 0 rgba(38,166,154,0.08),0 8px 32px rgba(0,0,0,.6);' +
-                'display:flex;align-items:center;padding:0 0.75rem;gap:2px;' +
-                'overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-ms-overflow-style:none;' +
+                'display:flex;align-items:center;padding:0.4rem 0.75rem;gap:4px;' +
+                'flex-wrap:wrap;' +
                 'opacity:0;pointer-events:none;transition:opacity .22s cubic-bezier(.4,0,.2,1),transform .22s cubic-bezier(.4,0,.2,1);' +
                 'transform:translateY(-6px);';
             g.innerHTML = makeButtons(getActiveIdx());
@@ -3353,7 +3360,7 @@ def main():
                     _b1, _b2 = st.columns(2, gap="small")
                     with _b1:
                         with st.container(key="btn_saved"):
-                            _fav_lbl = f"♡  Saved · {fav_count}" if has_favs else "♡  Saved"
+                            _fav_lbl = f"\u2661  Saved \u00b7 {fav_count}" if has_favs else "\u2661  Saved"
                             if st.button(_fav_lbl, key="toolbar_fav", width="stretch"):
                                 st.session_state.show_saved_page = True
                                 st.rerun()
@@ -4002,9 +4009,10 @@ def main():
 
         _perfect_list = sorted(
             [s for s in all_buy
-             if s.get('score', 0) >= 7
-             and s.get('rr_ratio', 0) >= 1.8
-             and s.get('conviction', 0) >= 50],
+             if s.get('score', 0) >= 13
+             and s.get('rr_ratio', 0) >= 1.5
+             and s.get('conviction', 0) >= 45
+             and s.get('entry_quality', 'Good') != 'Poor'],
             key=lambda x: x.get('priority_score', 0), reverse=True)
 
         _hit_rate = round(len(all_buy) / scanned * 100) if scanned > 0 else 0
@@ -4607,6 +4615,27 @@ def main():
             # ── Setup badge ──────────────────────────────────────────────
             _sb_color, _sb_bg = _SETUP_BADGE_COLORS.get(setup, ('#10a37f', '#10a37f18'))
 
+            # ── Entry quality badge ──────────────────────────────────────
+            _eq = stock.get('entry_quality', 'Good')
+            _eq_colors = {
+                'Excellent': ('#10a37f', '#10a37f18', '#10a37f40'),
+                'Good':      ('#4A9EFF', '#4A9EFF14', '#4A9EFF38'),
+                'Fair':      ('#fbbf24', '#fbbf2414', '#fbbf2438'),
+                'Poor':      ('#ef4444', '#ef444418', '#ef444440'),
+            }
+            _eq_col, _eq_bg, _eq_bdr = _eq_colors.get(_eq, ('#888', '#88888818', '#88888840'))
+            _eq_label = {
+                'Excellent': 'Great Entry',
+                'Good':      'Good Entry',
+                'Fair':      'Fair Entry',
+                'Poor':      'Near Resistance ⚠',
+            }.get(_eq, _eq)
+            _headroom = stock.get('headroom_pct', 0)
+            _range_p  = stock.get('range_pos', 50)
+            _sup_price = stock.get('support_price', 0)
+            _res_price = stock.get('resistance_price', 0)
+            _sup_pct   = stock.get('support_pct', 0)
+
             # ── Sector label ─────────────────────────────────────────────
             _sprof_label = _sprof.get('label', sector) if sector and sector not in ('', 'Other') else ''
 
@@ -4711,6 +4740,11 @@ def main():
                     f'background:#1e1e1e;color:#545454;'
                     f'border:1px solid #2a2a2a;white-space:nowrap;">{_sprof_label}</span>'
                     if _sprof_label else ''
+                ) + (
+                    f'<span style="font-size:0.7rem;font-weight:700;'
+                    f'padding:0.2rem 0.65rem;border-radius:5px;'
+                    f'background:{_eq_bg};color:{_eq_col};'
+                    f'border:1px solid {_eq_bdr};white-space:nowrap;">{_eq_label}</span>'
                 ) +
                 f'</div>'  # end pills
 
@@ -4800,6 +4834,83 @@ def main():
                 f'</div>'
 
                 f'</div>'
+
+                f'</div>'
+
+                # ══ PRICE STRUCTURE — advanced S/R section ══════════════════
+                f'<div style="background:#0f0f0f;border-top:1px solid #2a2a2a;padding:1rem 1.5rem;">'
+                f'<div style="font-size:0.72rem;color:#909090;text-transform:uppercase;letter-spacing:1.2px;'
+                f'font-weight:800;margin-bottom:0.8rem;">Price Structure</div>'
+
+                # ── 3-col: Support | Range Bar | Resistance ──
+                f'<div style="display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:1rem;">'
+
+                # LEFT — Support box
+                f'<div style="text-align:center;background:#1a2a1e;border:1px solid #1e5f2a;'
+                f'border-radius:10px;padding:0.6rem 1rem;min-width:6rem;">'
+                f'<div style="font-size:0.55rem;font-weight:800;color:#10a37f;text-transform:uppercase;'
+                f'letter-spacing:1px;margin-bottom:0.2rem;">Support</div>'
+                f'<div style="font-size:1.15rem;font-weight:900;color:#10a37f;">{_sup_price:.2f}</div>'
+                f'<div style="font-size:0.62rem;color:#666;margin-top:0.15rem;">{_sup_pct:.1f}% below</div>'
+                f'</div>'
+
+                # CENTER — Range bar with price dot
+                f'<div style="display:flex;flex-direction:column;gap:0.4rem;">'
+                # Current price label
+                f'<div style="position:relative;height:1rem;">'
+                f'<div style="position:absolute;left:{min(92, max(8, _range_p))}%;'
+                f'transform:translateX(-50%);font-size:0.7rem;font-weight:800;color:#fff;'
+                f'white-space:nowrap;">{entry:.2f}</div>'
+                f'</div>'
+                # The bar itself
+                f'<div style="position:relative;height:12px;background:#1e1e1e;border-radius:6px;overflow:visible;">'
+                # gradient fill from support to price
+                f'<div style="position:absolute;left:0;top:0;width:{min(100, max(0, _range_p))}%;height:100%;'
+                f'border-radius:6px 0 0 6px;background:linear-gradient(90deg,#10a37f22,{_eq_col}55);"></div>'
+                # full track gradient
+                f'<div style="position:absolute;left:0;top:0;width:100%;height:100%;border-radius:6px;'
+                f'background:linear-gradient(90deg,#10a37f,#4A9EFF 40%,#fbbf24 70%,#ef4444);opacity:0.2;"></div>'
+                # position dot
+                f'<div style="position:absolute;top:50%;left:{min(95, max(5, _range_p))}%;'
+                f'transform:translate(-50%,-50%);width:16px;height:16px;border-radius:50%;'
+                f'background:{_eq_col};border:2px solid #181818;'
+                f'box-shadow:0 0 10px {_eq_col}99;z-index:2;"></div>'
+                f'</div>'
+                # Labels row
+                f'<div style="display:flex;justify-content:space-between;align-items:center;margin-top:0.15rem;">'
+                f'<span style="font-size:0.55rem;color:#555;font-weight:700;">0%</span>'
+                f'<span style="font-size:0.68rem;font-weight:800;color:{_eq_col};'
+                f'background:{_eq_col}12;padding:0.1rem 0.5rem;border-radius:4px;">'
+                f'{_eq_label} • {_range_p:.0f}% in range</span>'
+                f'<span style="font-size:0.55rem;color:#555;font-weight:700;">100%</span>'
+                f'</div>'
+                f'</div>'
+
+                # RIGHT — Resistance box
+                f'<div style="text-align:center;background:#2a1a1a;border:1px solid #5f1e1e;'
+                f'border-radius:10px;padding:0.6rem 1rem;min-width:6rem;">'
+                f'<div style="font-size:0.55rem;font-weight:800;color:#ef4444;text-transform:uppercase;'
+                f'letter-spacing:1px;margin-bottom:0.2rem;">Resistance</div>'
+                f'<div style="font-size:1.15rem;font-weight:900;color:#ef4444;">{_res_price:.2f}</div>'
+                f'<div style="font-size:0.62rem;color:#666;margin-top:0.15rem;">{_headroom:.1f}% above</div>'
+                f'</div>'
+
+                f'</div>'  # end 3-col grid
+
+                # ── Room-to-Run meter ──
+                f'<div style="display:flex;align-items:center;gap:0.7rem;margin-top:0.7rem;'
+                f'padding:0.5rem 0.7rem;background:#ffffff04;border-radius:8px;border:1px solid #222;">'
+                f'<span style="font-size:0.6rem;font-weight:800;color:#606060;text-transform:uppercase;'
+                f'letter-spacing:1px;flex-shrink:0;">Room to Run</span>'
+                # mini bar
+                f'<div style="flex:1;height:6px;background:#1e1e1e;border-radius:3px;overflow:hidden;">'
+                f'<div style="height:100%;width:{min(100, max(2, _headroom * 10))}%;'
+                f'background:{_eq_col};border-radius:3px;"></div>'
+                f'</div>'
+                f'<span style="font-size:0.78rem;font-weight:900;color:{_eq_col};'
+                f'white-space:nowrap;">{_headroom:.1f}%</span>'
+                f'</div>'
+
                 f'</div>'
 
                 # ── 2-COL BOTTOM: WHY + MARKET CONTEXT ──
@@ -5603,11 +5714,12 @@ def main():
         from smc_tab import smc_tab
         from trade_validator_tab import trade_validator_tab
         from elliott_wave_tab import elliott_wave_tab
+        from backtest_tab import backtest_tab
 
         # Each tab wrapped in @st.fragment so interactions within one tab
         # do NOT re-render ALL 9 tabs (huge performance win on reruns).
 
-        tab_dec, tab0, tab1, tab2, tab_vp, tab_smc, tab_ew, tab4, tab_tv = st.tabs([
+        tab_dec, tab0, tab1, tab2, tab_vp, tab_smc, tab_ew, tab4, tab_tv, tab_bt = st.tabs([
             "Decision",
             "Regime",
             "Signals",
@@ -5617,6 +5729,7 @@ def main():
             "Elliott Wave",
             "AI Analysis",
             "Trade Validator",
+            "Backtest",
         ])
 
         with tab_dec:
@@ -5702,6 +5815,14 @@ def main():
             def _frag_tv():
                 trade_validator_tab(df, latest, current_price)
             _frag_tv()
+
+        with tab_bt:
+            @st.fragment
+            def _frag_bt():
+                backtest_tab(df, current_price)
+            _frag_bt()
+
+
 
 
 
