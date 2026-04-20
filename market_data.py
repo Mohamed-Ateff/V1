@@ -1202,14 +1202,14 @@ def run_market_analysis(tickers_list, period="6mo", min_score=2, sector_filter=N
                 # BUY: "headroom" = room to run before hitting resistance
                 if _headroom_pct < 1.0:
                     _entry_quality = "Poor"          # within 1% of resistance
-                elif _headroom_pct < 2.5:
-                    _entry_quality = "Fair"           # within 2.5%
+                elif _headroom_pct < 2.0:
+                    _entry_quality = "Fair"           # within 2%
                 elif _range_pos < 40:
                     _entry_quality = "Excellent"      # bottom 40% of range
-                elif _range_pos < 65:
-                    _entry_quality = "Good"
+                elif _range_pos < 75:
+                    _entry_quality = "Good"           # mid-range
                 else:
-                    _entry_quality = "Fair"
+                    _entry_quality = "Fair"           # upper 25%
             else:
                 # SELL: mirror — "headroom" = room to fall
                 if _headroom_pct < 1.0:
@@ -1350,7 +1350,7 @@ def run_market_analysis(tickers_list, period="6mo", min_score=2, sector_filter=N
                 entry_strategy = (f"DO NOT ENTER — price {cp_d} is only {_headroom_pct}% below "
                                   f"resistance at {_resist_d}. Wait for a pullback toward "
                                   f"EMA20 ({e20_d}) or support before buying")
-            elif score >= 0 and _entry_quality == "Fair" and _range_pos > 70:
+            elif score >= 0 and _entry_quality == "Fair" and _range_pos > 85:
                 entry_strategy = (f"WAIT FOR PULLBACK — price {cp_d} is in the top {int(_range_pos)}% "
                                   f"of its range, only {_headroom_pct}% from resistance ({_resist_d}). "
                                   f"Set alert near EMA20 ({e20_d}) for better entry")

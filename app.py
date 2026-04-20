@@ -48,7 +48,6 @@ from charts import (
     create_combo_performance_chart,
     create_combo_regime_chart,
     create_combo_metrics_comparison,
-    create_combo_consistency_chart,
     create_consensus_agreement_chart,
     create_consensus_timeline_chart,
     create_consensus_regime_chart,
@@ -593,6 +592,10 @@ def main():
 
         st.session_state.show_saved_page = False
 
+    if 'show_acpts' not in st.session_state:
+
+        st.session_state.show_acpts = False
+
 
 
 
@@ -949,7 +952,7 @@ def main():
     </script>
     """, height=0)
 
-    if not st.session_state.show_results and not st.session_state.show_market_results and not st.session_state.show_market_pulse and not st.session_state.show_macro and not st.session_state.show_saved_page:
+    if not st.session_state.show_results and not st.session_state.show_market_results and not st.session_state.show_market_pulse and not st.session_state.show_macro and not st.session_state.show_saved_page and not st.session_state.show_acpts:
 
         # CONTROLS PAGE
 
@@ -3567,9 +3570,10 @@ def main():
             with right_col:
                 with st.container(key="right_panel"):
 
-                    cp_tab0, cp_tab1 = st.tabs([
+                    cp_tab0, cp_tab1, cp_tab_acpts = st.tabs([
                         "Stock Symbol",
                         "Scan Market",
+                        "🏛 ACPTS V15",
                     ])
 
                     # ── shared indicator block (reused in stock tab) ────────
@@ -3813,11 +3817,116 @@ def main():
                                       on_click=run_market_analysis_callback_all, key="ma_run_btn_all")
                             st.markdown("</div>", unsafe_allow_html=True)
 
+                    # ── TAB 2: ACPTS V15 ────────────────────────────────────
+                    with cp_tab_acpts:
+                        st.markdown(
+                            "<div style='text-align:center;padding:0.8rem 0 0.3rem;'>"
+                            "<div style='font-size:1.1rem;font-weight:900;color:#FFD700;'>"
+                            "ACPTS V15</div>"
+                            "<div style='font-size:0.68rem;color:#666;line-height:1.5;margin-top:0.3rem;'>"
+                            "Conservative Institutional Quant System<br>"
+                            "Score ≥ 90/110 Required for Entry</div>"
+                            "</div>",
+                            unsafe_allow_html=True)
+
+                        st.markdown(
+                            "<div style='background:#181818;border:1px solid #262626;border-radius:8px;"
+                            "padding:0.7rem 0.9rem;margin:0.5rem 0;'>"
+                            "<div style='font-size:0.62rem;color:#FFD700;font-weight:700;"
+                            "text-transform:uppercase;letter-spacing:0.8px;margin-bottom:0.4rem;'>"
+                            "How it works</div>"
+                            "<div style='font-size:0.7rem;color:#888;line-height:1.6;'>"
+                            "1. Scans all stocks with a <b style=\"color:#ccc;\">110-point continuous scoring engine</b><br>"
+                            "2. Only <b style=\"color:#FFD700;\">Score ≥ 90</b> = Institutional Grade entry<br>"
+                            "3. Shows <b style=\"color:#10a37f;\">Win Probability</b> via logistic curve<br>"
+                            "4. Auto-detects market regime (Trend/Range/Volatile)<br>"
+                            "5. <b style=\"color:#ef4444;\">Volatile = 100% cash</b> · No exceptions"
+                            "</div></div>",
+                            unsafe_allow_html=True)
+
+                        _acpts_mode = st.radio(
+                            "Scan mode",
+                            ["Full Market", "Enter Symbols"],
+                            horizontal=True,
+                            key="acpts_scan_mode",
+                            label_visibility="collapsed",
+                        )
+
+                        if _acpts_mode == "Enter Symbols":
+                            st.markdown("<div class='cp-input-label'>Stock Symbols (comma separated)</div>",
+                                        unsafe_allow_html=True)
+                            _acpts_syms = st.text_input(
+                                "Symbols", key="acpts_symbols_input",
+                                label_visibility="collapsed",
+                                placeholder="e.g., 2222, 1120, 2350")
+                            _acpts_tickers = [s.strip() + ".SR" if s.strip().isdigit() else s.strip()
+                                              for s in _acpts_syms.split(",") if s.strip()] if _acpts_syms else []
+
+                            def _acpts_run_custom():
+                                if not _acpts_tickers:
+                                    return
+                                with st.spinner(f"ACPTS V15 scanning {len(_acpts_tickers)} stocks…"):
+                                    res = run_market_analysis(tuple(_acpts_tickers), min_score=1)
+                                    st.session_state.acpts_results = res
+                                    st.session_state.acpts_scanned = len(_acpts_tickers)
+                                    st.session_state.show_acpts = True
+
+                            st.markdown("<div class='cp-run-wrap'>", unsafe_allow_html=True)
+                            st.button("Run ACPTS V15 Scan", type="secondary", width="stretch",
+                                      on_click=_acpts_run_custom, key="acpts_run_custom")
+                            st.markdown("</div>", unsafe_allow_html=True)
+                        else:
+                            _acpts_all = get_all_tadawul_tickers()
+                            _acpts_all_tickers = list(_acpts_all.keys())
+                            st.markdown(
+                                f"<div style='color:#FFD700;font-size:0.78rem;font-weight:600;"
+                                f"margin-bottom:0.8rem;'>"
+                                f"{len(_acpts_all_tickers)} Tadawul stocks ready</div>",
+                                unsafe_allow_html=True)
+
+                            def _acpts_run_full():
+                                with st.spinner(f"ACPTS V15 scanning {len(_acpts_all_tickers)} stocks…"):
+                                    res = run_market_analysis(tuple(_acpts_all_tickers), min_score=1)
+                                    st.session_state.acpts_results = res
+                                    st.session_state.acpts_scanned = len(_acpts_all_tickers)
+                                    st.session_state.show_acpts = True
+
+                            st.markdown("<div class='cp-run-wrap'>", unsafe_allow_html=True)
+                            st.button("Run ACPTS V15 Full Scan", type="secondary", width="stretch",
+                                      on_click=_acpts_run_full, key="acpts_run_full")
+                            st.markdown("</div>", unsafe_allow_html=True)
+
     elif st.session_state.show_saved_page:
 
         apply_ui_theme()
 
         render_saved_page()
+
+    elif st.session_state.show_acpts:
+
+        apply_ui_theme()
+        from acpts_tab_v2 import render_acpts_tab
+
+        st.markdown("""
+        <style>
+        header[data-testid="stHeader"] { display: none !important; }
+        [data-testid="stToolbar"]      { display: none !important; }
+        .block-container { padding-top: 0.4rem !important; margin-top: 0 !important; }
+        section[data-testid="stMainBlockContainer"] { padding-top: 0.4rem !important; }
+        </style>""", unsafe_allow_html=True)
+
+        if st.button("← Back", type="secondary", use_container_width=True, key="acpts_back_btn"):
+            st.session_state.show_acpts = False
+            st.rerun()
+
+        _acpts_res = st.session_state.get('acpts_results', {}) or {}
+        _acpts_buy  = _acpts_res.get('buy', [])
+        _acpts_sell = _acpts_res.get('sell', [])
+        _acpts_hold = _acpts_res.get('hold', [])
+        _acpts_all  = _acpts_buy + _acpts_sell + _acpts_hold
+        _acpts_n    = st.session_state.get('acpts_scanned', 0)
+
+        render_acpts_tab(_acpts_all, _acpts_n)
 
     elif st.session_state.show_market_results:
 
@@ -4009,11 +4118,22 @@ def main():
 
         _perfect_list = sorted(
             [s for s in all_buy
-             if s.get('score', 0) >= 13
-             and s.get('rr_ratio', 0) >= 1.5
-             and s.get('conviction', 0) >= 45
+             if s.get('score', 0) >= 6
+             and s.get('rr_ratio', 0) >= 1.0
+             and s.get('conviction', 0) >= 30
              and s.get('entry_quality', 'Good') != 'Poor'],
-            key=lambda x: x.get('priority_score', 0), reverse=True)
+            key=lambda x: (
+                x.get('score', 0) * 4          # signal score is king
+                + x.get('rr_ratio', 0) * 8     # reward-to-risk matters
+                + x.get('conviction', 0) * 0.3  # conviction as tiebreaker
+            ), reverse=True)[:8]
+
+        # Override entry strategy for Perfect Setups — they passed all filters, always ENTER NOW
+        for _ps in _perfect_list:
+            _rr = _ps.get('rr_ratio', 0)
+            _sc = _ps.get('score', 0)
+            _ps['entry_strategy'] = (f"ENTER NOW — Perfect Setup with score {_sc}/20 and "
+                                     f"R:R {_rr:.1f}. All filters passed, enter at market price")
 
         _hit_rate = round(len(all_buy) / scanned * 100) if scanned > 0 else 0
 
@@ -4098,25 +4218,40 @@ def main():
                 _ipf = f"{_ip:.1f}"
             _ilbl = _INST_LABELS.get(_ikey, _ikey.upper())
             _card_top_col = _ic5_col
+            # colors: strong green/red for big moves, muted for small
+            _c1_bg = '#10a37f15' if _ic1 >= 0 else '#ef444415'
+            _c5_bg = '#10a37f15' if _ic5 >= 0 else '#ef444415'
             _inst_html += (
-                f'<div style="background:#191919;border:1px solid #222;'
-                f'border-top:3px solid {_card_top_col};border-radius:10px;'
-                f'padding:0.85rem 1rem;min-width:110px;flex:1 1 110px;">'
-                f'<div style="font-size:0.64rem;color:#888;font-weight:800;text-transform:uppercase;'
-                f'letter-spacing:0.9px;margin-bottom:0.5rem;">{_ilbl}</div>'
-                f'<div style="font-size:1.15rem;font-weight:900;color:#f0f0f0;'
-                f'margin-bottom:0.55rem;white-space:nowrap;">{_ipf}</div>'
-                f'<div style="display:flex;align-items:center;justify-content:space-between;'
-                f'margin-bottom:0.22rem;">'
-                f'<span style="font-size:0.66rem;color:#666;text-transform:uppercase;'
-                f'letter-spacing:0.5px;">Today</span>'
-                f'<span style="font-size:0.84rem;font-weight:800;color:{_ic1_col};">'
-                f'{_is1}{_ic1:.1f}%</span></div>'
-                f'<div style="display:flex;align-items:center;justify-content:space-between;">'
-                f'<span style="font-size:0.66rem;color:#666;text-transform:uppercase;'
-                f'letter-spacing:0.5px;">5 Days</span>'
-                f'<span style="font-size:0.84rem;font-weight:800;color:{_ic5_col};">'
-                f'{_is5}{_ic5:.1f}%</span></div>'
+                f'<div style="background:#141414;border:1px solid #1e1e1e;'
+                f'border-radius:12px;flex:1 1 150px;min-width:150px;overflow:hidden;">'
+                # top: label + price
+                f'<div style="padding:0.75rem 1rem 0.6rem;">'
+                f'<div style="font-size:0.58rem;color:#555;font-weight:800;text-transform:uppercase;'
+                f'letter-spacing:1.2px;margin-bottom:0.35rem;">{_ilbl}</div>'
+                f'<div style="font-size:1.35rem;font-weight:900;color:#f0f0f0;'
+                f'letter-spacing:-0.3px;">{_ipf}</div>'
+                f'</div>'
+                # bottom: Today and 5 Days side by side
+                f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:0;'
+                f'padding:0 0.6rem 0.6rem;">'
+                # Today box
+                f'<div style="background:{_c1_bg};border-radius:8px 0 0 8px;'
+                f'padding:0.5rem 0.6rem;text-align:center;'
+                f'border-right:1px solid #1a1a1a;">'
+                f'<div style="font-size:0.48rem;color:#555;font-weight:700;text-transform:uppercase;'
+                f'letter-spacing:0.5px;margin-bottom:0.25rem;">Today</div>'
+                f'<div style="font-size:0.95rem;font-weight:900;color:{_ic1_col};'
+                f'">{_is1}{_ic1:.1f}%</div>'
+                f'</div>'
+                # 5 Days box
+                f'<div style="background:{_c5_bg};border-radius:0 8px 8px 0;'
+                f'padding:0.5rem 0.6rem;text-align:center;">'
+                f'<div style="font-size:0.48rem;color:#555;font-weight:700;text-transform:uppercase;'
+                f'letter-spacing:0.5px;margin-bottom:0.25rem;">5 Days</div>'
+                f'<div style="font-size:0.95rem;font-weight:900;color:{_ic5_col};'
+                f'">{_is5}{_ic5:.1f}%</div>'
+                f'</div>'
+                f'</div>'
                 f'</div>'
             )
 
@@ -4322,7 +4457,7 @@ def main():
             'Volume Spike': 'Unusual buying volume — big institutional interest',
         }
 
-        def _render_card(stock, side, tier_color=None, rank_num=None):
+        def _render_card(stock, side, tier_color=None, rank_num=None, is_perfect=False):
             sym    = stock['ticker'].replace('.SR', '')
             name   = stock.get('name', sym)
             price  = stock['price']
@@ -4337,6 +4472,31 @@ def main():
             raw_why = stock.get('why_reasons') or stock.get('signals', [])
             mtf    = stock.get('mtf_score', 0)
             sector = stock.get('sector', 'Other')
+
+            # Technical indicator values
+            _rsi      = stock.get('rsi', 50)
+            _adx      = stock.get('adx', 20)
+            _bb_pct   = stock.get('bb_pct', 0.5)
+            _stoch_k  = stock.get('stoch_k', 50)
+            _vol_ratio = stock.get('vol_ratio', 1.0)
+            _above_ema200 = stock.get('above_ema200', False)
+            _obv_rising   = stock.get('obv_rising', False)
+
+            # Performance
+            _perf_5d  = stock.get('perf_5d', 0)
+            _perf_1m  = stock.get('perf_1m', 0)
+            _perf_3m  = stock.get('perf_3m', 0)
+            _w52_pos  = stock.get('w52_pos', 50)
+
+            # Score breakdown
+            _ind_score = stock.get('ind_score', 0)
+            _pa_score  = stock.get('pa_score', 0)
+
+            # Risk & position sizing
+            _risk_class  = stock.get('risk_class', 'Medium')
+            _pos_size    = stock.get('pos_size_pct', 3.0)
+            _entry_strat = stock.get('entry_strategy', '')
+            _regime      = stock.get('regime', 'RANGE')
 
             ac = tier_color or {"buy": "#10a37f", "sell": "#ef4444", "hold": "#fbbf24"}.get(side, "#10a37f")
             sc_color = "#10a37f" if score >= 12 else ("#4A9EFF" if score >= 7 else "#fbbf24")
@@ -4644,12 +4804,14 @@ def main():
             if not bullets and setup:
                 bullets = [_SETUP_LABELS.get(setup, setup)]
             bullet_html = "".join(
-                f'<div style="display:flex;align-items:flex-start;gap:0.6rem;padding:0.38rem 0;'
+                f'<div style="display:flex;align-items:flex-start;gap:0.7rem;padding:0.45rem 0;'
                 f'border-bottom:1px solid rgba(255,255,255,0.04);">'
-                f'<span style="color:#10a37f;font-size:0.82rem;line-height:1.4;flex-shrink:0;">&#10003;</span>'
-                f'<span style="font-size:0.92rem;color:#d0d0d0;line-height:1.55;">{b}</span>'
+                f'<span style="background:#10a37f18;color:#10a37f;font-size:0.6rem;font-weight:900;'
+                f'min-width:1.4rem;height:1.4rem;display:flex;align-items:center;justify-content:center;'
+                f'border-radius:6px;border:1px solid #10a37f30;flex-shrink:0;">{i+1}</span>'
+                f'<span style="font-size:0.85rem;color:#c8c8c8;line-height:1.6;">{b}</span>'
                 f'</div>'
-                for b in bullets
+                for i, b in enumerate(bullets)
             ) if bullets else '<span style="color:#484848;font-size:0.82rem;">No specific signals recorded</span>'
 
             # ── Score / confidence colors ─────────────────────────────────
@@ -4676,8 +4838,13 @@ def main():
             ) if rank_num else ''
 
             # ── Render card ──────────────────────────────────────────────
+            _card_border = (
+                f'border:3px solid #FFD70066;'
+            ) if is_perfect else (
+                f'border:1px solid #242424;border-top:3px solid {ac};'
+            )
             st.markdown(
-                f'<div style="border:1px solid #242424;border-top:3px solid {ac};'
+                f'<div style="{_card_border}'
                 f'border-radius:14px;background:#181818;margin-bottom:1.6rem;overflow:hidden;">'
 
                 # ╔══ HEADER ═════════════════════════════════════════════╗
@@ -4779,8 +4946,14 @@ def main():
                 f'<div style="background:{_cc2}0e;border:1px solid {_cc2}30;'
                 f'border-radius:8px;padding:0.6rem 1rem;text-align:right;min-width:5.5rem;'
                 f'display:flex;flex-direction:column;justify-content:space-between;">'
-                f'<div style="font-size:0.62rem;font-weight:700;color:{_cc2}99;'
-                f'white-space:nowrap;margin-bottom:0.3rem;">Confidence</div>'
+                f'<div style="display:flex;align-items:center;gap:0.3rem;margin-bottom:0.3rem;">'
+                f'<span style="font-size:0.62rem;font-weight:700;color:{_cc2}99;'
+                f'white-space:nowrap;">Confidence</span>'
+                f'<span title="Confidence = how much of the maximum possible score this stock achieved. '
+                f'Calculated as (Signal Score ÷ Max possible for this market regime) × 100. '
+                f'Higher % = more indicators are aligned in your favor."'
+                f' style="font-size:0.5rem;color:#444;cursor:help;font-weight:900;">&#63;</span>'
+                f'</div>'
                 f'<div style="font-size:1.4rem;font-weight:900;color:{_cc2};'
                 f'line-height:1;white-space:nowrap;">'
                 f'{conv}<span style="font-size:0.75rem;color:{_cc2}66;font-weight:600;">%</span>'
@@ -4799,7 +4972,11 @@ def main():
                 f'<div style="background:#141414;border-top:1px solid #2a2a2a;border-bottom:1px solid #2a2a2a;'
                 f'padding:1rem 1.5rem;">'
                 f'<div style="font-size:0.72rem;color:#909090;text-transform:uppercase;letter-spacing:1.2px;'
-                f'font-weight:800;margin-bottom:0.8rem;">Your Trading Plan</div>'
+                f'font-weight:800;margin-bottom:0.8rem;">'
+                f'Your Trading Plan '
+                f'<span title="Entry = suggested buy price. Stop Loss = exit if trade goes wrong. T1/T2 = profit targets. R:R = risk-to-reward ratio (higher = better)."'
+                f' style="font-size:0.6rem;color:#444;cursor:help;font-weight:900;">&#63;</span>'
+                f'</div>'
                 f'<div style="display:grid;grid-template-columns:1fr auto 1fr auto 1fr auto 1fr auto 1fr;'
                 f'align-items:center;width:100%;gap:0.3rem;">'
 
@@ -4840,7 +5017,11 @@ def main():
                 # ══ PRICE STRUCTURE — advanced S/R section ══════════════════
                 f'<div style="background:#0f0f0f;border-top:1px solid #2a2a2a;padding:1rem 1.5rem;">'
                 f'<div style="font-size:0.72rem;color:#909090;text-transform:uppercase;letter-spacing:1.2px;'
-                f'font-weight:800;margin-bottom:0.8rem;">Price Structure</div>'
+                f'font-weight:800;margin-bottom:0.8rem;">'
+                f'Price Structure '
+                f'<span title="Support = nearest price floor where buyers step in. Resistance = nearest price ceiling. Range bar shows where price sits between them. Closer to support = better entry."'
+                f' style="font-size:0.6rem;color:#444;cursor:help;font-weight:900;">&#63;</span>'
+                f'</div>'
 
                 # ── 3-col: Support | Range Bar | Resistance ──
                 f'<div style="display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:1rem;">'
@@ -4851,7 +5032,7 @@ def main():
                 f'<div style="font-size:0.55rem;font-weight:800;color:#10a37f;text-transform:uppercase;'
                 f'letter-spacing:1px;margin-bottom:0.2rem;">Support</div>'
                 f'<div style="font-size:1.15rem;font-weight:900;color:#10a37f;">{_sup_price:.2f}</div>'
-                f'<div style="font-size:0.62rem;color:#666;margin-top:0.15rem;">{_sup_pct:.1f}% below</div>'
+                f'<div style="font-size:0.65rem;color:#10a37fcc;margin-top:0.15rem;font-weight:700;">{_sup_pct:.1f}% below price</div>'
                 f'</div>'
 
                 # CENTER — Range bar with price dot
@@ -4866,10 +5047,10 @@ def main():
                 f'<div style="position:relative;height:12px;background:#1e1e1e;border-radius:6px;overflow:visible;">'
                 # gradient fill from support to price
                 f'<div style="position:absolute;left:0;top:0;width:{min(100, max(0, _range_p))}%;height:100%;'
-                f'border-radius:6px 0 0 6px;background:linear-gradient(90deg,#10a37f22,{_eq_col}55);"></div>'
+                f'border-radius:6px 0 0 6px;background:linear-gradient(90deg,#10a37f55,{_eq_col}aa);"></div>'
                 # full track gradient
                 f'<div style="position:absolute;left:0;top:0;width:100%;height:100%;border-radius:6px;'
-                f'background:linear-gradient(90deg,#10a37f,#4A9EFF 40%,#fbbf24 70%,#ef4444);opacity:0.2;"></div>'
+                f'background:linear-gradient(90deg,#10a37f,#4A9EFF 40%,#fbbf24 70%,#ef4444);opacity:0.45;"></div>'
                 # position dot
                 f'<div style="position:absolute;top:50%;left:{min(95, max(5, _range_p))}%;'
                 f'transform:translate(-50%,-50%);width:16px;height:16px;border-radius:50%;'
@@ -4877,12 +5058,12 @@ def main():
                 f'box-shadow:0 0 10px {_eq_col}99;z-index:2;"></div>'
                 f'</div>'
                 # Labels row
-                f'<div style="display:flex;justify-content:space-between;align-items:center;margin-top:0.15rem;">'
-                f'<span style="font-size:0.55rem;color:#555;font-weight:700;">0%</span>'
+                f'<div style="display:flex;justify-content:space-between;align-items:center;margin-top:0.2rem;">'
+                f'<span style="font-size:0.55rem;color:#10a37f;font-weight:700;">Support</span>'
                 f'<span style="font-size:0.68rem;font-weight:800;color:{_eq_col};'
-                f'background:{_eq_col}12;padding:0.1rem 0.5rem;border-radius:4px;">'
-                f'{_eq_label} • {_range_p:.0f}% in range</span>'
-                f'<span style="font-size:0.55rem;color:#555;font-weight:700;">100%</span>'
+                f'background:{_eq_col}12;padding:0.12rem 0.55rem;border-radius:4px;">'
+                f'{_eq_label}</span>'
+                f'<span style="font-size:0.55rem;color:#ef4444;font-weight:700;">Resistance</span>'
                 f'</div>'
                 f'</div>'
 
@@ -4892,49 +5073,179 @@ def main():
                 f'<div style="font-size:0.55rem;font-weight:800;color:#ef4444;text-transform:uppercase;'
                 f'letter-spacing:1px;margin-bottom:0.2rem;">Resistance</div>'
                 f'<div style="font-size:1.15rem;font-weight:900;color:#ef4444;">{_res_price:.2f}</div>'
-                f'<div style="font-size:0.62rem;color:#666;margin-top:0.15rem;">{_headroom:.1f}% above</div>'
+                f'<div style="font-size:0.65rem;color:#ef4444cc;margin-top:0.15rem;font-weight:700;">{_headroom:.1f}% above price</div>'
                 f'</div>'
 
                 f'</div>'  # end 3-col grid
 
-                # ── Room-to-Run meter ──
-                f'<div style="display:flex;align-items:center;gap:0.7rem;margin-top:0.7rem;'
-                f'padding:0.5rem 0.7rem;background:#ffffff04;border-radius:8px;border:1px solid #222;">'
-                f'<span style="font-size:0.6rem;font-weight:800;color:#606060;text-transform:uppercase;'
-                f'letter-spacing:1px;flex-shrink:0;">Room to Run</span>'
-                # mini bar
-                f'<div style="flex:1;height:6px;background:#1e1e1e;border-radius:3px;overflow:hidden;">'
-                f'<div style="height:100%;width:{min(100, max(2, _headroom * 10))}%;'
-                f'background:{_eq_col};border-radius:3px;"></div>'
                 f'</div>'
-                f'<span style="font-size:0.78rem;font-weight:900;color:{_eq_col};'
-                f'white-space:nowrap;">{_headroom:.1f}%</span>'
+
+                # ══ PERFORMANCE HEATMAP + SCORE BREAKDOWN ══════════════════
+                f'<div style="display:grid;grid-template-columns:1fr 1fr;border-top:1px solid #2a2a2a;">'
+
+                # LEFT — Performance Heatmap
+                f'<div style="padding:0.9rem 1.3rem;border-right:1px solid #1e1e1e;">'
+                f'<div style="display:flex;align-items:center;gap:0.35rem;margin-bottom:0.6rem;">'
+                f'<span style="font-size:0.65rem;color:#606060;font-weight:800;text-transform:uppercase;'
+                f'letter-spacing:1px;">Performance</span>'
+                f'<span title="How this stock performed over different time periods. Green = gain, Red = loss. 52W shows where the price sits between its yearly low and high."'
+                f' style="font-size:0.6rem;color:#444;cursor:help;font-weight:900;">&#63;</span>'
+                f'</div>'
+                # 4 rows: 5D, 1M, 3M, 52W — horizontal bars with numbers
+                f'<div style="display:flex;flex-direction:column;gap:0.4rem;">'
+
+                # 5D
+                f'<div style="display:flex;align-items:center;gap:0.5rem;">'
+                f'<span style="font-size:0.6rem;font-weight:700;color:#888;min-width:1.8rem;">5D</span>'
+                f'<div style="flex:1;height:8px;background:#1e1e1e;border-radius:4px;overflow:hidden;position:relative;">'
+                f'<div style="position:absolute;{"left:50%" if _perf_5d >= 0 else "right:50%"};top:0;height:100%;'
+                f'width:{min(50, abs(_perf_5d) * 2.5)}%;'
+                f'background:{"#10a37f" if _perf_5d >= 0 else "#ef4444"};'
+                f'border-radius:4px;"></div>'
+                f'</div>'
+                f'<span style="font-size:0.75rem;font-weight:800;min-width:3.5rem;text-align:right;'
+                f'color:{"#10a37f" if _perf_5d >= 0 else "#ef4444"};">'
+                f'{"+" if _perf_5d >= 0 else ""}{_perf_5d:.1f}%</span>'
+                f'</div>'
+
+                # 1M
+                f'<div style="display:flex;align-items:center;gap:0.5rem;">'
+                f'<span style="font-size:0.6rem;font-weight:700;color:#888;min-width:1.8rem;">1M</span>'
+                f'<div style="flex:1;height:8px;background:#1e1e1e;border-radius:4px;overflow:hidden;position:relative;">'
+                f'<div style="position:absolute;{"left:50%" if _perf_1m >= 0 else "right:50%"};top:0;height:100%;'
+                f'width:{min(50, abs(_perf_1m) * 2)}%;'
+                f'background:{"#10a37f" if _perf_1m >= 0 else "#ef4444"};'
+                f'border-radius:4px;"></div>'
+                f'</div>'
+                f'<span style="font-size:0.75rem;font-weight:800;min-width:3.5rem;text-align:right;'
+                f'color:{"#10a37f" if _perf_1m >= 0 else "#ef4444"};">'
+                f'{"+" if _perf_1m >= 0 else ""}{_perf_1m:.1f}%</span>'
+                f'</div>'
+
+                # 3M
+                f'<div style="display:flex;align-items:center;gap:0.5rem;">'
+                f'<span style="font-size:0.6rem;font-weight:700;color:#888;min-width:1.8rem;">3M</span>'
+                f'<div style="flex:1;height:8px;background:#1e1e1e;border-radius:4px;overflow:hidden;position:relative;">'
+                f'<div style="position:absolute;{"left:50%" if _perf_3m >= 0 else "right:50%"};top:0;height:100%;'
+                f'width:{min(50, abs(_perf_3m) * 1.5)}%;'
+                f'background:{"#10a37f" if _perf_3m >= 0 else "#ef4444"};'
+                f'border-radius:4px;"></div>'
+                f'</div>'
+                f'<span style="font-size:0.75rem;font-weight:800;min-width:3.5rem;text-align:right;'
+                f'color:{"#10a37f" if _perf_3m >= 0 else "#ef4444"};">'
+                f'{"+" if _perf_3m >= 0 else ""}{_perf_3m:.1f}%</span>'
+                f'</div>'
+
+                # 52W Position
+                f'<div style="display:flex;align-items:center;gap:0.5rem;">'
+                f'<span style="font-size:0.6rem;font-weight:700;color:#888;min-width:1.8rem;">52W</span>'
+                f'<div style="flex:1;height:8px;background:#1e1e1e;border-radius:4px;overflow:hidden;">'
+                f'<div style="height:100%;width:{min(100, max(0, _w52_pos))}%;'
+                f'background:#4A9EFF;border-radius:4px;"></div>'
+                f'</div>'
+                f'<span style="font-size:0.75rem;font-weight:800;min-width:3.5rem;text-align:right;'
+                f'color:#4A9EFF;">{_w52_pos:.0f}%</span>'
                 f'</div>'
 
                 f'</div>'
+                f'</div>'
 
-                # ── 2-COL BOTTOM: WHY + MARKET CONTEXT ──
-                f'<div style="display:grid;grid-template-columns:1fr 1fr;border-top:1px solid #222;">'
-                f'<div style="padding:1.1rem 1.4rem;border-right:1px solid #1e1e1e;">'
-                f'<div style="font-size:0.7rem;color:#707070;font-weight:900;text-transform:uppercase;'
-                f'letter-spacing:1.2px;margin-bottom:0.65rem;padding-bottom:0.32rem;'
-                f'border-bottom:1px solid #222;">WHY THIS STOCK?</div>'
+                # RIGHT — Score Breakdown + Risk
+                f'<div style="padding:0.9rem 1.3rem;">'
+                f'<div style="display:flex;align-items:center;gap:0.35rem;margin-bottom:0.6rem;">'
+                f'<span style="font-size:0.65rem;color:#606060;font-weight:800;text-transform:uppercase;'
+                f'letter-spacing:1px;">Score Breakdown</span>'
+                f'<span title="Total signal strength score out of 20. Indicators ({_ind_score} pts) = RSI, MACD, Stochastic, Bollinger Bands, Volume, ADX. Price Action ({_pa_score} pts) = candlestick patterns, support/resistance, EMA crossovers. Both combine into one score — higher is better."'
+                f' style="font-size:0.6rem;color:#444;cursor:help;font-weight:900;">&#63;</span>'
+                f'</div>'
+                # Score big number centered
+                f'<div style="text-align:center;margin-bottom:0.5rem;">'
+                f'<span style="font-size:1.6rem;font-weight:900;color:{_sc2};">{score}</span>'
+                f'<span style="font-size:0.8rem;font-weight:700;color:#444;">/20</span>'
+                f'</div>'
+                # Segmented score bar
+                f'<div style="margin-bottom:0.45rem;">'
+                f'<div style="display:flex;height:10px;border-radius:5px;overflow:hidden;gap:2px;">'
+                f'<div style="width:{max(5, _ind_score / max(1, abs(score)) * 100) if score != 0 else 50}%;'
+                f'background:#4A9EFF;border-radius:5px 0 0 5px;" title="Indicators: {_ind_score}"></div>'
+                f'<div style="width:{max(5, _pa_score / max(1, abs(score)) * 100) if score != 0 else 50}%;'
+                f'background:#a78bfa;border-radius:0 5px 5px 0;" title="Price Action: {_pa_score}"></div>'
+                f'</div>'
+                f'<div style="display:flex;justify-content:space-between;margin-top:0.25rem;">'
+                f'<div style="display:flex;align-items:center;gap:0.25rem;">'
+                f'<div style="width:8px;height:8px;border-radius:2px;background:#4A9EFF;"></div>'
+                f'<span style="font-size:0.55rem;color:#4A9EFF;font-weight:700;">Indicators: {_ind_score} pts</span>'
+                f'</div>'
+                f'<div style="display:flex;align-items:center;gap:0.25rem;">'
+                f'<div style="width:8px;height:8px;border-radius:2px;background:#a78bfa;"></div>'
+                f'<span style="font-size:0.55rem;color:#a78bfa;font-weight:700;">Price Action: {_pa_score} pts</span>'
+                f'</div>'
+                f'</div>'
+                f'</div>'
+
+                # Risk Profile — inline row
+                f'<div style="margin-top:0.6rem;padding-top:0.5rem;border-top:1px solid #1e1e1e;">'
+                f'<div style="display:flex;align-items:center;gap:0.35rem;margin-bottom:0.45rem;">'
+                f'<span style="font-size:0.65rem;color:#606060;font-weight:800;text-transform:uppercase;'
+                f'letter-spacing:1px;">Risk Profile</span>'
+                f'<span title="Risk class based on stop-loss distance. Position size is the recommended % of portfolio to allocate."'
+                f' style="font-size:0.6rem;color:#444;cursor:help;font-weight:900;">&#63;</span>'
+                f'</div>'
+                f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.35rem;">'
+                # Risk Class
+                f'<div style="background:#181818;border:1px solid #222;border-radius:8px;'
+                f'padding:0.4rem 0.6rem;text-align:center;">'
+                f'<div style="font-size:0.48rem;color:#555;font-weight:700;margin-bottom:0.15rem;">RISK</div>'
+                f'<div style="font-size:0.78rem;font-weight:900;color:'
+                f'{"#10a37f" if _risk_class == "Low" else ("#fbbf24" if _risk_class == "Medium" else "#ef4444")};">'
+                f'{_risk_class}</div>'
+                f'</div>'
+                # Position Size
+                f'<div style="background:#181818;border:1px solid #222;border-radius:8px;'
+                f'padding:0.4rem 0.6rem;text-align:center;">'
+                f'<div style="font-size:0.48rem;color:#555;font-weight:700;margin-bottom:0.15rem;">POSITION SIZE</div>'
+                f'<div style="font-size:0.78rem;font-weight:900;color:#4A9EFF;">{_pos_size:.1f}%</div>'
+                f'</div>'
+                f'</div>'
+                f'</div>'
+
+                f'</div>'
+                f'</div>'
+
+                # ══ WHY THIS STOCK + MARKET CONTEXT — side by side ══════════
+                f'<div style="display:grid;grid-template-columns:1fr 1fr;border-top:1px solid #2a2a2a;">'
+
+                # LEFT — Why This Stock
+                f'<div style="padding:1.1rem 1.4rem;border-right:1px solid #1e1e1e;background:#0e0e0e;">'
+                f'<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.8rem;">'
+                f'<div style="width:4px;height:18px;background:#10a37f;border-radius:2px;"></div>'
+                f'<span style="font-size:0.68rem;color:#b0b0b0;font-weight:900;text-transform:uppercase;'
+                f'letter-spacing:1.2px;">Why This Stock</span>'
+                f'<span title="Key reasons why this stock was flagged as a buy signal based on technical analysis."'
+                f' style="font-size:0.6rem;color:#444;cursor:help;font-weight:900;">&#63;</span>'
+                f'</div>'
                 + bullet_html +
                 f'</div>'
-                f'<div style="padding:1.1rem 1.3rem 1.2rem;background:#0d0d0d;">'
+
+                # RIGHT — Market Context
+                f'<div style="padding:1.1rem 1.3rem;background:#0b0b0b;">'
                 f'<div style="display:flex;align-items:center;justify-content:space-between;'
-                f'margin-bottom:0.7rem;padding-bottom:0.4rem;border-bottom:1px solid #1e1e1e;">'
-                f'<span style="font-size:0.7rem;color:#606060;font-weight:900;'
-                f'text-transform:uppercase;letter-spacing:1.5px;">Market Context</span>'
-                f'<span style="font-size:0.58rem;font-weight:700;'
+                f'margin-bottom:0.8rem;">'
+                f'<div style="display:flex;align-items:center;gap:0.5rem;">'
+                f'<div style="width:4px;height:18px;background:#4A9EFF;border-radius:2px;"></div>'
+                f'<span style="font-size:0.68rem;color:#b0b0b0;font-weight:900;'
+                f'text-transform:uppercase;letter-spacing:1.2px;">Market Context</span>'
+                f'</div>'
+                f'<span style="font-size:0.6rem;font-weight:800;'
                 f'color:{_sprof.get("color","#888")};'
-                f'background:{_sprof.get("color","#888")}18;'
-                f'padding:0.12rem 0.55rem;border-radius:4px;'
-                f'border:1px solid {_sprof.get("color","#888")}35;'
+                f'background:{_sprof.get("color","#888")}15;'
+                f'padding:0.2rem 0.7rem;border-radius:6px;'
+                f'border:1px solid {_sprof.get("color","#888")}30;'
                 f'white-space:nowrap;">{_sprof.get("label", sector or "General")}</span>'
                 f'</div>'
                 + _stock_ctx_html +
                 f'</div>'
+
                 f'</div>'
 
                 f'</div>',
@@ -5123,7 +5434,7 @@ def main():
                 for _i, s in enumerate(_perfect_list):
                     _rc       = _rank_colors[_i] if _i < 3 else "#10a37f"
                     _rank_num = ["#1", "#2", "#3"][_i] if _i < 3 else f"#{_i+1}"
-                    _render_card(s, 'buy', tier_color=_rc, rank_num=_rank_num)
+                    _render_card(s, 'buy', tier_color=_rc, rank_num=_rank_num, is_perfect=True)
 
         with tab_buy:
             filtered_buy = _f_all_buy
@@ -5219,7 +5530,6 @@ def main():
                         unsafe_allow_html=True)
                     for s in _t3:
                         _render_card(s, 'buy', tier_color='#fbbf24')
-
 
 
     elif st.session_state.show_macro:

@@ -168,16 +168,13 @@ def signal_analysis_tab(df, info_icon):
     )
     insight_toggle(
         "kpi_metrics",
-        "What do these 6 performance numbers mean?",
-        "<p><strong>Win Rate</strong> &mdash; Percentage of signals where price hit the profit target before hitting the stop loss. "
-        "Above 50% means the indicator was right more than wrong.</p>"
-        "<p><strong>Total Signals</strong> &mdash; How many times this indicator fired during the backtested period.</p>"
-        "<p><strong>Successful Signals</strong> &mdash; Signals that resulted in a win (target reached first).</p>"
-        "<p><strong>Failed Signals</strong> &mdash; Signals that were stopped out (stop loss hit first).</p>"
-        "<p><strong>Profit Factor</strong> &mdash; Total winning gain &divide; total losses. "
-        "A value above 1.5 means the strategy generates 1.5x more profit than it loses &mdash; a solid edge. Below 1.0 = net loser.</p>"
-        "<p><strong>Expectancy</strong> &mdash; Average return per signal = (Win Rate &times; Avg Gain) &minus; (Loss Rate &times; Avg Loss). "
-        "A positive expectancy means the strategy has a mathematical edge over time.</p>"
+        "What do these numbers mean? (tap to read)",
+        "<p><strong>Win Rate</strong> — Out of all the signals, how many actually made money? Above 50% means it's right more often than wrong.</p>"
+        "<p><strong>Total Signals</strong> — How many times this indicator said 'buy' during the time period you're testing.</p>"
+        "<p><strong>Successful</strong> — Trades that hit your profit target before getting stopped out.</p>"
+        "<p><strong>Failed</strong> — Trades that hit the stop loss or ran out of time.</p>"
+        "<p><strong>Profit Factor</strong> — Total money made ÷ total money lost. Above 1.0 = making money. Above 2.0 = very good.</p>"
+        "<p><strong>Expectancy</strong> — On average, how much do you make (or lose) per trade? Positive = you're making money over time.</p>"
     )
     
     # ── Wilson lower-bound helper ─────────────────────────────────────────────
@@ -423,26 +420,6 @@ def signal_analysis_tab(df, info_icon):
                 with st.container(key=f"ind_save_wrap_{idx}_{ind['key']}"):
                     render_save_indicator_button(idx, ind, risk_val, reward_val, _period_label)
 
-                # indicator chart
-                if ind["chart_fn"] is not None:
-                    try:
-                        _fig = ind["chart_fn"](df)
-                        if _fig is not None:
-                            _fig.update_layout(
-                                height=220,
-                                margin=dict(l=0, r=0, t=24, b=0),
-                                paper_bgcolor="rgba(0,0,0,0)",
-                                plot_bgcolor="rgba(0,0,0,0)",
-                                font=dict(color="#ffffff", size=11),
-                            )
-                            with st.expander(f"{ind['name']} chart", expanded=False):
-                                st.plotly_chart(
-                                    _fig, use_container_width=True,
-                                    config={"displayModeBar": False},
-                                )
-                    except Exception:
-                        pass
-
                 st.markdown("<div style='margin-bottom:1.5rem;'></div>", unsafe_allow_html=True)
 
     # ══════════════════════════════════════════════════════════════════════════
@@ -555,18 +532,14 @@ def signal_analysis_tab(df, info_icon):
             # Tooltip descriptions for every stat label
             _stat_tips = {
                 "Signals":       "Total number of times this combination triggered in the backtest period",
-                "Winners":       "Number of signals that resulted in a profitable trade",
-                "Losers":        "Number of signals that resulted in a losing trade",
-                "Avg Gain":      "Average profit percentage on winning trades — higher is better",
-                "Avg Loss":      "Average loss percentage on losing trades — closer to 0 is better risk control",
-                "Avg Hold":      "Average number of days a trade was held before closing",
-                "Profit Factor": "Total gains ÷ total losses. Above 1.0 = profitable. Above 2.0 = strong edge",
-                "Expectancy":    "Average profit per trade (wins + losses). Positive = you make money per trade on average",
-                "Wilson Score":  "Confidence-adjusted win rate — penalizes combos with few signals. 3/4 wins (75%) scores lower than 60/100 (60%) because 100 trades is more reliable",
-                "Max W-Streak":  "Longest run of consecutive winning trades — shows best-case momentum",
-                "Max L-Streak":  "Longest run of consecutive losing trades — shows worst-case drawdown to prepare for",
-                "Signals/100":   "How often this combo fires per 100 price bars. Higher = more frequent opportunities",
-                "Consistency":   "How predictable the returns are. Low Std Dev = steady results. High = wild swings",
+                "Winners":       "Trades that hit your profit target — more is better",
+                "Losers":        "Trades that got stopped out or ran out of time",
+                "Avg Gain":      "When you win, how much you make on average",
+                "Avg Loss":      "When you lose, how much you lose on average",
+                "Avg Hold":      "How many days a trade is usually held before closing",
+                "Profit Factor": "Total money made ÷ total money lost. Above 1 = profitable. Above 2 = very good",
+                "Expectancy":    "Average profit per trade. Positive = making money over time",
+                "Signals/100":   "How often this combo gives a signal per 100 trading days",
             }
             def _st(lbl, val, col):
                 _tip = _stat_tips.get(lbl, "")
@@ -598,13 +571,7 @@ def signal_analysis_tab(df, info_icon):
                     if row["best_regime"] else "None"
                 )
                 rp   = row["regime_perf"]
-                mc_w = row.get("max_consec_wins", 0)
-                mc_l = row.get("max_consec_losses", 0)
                 sf   = row.get("signal_freq", 0)
-                con  = row.get("consistency", 0)
-                mwr  = row.get("monthly_win_rates", {})
-                con_color = "#81c784" if con < 15 else "#ffb74d" if con < 28 else "#ef9a9a"
-                con_label = "High" if con < 15 else "Medium" if con < 28 else "Low"
 
                 # Regime bars HTML
                 bars = ""
@@ -620,26 +587,6 @@ def signal_analysis_tab(df, info_icon):
                         f"<div style='background:{rc};border-radius:3px;height:4px;width:{bw:.0f}%;'></div>"
                         f"</div></div>"
                     )
-
-                # Monthly win rate mini-bars
-                mwr_bars = ""
-                if mwr:
-                    _sorted_mwr = sorted(mwr.items())[-18:]
-                    mwr_bars = (
-                        f"<div style='background:#161616;border:1px solid #272727;border-radius:6px;"
-                        f"padding:0.5rem 0.6rem;margin-top:0.3rem;'>"
-                        f"<div style='font-size:0.65rem;color:#606060;font-weight:600;text-transform:uppercase;"
-                        f"letter-spacing:0.6px;margin-bottom:0.4rem;'>Monthly Win Rate (last 18 mo.)</div>"
-                        f"<div style='display:flex;align-items:flex-end;gap:2px;height:24px;'>"
-                    )
-                    for _mo, _mwr_v in _sorted_mwr:
-                        _bg2, _fg2 = _wr_color(_mwr_v)
-                        _h2 = max(3, int(_mwr_v / 100 * 20))
-                        mwr_bars += (
-                            f"<div title='{_mo}: {_mwr_v:.0f}%' style='flex:1;min-width:2px;"
-                            f"height:{_h2}px;background:{_fg2};border-radius:2px 2px 0 0;'></div>"
-                        )
-                    mwr_bars += "</div></div>"
 
                 st.markdown((
                     f"<div style='background:#1b1b1b;border:1px solid #272727;"
@@ -673,7 +620,7 @@ def signal_analysis_tab(df, info_icon):
                     f"<span style='font-size:0.75rem;color:{BEAR};font-weight:700;'>{row['losses']} losses ({lp:.1f}%)</span></div>"
 
                     # Stats grid
-                    f"<div style='display:grid;grid-template-columns:repeat(4,1fr);gap:0.28rem;margin-bottom:0.65rem;'>"
+                    f"<div style='display:grid;grid-template-columns:repeat(3,1fr);gap:0.28rem;margin-bottom:0.65rem;'>"
                     + _st("Signals",       str(n_c),                                 "#e0e0e0")
                     + _st("Winners",       str(row["wins"]),                          BULL)
                     + _st("Losers",        str(row["losses"]),                        BEAR)
@@ -682,32 +629,21 @@ def signal_analysis_tab(df, info_icon):
                     + _st("Avg Hold",      f"{row['avg_hold']:.0f}d",                INFO)
                     + _st("Profit Factor", f"{row['profit_factor']:.2f}",             BULL if row['profit_factor'] >= 1.5 else NEUT)
                     + _st("Expectancy",    f"{row['expectancy']:+.2f}%",              BULL if row['expectancy'] > 0 else BEAR)
-                    + _st("Wilson Score",  f"{row['wilson']:.1f}",                   INFO)
-                    + _st("Max W-Streak",  str(mc_w),                                BULL)
-                    + _st("Max L-Streak",  str(mc_l),                                BEAR)
                     + _st("Signals/100",   f"{sf:.1f}",                              INFO)
                     + "</div>"
 
-                    # Bottom 2-col: regime bars | consistency + monthly chart
-                    f"<div style='display:grid;grid-template-columns:1fr 1fr;gap:0.55rem;'>"
+                    # Bottom: regime bars
                     f"<div style='background:#161616;border:1px solid #272727;border-radius:8px;padding:0.65rem 0.75rem;'>"
                     f"<div style='font-size:0.75rem;color:#606060;font-weight:600;text-transform:uppercase;"
-                    f"letter-spacing:0.7px;margin-bottom:0.45rem;'>Win Rate by Regime</div>"
-                    + bars +
-                    "</div>"
-                    f"<div style='background:#161616;border:1px solid #272727;border-radius:8px;padding:0.65rem 0.75rem;'>"
-                    f"<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:0.28rem;'>"
-                    f"<span style='font-size:0.75rem;color:#606060;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;'>Consistency"
-                    f"<span title='How steady the results are trade-to-trade. Low Std Dev = reliable, consistent returns. High = wild swings between big wins and big losses.' "
+                    f"letter-spacing:0.7px;margin-bottom:0.45rem;'>Win Rate by Regime"
+                    f"<span title='How well this combo performed in each market condition — Trending, Sideways, or Volatile. "
+                    f"Higher bar = better performance in that condition.' "
                     f"style='display:inline-flex;align-items:center;justify-content:center;"
                     f"width:13px;height:13px;border-radius:50%;border:1px solid #444;"
                     f"font-size:0.45rem;color:#666;font-weight:700;margin-left:0.25rem;"
-                    f"cursor:help;vertical-align:middle;'>?</span></span>"
-                    f"<span style='font-size:0.78rem;font-weight:800;color:{con_color};'>{con_label}</span></div>"
-                    f"<div style='font-size:0.72rem;color:#606060;margin-bottom:0.22rem;'>"
-                    f"Std dev <strong style='color:#e0e0e0;'>{con:.1f}%</strong> - lower is more reliable</div>"
-                    + mwr_bars +
-                    "</div></div></div></div>"
+                    f"cursor:help;vertical-align:middle;'>?</span></div>"
+                    + bars +
+                    "</div></div></div>"
                 ), unsafe_allow_html=True)
             # ─────────────────────────────────────────────────────────────────
             # 4 ANALYSIS SUB-TABS
@@ -735,83 +671,68 @@ def signal_analysis_tab(df, info_icon):
                     f"<div style='background:rgba(33,150,243,0.08);border:1px solid rgba(33,150,243,0.25);"
                     f"border-radius:8px;padding:0.75rem 1rem;margin-bottom:0.85rem;'>"
                     f"<div style='font-size:0.6rem;font-weight:800;color:#90caf9;text-transform:uppercase;"
-                    f"letter-spacing:0.7px;margin-bottom:0.4rem;'>How the math works -- your current settings</div>"
+                    f"letter-spacing:0.7px;margin-bottom:0.4rem;'>How it works</div>"
                     f"<div style='font-size:0.78rem;color:#e0e0e0;margin-bottom:0.3rem;line-height:1.5;'>"
-                    f"You have <strong style='color:#fff;'>{_n_inds} indicators</strong> active and "
+                    f"You have <strong style='color:#fff;'>{_n_inds} indicators</strong> turned on with "
                     f"Combo Depth set to <strong style='color:#fff;'>{max_combo_depth}</strong>. "
-                    f"The engine exhaustively tests every possible combination:</div>"
+                    f"We tested every possible combination of those indicators to see which ones work best together:</div>"
                     f"<div style='font-size:0.74rem;color:#90caf9;font-weight:600;margin-bottom:0.4rem;line-height:1.8;'>"
                     f"{_breakdown_str}</div>"
                     f"<div style='font-size:0.72rem;color:#606060;margin-bottom:0.25rem;'>"
-                    f"Total theoretical: <strong style='color:#fff;'>{_theory_total:,} combinations</strong> tested.</div>"
+                    f"That's <strong style='color:#fff;'>{_theory_total:,} combinations</strong> tested in total.</div>"
                     f"<div style='font-size:0.72rem;color:#606060;margin-bottom:0.65rem;'>"
-                    f"Shown below: <strong style='color:#4caf50;'>{total_combos:,} combinations</strong> that had "
-                    f"enough signals to pass your minimum threshold. Combos with zero co-occurrences are excluded.</div>"
+                    f"Out of those, <strong style='color:#4caf50;'>{total_combos:,} combinations</strong> actually "
+                    f"had enough trades to be meaningful. The rest had too few signals to be useful.</div>"
                     f"<div style='border-top:1px solid rgba(33,150,243,0.18);padding-top:0.6rem;'>"
                     f"<div style='font-size:0.6rem;font-weight:800;color:#90caf9;text-transform:uppercase;"
-                    f"letter-spacing:0.7px;margin-bottom:0.45rem;'>Simulation parameters</div>"
+                    f"letter-spacing:0.7px;margin-bottom:0.45rem;'>How trades are simulated</div>"
                     f"<div style='display:grid;grid-template-columns:repeat(3,1fr);gap:0.5rem;margin-bottom:0.5rem;'>"
                     f"<div style='background:rgba(239,83,80,0.08);border:1px solid rgba(239,83,80,0.2);"
                     f"border-radius:7px;padding:0.45rem 0.5rem;text-align:center;'>"
                     f"<div style='font-size:0.6rem;color:#606060;text-transform:uppercase;letter-spacing:0.5px;"
                     f"margin-bottom:0.2rem;'>Stop Loss</div>"
                     f"<div style='font-size:1.1rem;font-weight:900;color:#ef5350;line-height:1;'>2%</div>"
-                    f"<div style='font-size:0.62rem;color:#606060;margin-top:0.15rem;'>fixed, below entry</div>"
+                    f"<div style='font-size:0.62rem;color:#606060;margin-top:0.15rem;'>if price drops 2%, sell</div>"
                     f"</div>"
                     f"<div style='background:rgba(76,175,80,0.08);border:1px solid rgba(76,175,80,0.2);"
                     f"border-radius:7px;padding:0.45rem 0.5rem;text-align:center;'>"
                     f"<div style='font-size:0.6rem;color:#606060;text-transform:uppercase;letter-spacing:0.5px;"
                     f"margin-bottom:0.2rem;'>Profit Target</div>"
                     f"<div style='font-size:1.1rem;font-weight:900;color:#4caf50;line-height:1;'>{profit_target*100:.0f}%</div>"
-                    f"<div style='font-size:0.62rem;color:#606060;margin-top:0.15rem;'>R:R {risk_val}:{reward_val}</div>"
+                    f"<div style='font-size:0.62rem;color:#606060;margin-top:0.15rem;'>if price goes up {profit_target*100:.0f}%, sell</div>"
                     f"</div>"
                     f"<div style='background:rgba(33,150,243,0.08);border:1px solid rgba(33,150,243,0.2);"
                     f"border-radius:7px;padding:0.45rem 0.5rem;text-align:center;'>"
                     f"<div style='font-size:0.6rem;color:#606060;text-transform:uppercase;letter-spacing:0.5px;"
                     f"margin-bottom:0.2rem;'>Max Hold</div>"
                     f"<div style='font-size:1.1rem;font-weight:900;color:#2196f3;line-height:1;'>{holding_period}d</div>"
-                    f"<div style='font-size:0.62rem;color:#606060;margin-top:0.15rem;'>then auto-close</div>"
+                    f"<div style='font-size:0.62rem;color:#606060;margin-top:0.15rem;'>sell after {holding_period} days max</div>"
                     f"</div>"
                     f"</div>"
                     f"<div style='font-size:0.71rem;color:#606060;line-height:1.6;'>"
-                    f"Each signal pair is simulated from the next bar's open. "
-                    f"A <span style='color:#4caf50;font-weight:700;'>WIN</span> = price hits +{profit_target*100:.0f}% "
-                    f"profit target first. A <span style='color:#ef5350;font-weight:700;'>LOSS</span> = price drops 2% "
-                    f"first, or {holding_period} days pass without resolution. "
-                    f"<span style='color:#90caf9;font-weight:700;'>Wilson Score</span> = confidence-adjusted win rate — "
-                    f"it penalises combinations with very few signals so you only see statistically solid results, "
-                    f"not lucky one-trade flukes.</div>"
+                    f"When indicators say 'buy', we pretend to buy the next day. "
+                    f"<span style='color:#4caf50;font-weight:700;'>WIN</span> = price went up {profit_target*100:.0f}% before anything bad happened. "
+                    f"<span style='color:#ef5350;font-weight:700;'>LOSS</span> = price dropped 2% first, "
+                    f"or {holding_period} days passed and nothing happened so we just sold.</div>"
                     f"</div>"
                     f"</div>"
                 )
                 insight_toggle(
                     "combo_leaderboard",
-                    "What is the Leaderboard? (click to see the math)",
-                    _combo_math_html +
-                    "<p><strong>Wilson Score</strong> is the default sort -- it penalises combinations with very few signals "
-                    "so you only see combinations with a real statistical edge, not just lucky flukes.</p>"
-                    "<p><strong>Win %</strong> -- how often both indicators fired at the same time and the trade was profitable.</p>"
-                    "<p><strong>Expectancy</strong> -- average profit per trade = (Win% x Avg Gain) minus (Loss% x Avg Loss). "
-                    "Positive means the combination has a mathematical edge over time.</p>"
-                    "<p><strong>Profit Factor</strong> -- total gains divided by total losses. Above 1.5 is strong.</p>"
-                    "<p><strong>Consistency (Std Dev)</strong> -- how stable the win rate is month to month. "
-                    "Lower number = more reliable across different market conditions.</p>"
-                    "<p>Click any column header in the table to re-sort instantly.</p>"
+                    "What is the Leaderboard? (tap to learn)",
+                    _combo_math_html
                 )
 
                 # Champion banner
                 champ     = all_combo_data[0]
                 champ_wr  = champ["win_rate"]
                 champ_ea  = champ["expectancy"]
-                champ_con = champ.get("consistency", 0)
                 champ_pf  = champ.get("profit_factor", 0)
                 champ_lp  = 100 - champ_wr
                 ea_col    = "#81c784" if champ_ea > 0 else BEAR
-                con_col   = "#81c784" if champ_con < 8 else ("#ffb74d" if champ_con < 15 else "#ef5350")
                 pf_col    = "#81c784" if champ_pf >= 1.5 else "#ffb74d"
                 _pf_tag   = "Very Strong" if champ_pf >= 2 else ("Strong" if champ_pf >= 1.5 else ("Decent" if champ_pf >= 1 else "Losing"))
                 _ea_tag   = "Positive edge" if champ_ea > 0 else "Negative edge"
-                _con_tag  = "Stable" if champ_con < 8 else ("Moderate" if champ_con < 15 else "Variable")
                 _, _champ_wr_col = _wr_color(champ_wr)
                 _champ_br      = champ["best_regime"] or "N/A"
                 _champ_br_col  = regime_color_map.get(champ["best_regime"], GOLD)
@@ -893,10 +814,6 @@ def signal_analysis_tab(df, info_icon):
                     f"<div style='text-align:center;'>"
                     f"<div style='font-size:0.95rem;font-weight:800;color:#e0e0e0;'>{champ['size']}-Way</div>"
                     f"<div style='font-size:0.42rem;color:#555;text-transform:uppercase;letter-spacing:0.5px;'>Size</div></div>"
-                    f"<div style='width:1px;height:24px;background:#272727;'></div>"
-                    f"<div style='text-align:center;'>"
-                    f"<div style='font-size:0.95rem;font-weight:800;color:{con_col};'>{champ_con:.1f}%</div>"
-                    f"<div style='font-size:0.42rem;color:#555;text-transform:uppercase;letter-spacing:0.5px;'>Consistency</div></div>"
                     f"</div>"
 
                     f"</div></div></div>"  # end right col, 2-col grid
@@ -921,10 +838,6 @@ def signal_analysis_tab(df, info_icon):
                         "Avg Loss %":     round(_tr["avg_loss"], 2),
                         "Profit Factor":  round(_tr["profit_factor"], 2),
                         "Expectancy %":   round(_tr["expectancy"], 2),
-                        "Wilson Score":   round(_tr["wilson"], 1),
-                        "Std Dev":        round(_tr.get("consistency", 0), 1),
-                        "Max W-Streak":   _tr.get("max_consec_wins", 0),
-                        "Max L-Streak":   _tr.get("max_consec_losses", 0),
                         "Sig/100 Bars":   round(_tr.get("signal_freq", 0), 1),
                         "Best Regime":    _tr["best_regime"] or "--",
                     })
@@ -933,58 +846,41 @@ def signal_analysis_tab(df, info_icon):
                 # Column glossary — explains every metric in the table
                 insight_toggle(
                     "combo_table_glossary",
-                    "What does each column mean?",
+                    "What does each column mean? (tap to read)",
                     "<div style='display:grid;grid-template-columns:1fr 1fr;gap:0.3rem 1.5rem;'>"
 
                     "<div class='itog-row'><div class='itog-dot'></div>"
-                    "<div><strong>Combination</strong> — The specific set of indicators that all fired a signal at the same time.</div></div>"
+                    "<div><strong>Combination</strong> — Which indicators were all saying 'buy' at the same time.</div></div>"
 
                     "<div class='itog-row'><div class='itog-dot'></div>"
-                    "<div><strong>Size</strong> — How many indicators had to agree together (2-Way = 2 indicators, 3-Way = 3, etc).</div></div>"
+                    "<div><strong>Size</strong> — How many indicators agreed together. 2-Way = 2 agreed, 3-Way = 3 agreed, etc.</div></div>"
 
                     "<div class='itog-row'><div class='itog-dot'></div>"
-                    "<div><strong>Signals</strong> — Total number of times this combination triggered in the backtest period.</div></div>"
+                    "<div><strong>Signals</strong> — How many times this combo triggered a buy signal during the test period.</div></div>"
 
                     "<div class='itog-row'><div class='itog-dot'></div>"
-                    "<div><strong>Wins / Losses</strong> — How many of those signals ended in a profitable trade vs a losing trade.</div></div>"
+                    "<div><strong>Wins / Losses</strong> — How many trades made money vs lost money.</div></div>"
 
                     "<div class='itog-row'><div class='itog-dot'></div>"
-                    "<div><strong>Win %</strong> — Percentage of signals that were profitable. Above 50% = more winners than losers.</div></div>"
+                    "<div><strong>Win %</strong> — What percentage of trades made money. Above 50% = winning more than losing.</div></div>"
 
                     "<div class='itog-row'><div class='itog-dot'></div>"
-                    "<div><strong>Avg Gain %</strong> — The average profit percentage on winning trades. Higher = bigger wins.</div></div>"
+                    "<div><strong>Avg Gain %</strong> — When a trade wins, how much does it make on average.</div></div>"
 
                     "<div class='itog-row'><div class='itog-dot'></div>"
-                    "<div><strong>Avg Loss %</strong> — The average loss percentage on losing trades. Smaller (closer to 0) = tighter risk control.</div></div>"
+                    "<div><strong>Avg Loss %</strong> — When a trade loses, how much does it lose on average.</div></div>"
 
                     "<div class='itog-row'><div class='itog-dot'></div>"
-                    "<div><strong>Profit Factor</strong> — Total gains ÷ total losses. Above 1.0 = profitable system. Above 2.0 = strong edge.</div></div>"
+                    "<div><strong>Profit Factor</strong> — Total money made ÷ total money lost. Above 1 = profitable. Above 2 = very good.</div></div>"
 
                     "<div class='itog-row'><div class='itog-dot'></div>"
-                    "<div><strong>Expectancy %</strong> — Average profit per trade (including wins AND losses). Positive = you make money on average per trade. Negative = you lose money on average.</div></div>"
+                    "<div><strong>Expectancy %</strong> — On average, how much you make or lose per trade. Positive = making money.</div></div>"
 
                     "<div class='itog-row'><div class='itog-dot'></div>"
-                    "<div><strong>Wilson Score</strong> — A statistical confidence-adjusted win rate. It penalizes combos with very few signals. "
-                    "A combo with 3 wins out of 4 trades (75%) will score lower than one with 60 wins out of 100 (60%) "
-                    "because the second one is more statistically reliable. Higher = more trustworthy edge.</div></div>"
+                    "<div><strong>Sig/100 Bars</strong> — How often this combo gives a signal per 100 trading days. Higher = more trade chances.</div></div>"
 
                     "<div class='itog-row'><div class='itog-dot'></div>"
-                    "<div><strong>Std Dev</strong> — Standard Deviation of returns. Measures how wildly your results swing from trade to trade. "
-                    "Low Std Dev = consistent, predictable results. High Std Dev = some trades win big, others lose big — less reliable.</div></div>"
-
-                    "<div class='itog-row'><div class='itog-dot'></div>"
-                    "<div><strong>Max W-Streak</strong> — Maximum consecutive winning trades in a row. Shows the best streak this combo achieved.</div></div>"
-
-                    "<div class='itog-row'><div class='itog-dot'></div>"
-                    "<div><strong>Max L-Streak</strong> — Maximum consecutive losing trades in a row. Important for risk management — "
-                    "shows how many losses in a row you should mentally prepare for.</div></div>"
-
-                    "<div class='itog-row'><div class='itog-dot'></div>"
-                    "<div><strong>Sig/100 Bars</strong> — How often this combination triggers, normalized per 100 price bars. "
-                    "Higher = more frequent trading opportunities. Lower = rare but potentially higher-quality signals.</div></div>"
-
-                    "<div class='itog-row'><div class='itog-dot'></div>"
-                    "<div><strong>Best Regime</strong> — Which market condition (Trend, Range, or Volatile) gave this combination its best performance.</div></div>"
+                    "<div><strong>Best Regime</strong> — Which market condition (Trending, Sideways, or Volatile) this combo works best in.</div></div>"
 
                     "</div>"
                 )
@@ -1000,16 +896,16 @@ def signal_analysis_tab(df, info_icon):
             with ctab2:
                 insight_toggle(
                     "combo_regime",
-                    "What is Regime Champions?",
-                    "<p>The market alternates between three conditions. Each tab shows which indicator combinations "
-                    "performed best <strong>specifically inside that regime</strong>, not overall.</p>"
-                    "<p><strong>TREND</strong> -- price is making clear directional moves (ADX above 25). "
-                    "Trend-following combinations shine here.</p>"
-                    "<p><strong>RANGE</strong> -- price moves sideways between support and resistance. "
-                    "Mean-reversion and oscillator combos work better.</p>"
-                    "<p><strong>VOLATILE</strong> -- large rapid moves, often around news or earnings. "
-                    "Breakout and volatility combos may catch big moves.</p>"
-                    "<p>Use this to switch which combination you watch depending on what the market is doing today.</p>"
+                    "What is Regime Champions? (tap to learn)",
+                    "<p>The market doesn't behave the same way all the time. Sometimes it's trending up or down, "
+                    "sometimes it's moving sideways, and sometimes it's jumping around wildly.</p>"
+                    "<p><strong>TREND</strong> — The market is moving clearly in one direction. "
+                    "Some combos work really well when the market is trending.</p>"
+                    "<p><strong>RANGE</strong> — The market is going sideways, bouncing between the same levels. "
+                    "Different combos work better in these conditions.</p>"
+                    "<p><strong>VOLATILE</strong> — The market is making big sudden moves. "
+                    "Certain combos can catch these big swings.</p>"
+                    "<p>This section shows you which combos work best in each condition, so you can use the right one for what the market is doing right now.</p>"
                 )
                 for _rgn, _rgc in [("TREND", INFO), ("RANGE", NEUT), ("VOLATILE", BEAR)]:
                     _reg_combos = sorted(
@@ -1068,28 +964,21 @@ def signal_analysis_tab(df, info_icon):
                                 "Signals":         _rtr["total"],
                                 "Profit Factor":   round(_rtr["profit_factor"], 2),
                                 "Expectancy %":    round(_rtr["expectancy"], 2),
-                                "Wilson Score":    round(_rtr["wilson"], 1),
-                                "Std Dev":         round(_rtr.get("consistency", 0), 1),
                             })
                         with st.expander(f"📋 Top {len(_rtbl)} combos for {_rgn}", expanded=False):
                             insight_toggle(
                                 f"regime_tbl_glossary_{_rgn}",
-                                "What does each column mean?",
+                                "What does each column mean? (tap to read)",
                                 "<div class='itog-row'><div class='itog-dot'></div>"
-                                "<div><strong>{0} Win %</strong> — Win rate measured ONLY during {0} market conditions. "
-                                "This is the regime-specific performance.</div></div>"
+                                "<div><strong>{0} Win %</strong> — How often this combo made money specifically during {0} conditions.</div></div>"
                                 "<div class='itog-row'><div class='itog-dot'></div>"
-                                "<div><strong>Overall Win %</strong> — Win rate across ALL market conditions combined.</div></div>"
+                                "<div><strong>Overall Win %</strong> — How often it made money across all conditions.</div></div>"
                                 "<div class='itog-row'><div class='itog-dot'></div>"
-                                "<div><strong>Signals</strong> — Total number of times this combo triggered.</div></div>"
+                                "<div><strong>Signals</strong> — How many times this combo said 'buy'.</div></div>"
                                 "<div class='itog-row'><div class='itog-dot'></div>"
-                                "<div><strong>Profit Factor</strong> — Total gains ÷ total losses. Above 1.0 = profitable. Above 2.0 = strong.</div></div>"
+                                "<div><strong>Profit Factor</strong> — Total money made ÷ total money lost. Above 1 = profitable.</div></div>"
                                 "<div class='itog-row'><div class='itog-dot'></div>"
-                                "<div><strong>Expectancy %</strong> — Average profit per trade. Positive = money-making system.</div></div>"
-                                "<div class='itog-row'><div class='itog-dot'></div>"
-                                "<div><strong>Wilson Score</strong> — Confidence-adjusted win rate. Penalizes combos with few signals. Higher = more trustworthy.</div></div>"
-                                "<div class='itog-row'><div class='itog-dot'></div>"
-                                "<div><strong>Std Dev</strong> — How wildly results vary trade-to-trade. Low = consistent. High = unpredictable.</div></div>"
+                                "<div><strong>Expectancy %</strong> — Average profit per trade. Positive = making money.</div></div>"
                                 .format(_rgn)
                             )
                             st.dataframe(pd.DataFrame(_rtbl).set_index("Rank"), use_container_width=True)
@@ -1135,29 +1024,29 @@ def signal_analysis_tab(df, info_icon):
                 )
                 insight_toggle(
                     "combo_deepcards",
-                    "What does 2-Way / 3-Way / 4-Way mean?",
-                    "<h4 style='margin:0 0 0.6rem 0;color:#fff;font-size:0.9rem;'>What is a N-Way Combination?</h4>"
-                    "<p>A <strong>combination</strong> means: multiple indicators all agreed at the same moment and a trade signal fired. "
-                    "The number tells you how many indicators had to agree together:</p>"
+                    "What does 2-Way / 3-Way / 4-Way mean? (tap to learn)",
+                    "<h4 style='margin:0 0 0.6rem 0;color:#fff;font-size:0.9rem;'>What do these numbers mean?</h4>"
+                    "<p>When we say '2-Way' or '3-Way', we mean how many indicators had to agree at the same time before we count it as a signal. "
+                    "More indicators agreeing = rarer signal but usually more reliable:</p>"
                     "<div style='display:grid;grid-template-columns:repeat(2,1fr);gap:0.5rem;margin:0.6rem 0;'>"
                     "<div style='background:rgba(33,150,243,0.08);border:1px solid rgba(33,150,243,0.25);border-radius:8px;padding:0.6rem 0.8rem;'>"
                     "<div style='font-size:1.1rem;font-weight:900;color:#90caf9;'>2-Way</div>"
                     "<div style='font-size:0.72rem;color:#e0e0e0;line-height:1.5;margin-top:0.25rem;'>"
-                    "Two indicators fired at the same bar. More signals, easier to trigger.</div></div>"
+                    "2 indicators agreed at the same time. Happens often, gives you more trade signals.</div></div>"
                     "<div style='background:rgba(76,175,80,0.08);border:1px solid rgba(76,175,80,0.25);border-radius:8px;padding:0.6rem 0.8rem;'>"
                     "<div style='font-size:1.1rem;font-weight:900;color:#81c784;'>3-Way</div>"
                     "<div style='font-size:0.72rem;color:#e0e0e0;line-height:1.5;margin-top:0.25rem;'>"
-                    "Three indicators all agreed. Rarer signal but higher conviction.</div></div>"
+                    "3 indicators all agreed. Doesn't happen as often, but when it does it's usually a stronger signal.</div></div>"
                     "<div style='background:rgba(255,215,0,0.06);border:1px solid rgba(255,215,0,0.25);border-radius:8px;padding:0.6rem 0.8rem;'>"
                     "<div style='font-size:1.1rem;font-weight:900;color:#FFD700;'>4-Way</div>"
                     "<div style='font-size:0.72rem;color:#e0e0e0;line-height:1.5;margin-top:0.25rem;'>"
-                    "Four indicators in agreement. Very rare but extremely high confidence.</div></div>"
+                    "4 indicators all said 'buy' at the same time. Pretty rare, but usually very reliable.</div></div>"
                     "<div style='background:rgba(156,39,176,0.08);border:1px solid rgba(156,39,176,0.25);border-radius:8px;padding:0.6rem 0.8rem;'>"
                     "<div style='font-size:1.1rem;font-weight:900;color:#ce93d8;'>5 / 6-Way</div>"
                     "<div style='font-size:0.72rem;color:#e0e0e0;line-height:1.5;margin-top:0.25rem;'>"
-                    "Five or six indicators must all align. Ultra-rare, ultra-high confidence.</div></div>"
+                    "5 or 6 indicators all agreed. Extremely rare — but when it happens, it's a very strong signal.</div></div>"
                     "</div>"
-                    "<p style='margin-top:0.5rem;'><strong style='color:#FFD700;'>The trade-off:</strong> more indicators = fewer signals but higher quality.</p>"
+                    "<p style='margin-top:0.5rem;'><strong style='color:#FFD700;'>Simple rule:</strong> the more indicators that agree, the fewer signals you get — but each one is usually better quality.</p>"
                 )
 
                 # Size color mapping
@@ -1275,10 +1164,6 @@ def signal_analysis_tab(df, info_icon):
                         "Avg Gain %":    round(_rr["avg_gain"], 2),
                         "Profit Factor": round(_rr["profit_factor"], 2),
                         "Expectancy %":  round(_rr["expectancy"], 2),
-                        "Wilson Score":  round(_rr["wilson"], 1),
-                        "Std Dev":       round(_rr.get("consistency", 0), 1),
-                        "Max W-Streak":  _rr.get("max_consec_wins", 0),
-                        "Max L-Streak":  _rr.get("max_consec_losses", 0),
                         "Signals/100":   round(_rr.get("signal_freq", 0), 1),
                         "Best Regime":   _rr["best_regime"] or "--",
                     } for _ri, _rr in enumerate(_rest2)]
@@ -1289,28 +1174,20 @@ def signal_analysis_tab(df, info_icon):
                     )
                     insight_toggle(
                         f"deep_tbl_glossary_{_sv}",
-                        "What does each column mean?",
+                        "What does each column mean? (tap to read)",
                         "<div style='display:grid;grid-template-columns:1fr 1fr;gap:0.3rem 1.5rem;'>"
                         "<div class='itog-row'><div class='itog-dot'></div>"
-                        "<div><strong>Win %</strong> — Percentage of signals that were profitable. Above 50% = more wins than losses.</div></div>"
+                        "<div><strong>Win %</strong> — What percentage of trades made money. Above 50% = winning more than losing.</div></div>"
                         "<div class='itog-row'><div class='itog-dot'></div>"
-                        "<div><strong>Avg Gain %</strong> — Average profit on winning trades.</div></div>"
+                        "<div><strong>Avg Gain %</strong> — When a trade wins, how much does it make on average.</div></div>"
                         "<div class='itog-row'><div class='itog-dot'></div>"
-                        "<div><strong>Profit Factor</strong> — Total gains ÷ total losses. Above 1.0 = profitable. Above 2.0 = strong edge.</div></div>"
+                        "<div><strong>Profit Factor</strong> — Total money made ÷ total money lost. Above 1 = profitable. Above 2 = very good.</div></div>"
                         "<div class='itog-row'><div class='itog-dot'></div>"
-                        "<div><strong>Expectancy %</strong> — Average profit per trade (wins + losses combined). Positive = money-making.</div></div>"
+                        "<div><strong>Expectancy %</strong> — Average profit per trade. Positive = making money.</div></div>"
                         "<div class='itog-row'><div class='itog-dot'></div>"
-                        "<div><strong>Wilson Score</strong> — Confidence-adjusted win rate. Penalizes combos with few signals. Higher = more trustworthy.</div></div>"
+                        "<div><strong>Signals/100</strong> — How often this combo gives a signal per 100 trading days.</div></div>"
                         "<div class='itog-row'><div class='itog-dot'></div>"
-                        "<div><strong>Std Dev</strong> — How wildly results vary. Low = consistent performance. High = unpredictable swings.</div></div>"
-                        "<div class='itog-row'><div class='itog-dot'></div>"
-                        "<div><strong>Max W-Streak</strong> — Longest run of consecutive winning trades.</div></div>"
-                        "<div class='itog-row'><div class='itog-dot'></div>"
-                        "<div><strong>Max L-Streak</strong> — Longest run of consecutive losing trades. Shows worst-case drawdown pattern.</div></div>"
-                        "<div class='itog-row'><div class='itog-dot'></div>"
-                        "<div><strong>Signals/100</strong> — How often this combo fires per 100 bars. Higher = more opportunities.</div></div>"
-                        "<div class='itog-row'><div class='itog-dot'></div>"
-                        "<div><strong>Best Regime</strong> — Market condition where this combo performs best (Trend/Range/Volatile).</div></div>"
+                        "<div><strong>Best Regime</strong> — Which market condition (Trending, Sideways, or Volatile) this combo works best in.</div></div>"
                         "</div>"
                     )
                     st.dataframe(pd.DataFrame(_rest_rows2).set_index("Rank"), use_container_width=True)

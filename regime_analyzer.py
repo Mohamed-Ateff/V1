@@ -3,6 +3,7 @@ import yfinance as yf
 import pandas as pd
 import pandas_ta as ta
 import numpy as np
+import math
 from datetime import datetime, timedelta
 import warnings
 warnings.filterwarnings('ignore')
@@ -285,6 +286,16 @@ class RegimeAnalyzer:
 
         
 
+# Replace None indicator columns with NaN so comparisons don't crash
+        for col in df.columns:
+            if col in ['Date']:
+                continue
+            try:
+                if df[col].dtype == object or df[col].isnull().all():
+                    df[col] = pd.to_numeric(df[col], errors='coerce')
+            except Exception:
+                pass
+
         # Only drop rows with missing core price data, keep others for partial indicators
 
         df = df.dropna(subset=['Date', 'Open', 'High', 'Low', 'Close', 'Volume'])
@@ -316,20 +327,41 @@ class RegimeAnalyzer:
             price = self.df.iloc[i]['Close']
 
             ema200 = self.df.iloc[i].get('EMA_200', price)
+            if ema200 is None or (isinstance(ema200, float) and math.isnan(ema200)):
+                ema200 = price
 
             adx = self.df.iloc[i].get('ADX_14', 20)
+            if adx is None or (isinstance(adx, float) and math.isnan(adx)):
+                adx = 20
 
             atr = self.df.iloc[i].get('ATR_14', 0)
+            if atr is None or (isinstance(atr, float) and math.isnan(atr)):
+                atr = 0
 
             bb_upper = self.df.iloc[i].get('BBU_20_2.0', price * 1.02)
+            if bb_upper is None or (isinstance(bb_upper, float) and math.isnan(bb_upper)):
+                bb_upper = price * 1.02
 
             bb_lower = self.df.iloc[i].get('BBL_20_2.0', price * 0.98)
+            if bb_lower is None or (isinstance(bb_lower, float) and math.isnan(bb_lower)):
+                bb_lower = price * 0.98
 
             
 
-            above_ema200 = (recent['Close'] > recent.get('EMA_200', price)).sum() / len(recent) if 'EMA_200' in recent.columns else 0.5
+            if 'EMA_200' in recent.columns and recent['EMA_200'].notna().any():
+                above_ema200 = (recent['Close'] > recent['EMA_200'].fillna(price)).sum() / len(recent)
+            else:
+                above_ema200 = 0.5
 
-            ema_slope = (self.df.iloc[i].get('EMA_20', price) - self.df.iloc[i-10].get('EMA_20', price)) / self.df.iloc[i-10].get('EMA_20', price) if i >= 10 else 0
+            try:
+                ema20_now = self.df.iloc[i].get('EMA_20', None)
+                ema20_prev = self.df.iloc[i-10].get('EMA_20', None) if i >= 10 else None
+                if ema20_now is not None and ema20_prev is not None and not (isinstance(ema20_now, float) and math.isnan(ema20_now)) and not (isinstance(ema20_prev, float) and math.isnan(ema20_prev)) and ema20_prev != 0:
+                    ema_slope = (ema20_now - ema20_prev) / ema20_prev
+                else:
+                    ema_slope = 0
+            except Exception:
+                ema_slope = 0
 
             atr_pct = (atr / price) if price > 0 and atr > 0 else 0.02
 
