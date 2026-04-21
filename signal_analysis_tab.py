@@ -132,6 +132,8 @@ def signal_analysis_tab(df, info_icon):
             label_visibility="collapsed", key="sa_combo_depth",
         )
         max_combo_depth = _depth_opts[_depth_label]
+    combo_signal_window = 3
+    sync_window_label = "3 bars"
 
     stop_loss     = 0.02
     rr_ratio      = reward_val / risk_val
@@ -145,7 +147,8 @@ def signal_analysis_tab(df, info_icon):
         )
         consensus_signals   = find_consensus_signals(signals_df)
         combo_results       = analyze_indicator_combinations(
-            signals_df, df, profit_target, holding_period, stop_loss, max_combo_depth
+            signals_df, df, profit_target, holding_period, stop_loss, max_combo_depth,
+            combo_signal_window,
         )
         monthly_performance = calculate_monthly_performance(all_signal_details)
 
@@ -483,6 +486,7 @@ def signal_analysis_tab(df, info_icon):
                     "max_consec_wins":   cd.get("max_consecutive_wins", 0),
                     "max_consec_losses": cd.get("max_consecutive_losses", 0),
                     "signal_freq":       cd.get("signal_frequency", 0),
+                    "signal_window":     cd.get("signal_window", combo_signal_window),
                     "consistency":       cd.get("monthly_consistency", 0),
                     "monthly_win_rates": cd.get("monthly_win_rates", {}),
                 })
@@ -527,6 +531,160 @@ def signal_analysis_tab(df, info_icon):
             def _ind_cat(key):
                 raw = indicator_map.get(key, ("", "", None))[1]
                 return _broad_cat.get(raw, "Other")
+
+            _regime_meta = {
+                "TREND": {
+                    "accent": INFO,
+                    "label": "Trend",
+                    "summary": "Use these combinations when price is moving cleanly in one direction and confirmation stays aligned.",
+                },
+                "RANGE": {
+                    "accent": NEUT,
+                    "label": "Range",
+                    "summary": "Use these combinations when price is rotating between support and resistance instead of trending.",
+                },
+                "VOLATILE": {
+                    "accent": BEAR,
+                    "label": "Volatile",
+                    "summary": "Use these combinations when price is expanding quickly and clean signals need faster confirmation.",
+                },
+            }
+
+            def _count_by(values):
+                counts = {}
+                for value in values:
+                    counts[value] = counts.get(value, 0) + 1
+                return counts
+
+            def _combo_synergy(parts):
+                cats = [_ind_cat(part) for part in parts]
+                counts = _count_by(cats)
+                ordered = [name for name, _ in sorted(counts.items(), key=lambda item: (-item[1], item[0]))]
+                primary = ordered[0] if ordered else "Other"
+                secondary = ordered[1] if len(ordered) > 1 else ""
+                pair_story = {
+                    ("Trend", "Momentum"): "Trend direction is reinforced by momentum timing.",
+                    ("Trend", "Volume"): "Trend direction is backed by volume confirmation.",
+                    ("Trend", "Volatility"): "Directional bias is paired with breakout confirmation.",
+                    ("Momentum", "Volatility"): "Momentum entries are filtered by expansion moves.",
+                    ("Momentum", "Volume"): "Timing signals are supported by volume flow.",
+                    ("Volatility", "Volume"): "Breakout pressure is confirmed by participation.",
+                }
+                if secondary:
+                    return (
+                        pair_story.get((primary, secondary))
+                        or pair_story.get((secondary, primary))
+                        or f"{primary} signals are reinforced by {secondary.lower()} confirmation."
+                    )
+                return f"{primary} signals carry most of the edge in this setup."
+
+            def _regime_reasons(row, regime):
+                regime_wr = row["regime_perf"].get(regime, 0)
+                overall_wr = row["win_rate"]
+                edge = regime_wr - overall_wr
+                signal_count = row["total"]
+                expectancy = row["expectancy"]
+                profit_factor = row["profit_factor"]
+                monthly_points = len(row.get("monthly_win_rates", {}))
+                consistency = row.get("consistency", 0)
+                reasons = []
+
+                if edge >= 8:
+                    reasons.append(
+                        f"{regime} win rate is {edge:.1f} pts above the {overall_wr:.1f}% overall baseline."
+                    )
+                elif edge >= 3:
+                    reasons.append(
+                        f"It improves from {overall_wr:.1f}% overall to {regime_wr:.1f}% in {regime.lower()} conditions."
+                    )
+                else:
+                    reasons.append(
+                        f"It still holds {regime_wr:.1f}% in {regime.lower()} conditions with {overall_wr:.1f}% overall win."
+                    )
+
+                if signal_count >= 20:
+                    reasons.append(f"{signal_count} signals gives it a deeper sample than most niche combinations.")
+                elif signal_count >= 10:
+                    reasons.append(f"{signal_count} signals keeps it actionable without being too sparse.")
+                else:
+                    reasons.append(f"Only {signal_count} signals, so this is a selective setup rather than a frequent one.")
+
+                if profit_factor >= 1.5 and expectancy > 0:
+                    reasons.append(
+                        f"Profit factor {profit_factor:.2f} and expectancy {expectancy:+.2f}% show the winners are carrying the edge."
+                    )
+                elif expectancy > 0:
+                    reasons.append(f"Positive expectancy {expectancy:+.2f}% keeps the edge net positive over time.")
+                else:
+                    reasons.append(f"Expectancy is {expectancy:+.2f}%, so it needs tighter confirmation despite the hit rate.")
+
+                if monthly_points > 1 and consistency <= 12:
+                    reasons.append("Its monthly results have been relatively stable instead of depending on one hot streak.")
+
+                return reasons[:3]
+
+            def _regime_story(row, regime):
+                regime_wr = row["regime_perf"].get(regime, 0)
+                return (
+                    f"{_combo_synergy(row['indicators'])} "
+                    f"In {regime.lower()} conditions it wins {regime_wr:.1f}% "
+                    f"across {row['total']} signals."
+                )
+
+            def _regime_sort_key(row, regime, rank_mode):
+                regime_wr = row["regime_perf"].get(regime, 0)
+                if rank_mode == "Highest overall win":
+                    return (row["win_rate"], regime_wr, row["total"], row["profit_factor"], row["expectancy"])
+                if rank_mode == "Most signals":
+                    return (row["total"], regime_wr, row["win_rate"], row["profit_factor"], row["expectancy"])
+                return (regime_wr, row["win_rate"], row["total"], row["profit_factor"], row["expectancy"])
+
+            def _rc_metric(label, value, color, sub=""):
+                sub_html = (
+                    f"<div style='font-size:0.62rem;color:{muted};margin-top:0.2rem;font-weight:600;'>{sub}</div>"
+                    if sub else ""
+                )
+                return (
+                    f"<div style='background:{panel_alt};border:1px solid {border};"
+                    f"border-radius:10px;padding:0.75rem 0.7rem;text-align:center;'>"
+                    f"<div style='font-size:0.58rem;color:{muted};text-transform:uppercase;"
+                    f"letter-spacing:0.7px;font-weight:700;margin-bottom:0.35rem;'>{label}</div>"
+                    f"<div style='font-size:1.2rem;font-weight:900;color:{color};line-height:1;'>{value}</div>"
+                    f"{sub_html}</div>"
+                )
+
+            def _regime_reason_html(row, regime):
+                accent = _regime_meta[regime]["accent"]
+                items = []
+                for reason in _regime_reasons(row, regime):
+                    items.append(
+                        f"<div style='display:flex;align-items:flex-start;gap:0.45rem;margin-bottom:0.4rem;'>"
+                        f"<span style='display:inline-block;width:7px;height:7px;border-radius:50%;"
+                        f"background:{accent};margin-top:0.35rem;flex-shrink:0;'></span>"
+                        f"<span style='font-size:0.74rem;color:{text_col};line-height:1.55;'>{reason}</span>"
+                        f"</div>"
+                    )
+                return "".join(items)
+
+            def _regime_bars_html(row, selected_regime):
+                bars = []
+                for regime_key in ("TREND", "RANGE", "VOLATILE"):
+                    value = row["regime_perf"].get(regime_key, 0)
+                    accent = _regime_meta[regime_key]["accent"]
+                    label_color = accent if regime_key == selected_regime else muted
+                    bars.append(
+                        f"<div style='margin-bottom:0.48rem;'>"
+                        f"<div style='display:flex;justify-content:space-between;margin-bottom:0.16rem;'>"
+                        f"<span style='font-size:0.62rem;color:{label_color};font-weight:800;"
+                        f"letter-spacing:0.5px;text-transform:uppercase;'>{regime_key}</span>"
+                        f"<span style='font-size:0.72rem;font-weight:800;color:{accent};'>{value:.1f}%</span>"
+                        f"</div>"
+                        f"<div style='height:6px;background:{panel};border-radius:999px;overflow:hidden;'>"
+                        f"<div style='height:6px;width:{min(100, max(value, 0)):.1f}%;background:{accent};"
+                        f"box-shadow:0 0 10px {accent}44;'></div>"
+                        f"</div></div>"
+                    )
+                return "".join(bars)
 
             # ── Stat mini-cell used inside combo cards ─────────────────────────
             # Tooltip descriptions for every stat label
@@ -675,7 +833,9 @@ def signal_analysis_tab(df, info_icon):
                     f"<div style='font-size:0.78rem;color:#e0e0e0;margin-bottom:0.3rem;line-height:1.5;'>"
                     f"You have <strong style='color:#fff;'>{_n_inds} indicators</strong> turned on with "
                     f"Combo Depth set to <strong style='color:#fff;'>{max_combo_depth}</strong>. "
-                    f"We tested every possible combination of those indicators to see which ones work best together:</div>"
+                    f"We tested every possible combination of those indicators to see which ones work best together.</div>"
+                    f"<div style='font-size:0.72rem;color:#90caf9;margin-bottom:0.35rem;line-height:1.55;'>"
+                    "A combo starts when the indicators are bullish together in the same overlap stretch, instead of forcing every indicator to flip on the exact same day.</div>"
                     f"<div style='font-size:0.74rem;color:#90caf9;font-weight:600;margin-bottom:0.4rem;line-height:1.8;'>"
                     f"{_breakdown_str}</div>"
                     f"<div style='font-size:0.72rem;color:#606060;margin-bottom:0.25rem;'>"
@@ -821,7 +981,10 @@ def signal_analysis_tab(df, info_icon):
                     unsafe_allow_html=True,
                 )
                 with st.container(key="combo_save_wrap_champ"):
-                    render_save_combo_button(0, champ, _all_names, risk_val, reward_val, _period_label)
+                    render_save_combo_button(
+                        0, champ, _all_names, risk_val, reward_val, _period_label,
+                        combo_signal_window,
+                    )
 
                 # Full sortable table
                 _tbl_rows = []
@@ -894,98 +1057,208 @@ def signal_analysis_tab(df, info_icon):
 
             # ── Regime Champions ──────────────────────────────────────────────
             with ctab2:
+                def _tip_icon(text):
+                    _safe = str(text).replace("'", "&#39;").replace('"', '&quot;')
+                    return (
+                        f"<span title='{_safe}' style='display:inline-flex;align-items:center;justify-content:center;"
+                        f"width:13px;height:13px;border-radius:50%;border:1px solid #444;"
+                        f"font-size:0.45rem;color:#666;font-weight:700;margin-left:0.25rem;"
+                        f"cursor:help;vertical-align:middle;'>?</span>"
+                    )
+
+                def _focus_metric(label, value, color, sub="", tip=""):
+                    _tip_html = _tip_icon(tip) if tip else ""
+                    _sub_html = (
+                        f"<div style='font-size:0.62rem;color:{muted};margin-top:0.22rem;font-weight:600;'>{sub}</div>"
+                        if sub else ""
+                    )
+                    return (
+                        f"<div style='background:{panel_alt};border:1px solid {border};"
+                        f"border-radius:10px;padding:0.75rem 0.7rem;text-align:center;'>"
+                        f"<div style='font-size:0.58rem;color:{muted};text-transform:uppercase;"
+                        f"letter-spacing:0.7px;font-weight:700;margin-bottom:0.35rem;'>{label}{_tip_html}</div>"
+                        f"<div style='font-size:1.16rem;font-weight:900;color:{color};line-height:1;'>{value}</div>"
+                        f"{_sub_html}</div>"
+                    )
+
+                def _sample_band(row):
+                    _total = row["total"]
+                    if _total >= 25:
+                        return ("Deep sample", INFO)
+                    if _total >= 15:
+                        return ("Strong sample", BULL)
+                    if _total >= 8:
+                        return ("Usable sample", NEUT)
+                    return ("Thin sample", BEAR)
+
+                def _quality_allows(row, lens):
+                    if lens == "All setups":
+                        return True
+                    if lens == "Balanced":
+                        return row["total"] >= 8 and row["expectancy"] >= 0
+                    if lens == "Higher sample":
+                        return row["total"] >= 15
+                    return row["signal_freq"] >= 2.0 and row["total"] >= 6
+
+                def _focus_sort_key(row, sort_mode):
+                    if sort_mode == "Most Signals":
+                        return (row["total"], row["signal_freq"], row["win_rate"], row["profit_factor"])
+                    if sort_mode == "Profit Factor":
+                        return (row["profit_factor"], row["win_rate"], row["total"], row["expectancy"])
+                    return (row["win_rate"], row["total"], row["profit_factor"], row["expectancy"])
+
+                def _render_focus_card(row, rank, focus_regime, hero=False, save_idx=None):
+                    _meta = _regime_meta[focus_regime]
+                    _accent = _meta["accent"]
+                    _label = _meta["label"]
+                    _sample_label, _sample_color = _sample_band(row)
+                    _wr_col = BULL if row["win_rate"] >= 55 else NEUT if row["win_rate"] >= 45 else BEAR
+                    _pf_col = BULL if row["profit_factor"] >= 1.3 else NEUT if row["profit_factor"] >= 1 else BEAR
+                    _exp_col = BULL if row["expectancy"] > 0 else BEAR
+                    _card_radius = "16px" if hero else "14px"
+                    _card_pad = "1.25rem 1.35rem" if hero else "0.95rem 1.1rem"
+                    _title = f"Top {_label} setup" if hero else f"#{rank}"
+                    _count_note = (
+                        "Entry count uses active bullish overlap. A setup is counted once until that overlap resets."
+                        if hero else ""
+                    )
+
+                    st.markdown(
+                        (
+                            f"<div style='background:{panel};border:1px solid {border};border-radius:{_card_radius};"
+                            f"overflow:hidden;margin-bottom:0;'>"
+                            f"<div style='padding:{_card_pad};"
+                            f"background:linear-gradient(135deg,{_hex_rgba(_accent, .09 if hero else .05)},transparent);'>"
+                            f"<div style='display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;flex-wrap:wrap;margin-bottom:0.8rem;'>"
+                            f"<div style='flex:1;min-width:280px;'>"
+                            f"<div style='display:flex;flex-wrap:wrap;align-items:center;gap:0.35rem;margin-bottom:0.45rem;'>"
+                            f"<span style='font-size:0.66rem;color:{_accent};font-weight:800;text-transform:uppercase;"
+                            f"letter-spacing:0.8px;padding:0.18rem 0.55rem;border-radius:999px;"
+                            f"background:{_accent}14;border:1px solid {_accent}33;'>{_title}</span>"
+                            f"<span style='font-size:0.64rem;color:{_sample_color};font-weight:800;text-transform:uppercase;"
+                            f"letter-spacing:0.7px;padding:0.18rem 0.55rem;border-radius:999px;"
+                            f"background:{_sample_color}14;border:1px solid {_sample_color}33;'>{_sample_label}</span>"
+                            f"<span style='font-size:0.64rem;color:{INFO};font-weight:800;text-transform:uppercase;"
+                            f"letter-spacing:0.7px;padding:0.18rem 0.55rem;border-radius:999px;"
+                            f"background:{INFO}14;border:1px solid {INFO}33;'>{row['size']}-Way</span>"
+                            f"<span style='font-size:0.64rem;color:{_accent};font-weight:800;text-transform:uppercase;"
+                            f"letter-spacing:0.7px;padding:0.18rem 0.55rem;border-radius:999px;"
+                            f"background:{_accent}14;border:1px solid {_accent}33;'>Best in {_label}</span>"
+                            f"</div>"
+                            f"<div style='font-size:{'1.16rem' if hero else '1.0rem'};font-weight:900;color:{text_col};margin-bottom:0.42rem;'>"
+                            f"{row['label']}</div>"
+                            f"</div>"
+                            f"<div style='text-align:right;min-width:150px;'>"
+                            f"<div style='font-size:0.58rem;color:{muted};text-transform:uppercase;letter-spacing:0.7px;'>"
+                            f"Overall Win{_tip_icon('How often this setup wins across the full test, not only inside one regime.')}</div>"
+                            f"<div style='font-size:{'3rem' if hero else '2.2rem'};font-weight:900;color:{_wr_col};line-height:1;"
+                            f"text-shadow:0 0 18px {_wr_col}33;'>{row['win_rate']:.1f}%</div>"
+                            f"<div style='font-size:0.72rem;color:{muted};margin-top:0.18rem;font-weight:600;'>"
+                            f"{row['wins']} winners · {row['losses']} losers</div>"
+                            f"</div></div>"
+                            f"<div style='display:grid;grid-template-columns:repeat(6,1fr);gap:0.4rem;margin-bottom:0.65rem;'>"
+                            f"{_focus_metric('Signals', str(row['total']), INFO, f'{row['signal_freq']:.1f}/100 bars', 'How many trade entries this setup produced in the full test.') }"
+                            f"{_focus_metric('Winners', str(row['wins']), BULL, tip='How many of those entries finished positive.') }"
+                            f"{_focus_metric('Losers', str(row['losses']), BEAR, tip='How many of those entries finished negative.') }"
+                            f"{_focus_metric('Profit Factor', f'{row['profit_factor']:.2f}', _pf_col, tip='Total gains divided by total losses. Above 1.0 means the setup made more than it lost.') }"
+                            f"{_focus_metric('Expectancy', f'{row['expectancy']:+.2f}%', _exp_col, tip='Average edge per trade after wins and losses are blended together.') }"
+                            f"{_focus_metric('Avg Hold', f'{row['avg_hold']:.0f}d', INFO, tip='How long trades stayed open on average before they closed.') }"
+                            f"</div>"
+                            f"<div style='display:grid;grid-template-columns:repeat(4,1fr);gap:0.4rem;'>"
+                            f"{_focus_metric('Avg Gain', f'+{row['avg_gain']:.2f}%', BULL, tip='Average size of the winning trades.') }"
+                            f"{_focus_metric('Avg Loss', f'{row['avg_loss']:.2f}%', BEAR, tip='Average size of the losing trades.') }"
+                            f"{_focus_metric('Win Streak', str(row['max_consec_wins']), BULL, tip='Longest run of back-to-back winners for this setup.') }"
+                            f"{_focus_metric('Loss Streak', str(row['max_consec_losses']), BEAR, tip='Longest run of back-to-back losing trades for this setup.') }"
+                            f"</div>"
+                            + (
+                                f"<div style='margin-top:0.7rem;padding:0.68rem 0.8rem;background:{panel_alt};border:1px solid {border};"
+                                f"border-radius:10px;font-size:0.74rem;color:{text_col};line-height:1.6;'>{_count_note}</div>"
+                                if _count_note else ""
+                            )
+                            + "</div></div>"
+                        ),
+                        unsafe_allow_html=True,
+                    )
+                    render_save_combo_button(
+                        8800 + (save_idx if save_idx is not None else rank),
+                        dict(row, best_regime=focus_regime),
+                        _all_names,
+                        risk_val,
+                        reward_val,
+                        _period_label,
+                        combo_signal_window,
+                        regime_tag=focus_regime,
+                        button_label=f"☆  Save  {_label} setup",
+                    )
+
                 insight_toggle(
                     "combo_regime",
                     "What is Regime Champions? (tap to learn)",
-                    "<p>The market doesn't behave the same way all the time. Sometimes it's trending up or down, "
-                    "sometimes it's moving sideways, and sometimes it's jumping around wildly.</p>"
-                    "<p><strong>TREND</strong> — The market is moving clearly in one direction. "
-                    "Some combos work really well when the market is trending.</p>"
-                    "<p><strong>RANGE</strong> — The market is going sideways, bouncing between the same levels. "
-                    "Different combos work better in these conditions.</p>"
-                    "<p><strong>VOLATILE</strong> — The market is making big sudden moves. "
-                    "Certain combos can catch these big swings.</p>"
-                    "<p>This section shows you which combos work best in each condition, so you can use the right one for what the market is doing right now.</p>"
+                    "<p>Regime Focus groups setups by the market condition where they fit best.</p>"
+                    "<p>Cards below show the <strong>top 10 setups in each market state</strong>, ranked by overall win. Entry counts are built from active bullish overlap, not from forcing every indicator to flip on the same day.</p>"
                 )
-                for _rgn, _rgc in [("TREND", INFO), ("RANGE", NEUT), ("VOLATILE", BEAR)]:
-                    _reg_combos = sorted(
-                        [x for x in all_combo_data if x["regime_perf"].get(_rgn, 0) > 0],
-                        key=lambda x: x["regime_perf"].get(_rgn, 0), reverse=True,
-                    )
+                _regime_sections = [
+                    ("Trend", "TREND", 0),
+                    ("Range", "RANGE", 100),
+                    ("Volatile", "VOLATILE", 200),
+                ]
+
+                for _section_index, (_section_name, _regime_key, _save_offset) in enumerate(_regime_sections):
+                    _section_meta = _regime_meta[_regime_key]
+                    _regime_combos_all = [row for row in all_combo_data if row["best_regime"] == _regime_key]
+                    if not _regime_combos_all:
+                        _regime_combos_all = [
+                            row for row in all_combo_data if row["regime_perf"].get(_regime_key, 0) > 0
+                        ]
+                    _regime_combos = sorted(
+                        _regime_combos_all,
+                        key=lambda row: (row["win_rate"], row["total"], row["profit_factor"], row["expectancy"]),
+                        reverse=True,
+                    )[:10]
+
                     st.markdown(
-                        f"<div style='display:flex;align-items:center;gap:0.45rem;margin:0.9rem 0 0.5rem 0;'>"
-                        f"<span style='width:3px;height:1.1rem;background:{_rgc};border-radius:2px;box-shadow:0 0 6px {_rgc}44;"
-                        f"flex-shrink:0;display:inline-block;'></span>"
-                        f"<span style='font-size:0.82rem;font-weight:800;color:{_rgc};"
-                        f"text-transform:uppercase;letter-spacing:0.5px;'>{_rgn} Regime</span>"
-                        f"<span style='font-size:0.62rem;color:#606060;'>({len(_reg_combos)} combos)</span>"
-                        f"</div>",
+                        (
+                            f"<div style='display:flex;justify-content:space-between;align-items:flex-end;gap:1rem;"
+                            f"margin:{'0.45rem' if _section_index == 0 else '1.35rem'} 0 0.65rem 0;flex-wrap:wrap;'>"
+                            f"<div>"
+                            f"<div style='font-size:0.76rem;color:{_section_meta['accent']};font-weight:900;text-transform:uppercase;letter-spacing:0.8px;'>"
+                            f"{_section_name} Champions</div>"
+                            f"<div style='font-size:0.76rem;color:{muted};margin-top:0.18rem;'>"
+                            f"Best 10 setups in {_section_name.lower()} conditions, ranked by overall win rate</div>"
+                            f"</div>"
+                            f"<div style='font-size:0.72rem;color:{muted};font-weight:700;'>"
+                            f"Showing {min(10, len(_regime_combos_all))} of {len(_regime_combos_all)}</div>"
+                            f"</div>"
+                        ),
                         unsafe_allow_html=True,
                     )
-                    if not _reg_combos:
+
+                    if not _regime_combos:
                         st.markdown(
-                            f"<div style='color:#606060;font-size:0.74rem;padding:0.3rem 0;'>"
-                            f"No regime data yet. Try a longer date range.</div>",
+                            f"<div style='background:{panel};border:1px solid {border};border-radius:14px;padding:0.95rem 1rem;"
+                            f"color:{muted};font-size:0.78rem;'>No {_section_name.lower()} setups matched the current combo set.</div>",
+                            unsafe_allow_html=True,
+                        )
+                        continue
+
+                    _champion = _regime_combos[0]
+                    _render_focus_card(_champion, 1, _regime_key, hero=True, save_idx=_save_offset + 1)
+
+                    if len(_regime_combos) > 1:
+                        st.markdown(
+                            f"<div style='display:flex;align-items:center;gap:0.5rem;margin:1rem 0 0.45rem 0;'>"
+                            f"<span style='width:3px;height:1rem;background:{_section_meta['accent']};border-radius:2px;display:inline-block;'></span>"
+                            f"<span style='font-size:0.8rem;font-weight:800;color:{_section_meta['accent']};text-transform:uppercase;letter-spacing:0.5px;'>"
+                            f"More {_section_name.lower()} setups</span>"
+                            f"<span style='font-size:0.62rem;color:{muted};'>Top {len(_regime_combos)} only</span>"
+                            f"</div>",
                             unsafe_allow_html=True,
                         )
                     else:
-                        _rcs = _reg_combos[:5]
-                        _rhtml = (
-                            f"<div style='display:grid;grid-template-columns:repeat({len(_rcs)},1fr);"
-                            f"gap:0.35rem;margin-bottom:0.5rem;'>"
-                        )
-                        for _ri, _rr in enumerate(_rcs):
-                            _rwr = _rr["regime_perf"].get(_rgn, 0)
-                            _, _rc_wr_col = _wr_color(_rwr)
-                            _rhtml += (
-                                f"<div style='background:#1b1b1b;border:1px solid #272727;"
-                                f"border-radius:8px;overflow:hidden;"
-                                f"padding:0.65rem 0.45rem;text-align:center;"
-                                f"background:linear-gradient(135deg,{_hex_rgba(_rgc,.05)},transparent);'>"
-                                f"<div style='font-size:0.7rem;color:#606060;margin-bottom:0.2rem;'>#{_ri+1}</div>"
-                                f"<div style='font-size:0.9rem;font-weight:700;color:#e0e0e0;line-height:1.4;margin-bottom:0.25rem;'>"
-                                + " + ".join(_all_names.get(p, p) for p in _rr["indicators"])
-                                + f"</div>"
-                                f"<div style='font-size:1.2rem;font-weight:800;color:{_rc_wr_col};line-height:1;'>{_rwr:.0f}%</div>"
-                                f"<div style='font-size:0.7rem;color:#606060;margin-top:0.15rem;'>{_rgn} &middot; {_rr['total']} signals</div>"
-                                f"</div>"
-                            )
-                        _rhtml += "</div>"
-                        st.markdown(_rhtml, unsafe_allow_html=True)
+                        st.caption(f"Only one {_section_name.lower()} setup matched the current combo set.")
 
-                        _rtbl = []
-                        for _rti, _rtr in enumerate(_reg_combos[:30]):
-                            _rtbl.append({
-                                "Rank":            _rti + 1,
-                                "Combination":     _rtr["label"],
-                                "Size":            f"{_rtr['size']}-Way",
-                                f"{_rgn} Win %":   round(_rtr["regime_perf"].get(_rgn, 0), 1),
-                                "Overall Win %":   round(_rtr["win_rate"], 1),
-                                "Signals":         _rtr["total"],
-                                "Profit Factor":   round(_rtr["profit_factor"], 2),
-                                "Expectancy %":    round(_rtr["expectancy"], 2),
-                            })
-                        with st.expander(f"📋 Top {len(_rtbl)} combos for {_rgn}", expanded=False):
-                            insight_toggle(
-                                f"regime_tbl_glossary_{_rgn}",
-                                "What does each column mean? (tap to read)",
-                                "<div class='itog-row'><div class='itog-dot'></div>"
-                                "<div><strong>{0} Win %</strong> — How often this combo made money specifically during {0} conditions.</div></div>"
-                                "<div class='itog-row'><div class='itog-dot'></div>"
-                                "<div><strong>Overall Win %</strong> — How often it made money across all conditions.</div></div>"
-                                "<div class='itog-row'><div class='itog-dot'></div>"
-                                "<div><strong>Signals</strong> — How many times this combo said 'buy'.</div></div>"
-                                "<div class='itog-row'><div class='itog-dot'></div>"
-                                "<div><strong>Profit Factor</strong> — Total money made ÷ total money lost. Above 1 = profitable.</div></div>"
-                                "<div class='itog-row'><div class='itog-dot'></div>"
-                                "<div><strong>Expectancy %</strong> — Average profit per trade. Positive = making money.</div></div>"
-                                .format(_rgn)
-                            )
-                            st.dataframe(pd.DataFrame(_rtbl).set_index("Rank"), use_container_width=True)
-                    st.markdown(
-                        f"<hr style='border:none;border-top:1px solid #272727;margin:0.55rem 0;'>",
-                        unsafe_allow_html=True,
-                    )
+                    for _rank, _row in enumerate(_regime_combos[1:], start=2):
+                        _render_focus_card(_row, _rank, _regime_key, hero=False, save_idx=_save_offset + _rank)
 
             # ── Deep Cards (continues in same Combinations tab) ────────────────────────────
             with ctab1:
@@ -1151,7 +1424,8 @@ def signal_analysis_tab(df, info_icon):
                     _make_combo_card(_cr, f"#{_ci + 1}", _cac4)
                     with st.container(key=f"combo_save_wrap_{_sv}_{_ci}"):
                         render_save_combo_button(
-                            _ci + _sv * 100, _cr, _all_names, risk_val, reward_val, _period_label
+                            _ci + _sv * 100, _cr, _all_names, risk_val, reward_val, _period_label,
+                            combo_signal_window,
                         )
 
                 # Remaining in table

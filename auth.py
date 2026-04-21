@@ -68,6 +68,7 @@ def init_db():
             "ALTER TABLE user_favorites ADD COLUMN reward_val INTEGER DEFAULT 2",
             "ALTER TABLE user_favorites ADD COLUMN period_label TEXT DEFAULT 'Medium (63d)'",
             "ALTER TABLE user_favorites ADD COLUMN combo_indicators TEXT",
+            "ALTER TABLE user_favorites ADD COLUMN signal_window INTEGER DEFAULT 1",
         ]:
             try:
                 conn.execute(_col_ddl)
@@ -100,8 +101,9 @@ def upsert_favorite(username: str, fav: dict) -> None:
             INSERT INTO user_favorites
               (username, fav_id, symbol, pair, pair_display, win_rate, profit_factor,
                expectancy, avg_gain, avg_loss, signals, best_regime, saved_at, entry_price,
-               stock_name, save_type, risk_val, reward_val, period_label, combo_indicators)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                             stock_name, save_type, risk_val, reward_val, period_label, combo_indicators,
+                             signal_window)
+                        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             ON CONFLICT(username, fav_id) DO UPDATE SET
               symbol=excluded.symbol, pair=excluded.pair,
               pair_display=excluded.pair_display, win_rate=excluded.win_rate,
@@ -112,7 +114,8 @@ def upsert_favorite(username: str, fav: dict) -> None:
               stock_name=excluded.stock_name,
               save_type=excluded.save_type, risk_val=excluded.risk_val,
               reward_val=excluded.reward_val, period_label=excluded.period_label,
-              combo_indicators=excluded.combo_indicators
+                            combo_indicators=excluded.combo_indicators,
+                            signal_window=excluded.signal_window
         """, (
             username,
             fav.get('id', ''),
@@ -134,6 +137,7 @@ def upsert_favorite(username: str, fav: dict) -> None:
             fav.get('reward_val', 2),
             fav.get('period_label', 'Medium (63d)'),
             fav.get('combo_indicators', ''),
+            fav.get('signal_window', 1),
         ))
         conn.commit()
 

@@ -266,6 +266,15 @@ def render_favorites_panel() -> None:
                     f"border-radius:4px;padding:0.1rem 0.4rem;margin-left:0.2rem;'>"
                     f"{_pl.split('(')[0].strip() if _pl else ''}</span>"
                 )
+            _sw = fav.get('signal_window')
+            if fav.get('save_type') == 'combo' and _sw:
+                _sw_i = int(_sw)
+                _sw_lbl = 'Same bar' if _sw_i <= 1 else f'Sync {_sw_i} bars'
+                _settings_html += (
+                    f"<span style='font-size:0.58rem;color:#9e9e9e;border:1px solid #404040;"
+                    f"border-radius:4px;padding:0.1rem 0.4rem;margin-left:0.2rem;'>"
+                    f"{_sw_lbl}</span>"
+                )
 
             _card = (
                 "<div class='fav-card' style='border-left:3px solid "
@@ -490,17 +499,23 @@ def render_save_indicator_button(idx: int, ind: dict, risk_val: int,
 # ── Save button: N-way combo ─────────────────────────────────────────────────
 
 def render_save_combo_button(idx: int, row: dict, all_names: dict,
-                              risk_val: int, reward_val: int, period_label: str) -> None:
+                              risk_val: int, reward_val: int, period_label: str,
+                              signal_window: int = 1,
+                              regime_tag: str | None = None,
+                              button_label: str | None = None) -> None:
     """☆/★ save button for a combination card in the Signal Analysis tab."""
     _sym         = st.session_state.get('analyzed_symbol', '')
     _key_str     = '__'.join(sorted(row['indicators']))
     _period_key  = period_label.replace(' ', '').replace('(', '_').replace(')', '').replace('/', '')
-    _fav_id      = f"combo__{_sym}__{_key_str}__r{risk_val}x{reward_val}__{_period_key}"
+    _regime_tag  = (regime_tag or '').strip().upper()
+    _regime_key  = f"__reg{_regime_tag}" if _regime_tag else ""
+    _window_key  = f"__w{int(signal_window)}"
+    _fav_id      = f"combo__{_sym}__{_key_str}__r{risk_val}x{reward_val}__{_period_key}{_window_key}{_regime_key}"
     _cur_favs    = st.session_state.get('favorites', [])
     _is_saved = any(f.get('id') == _fav_id for f in _cur_favs)
     _ind_names = [all_names.get(k, k) for k in row['indicators']]
     _display   = ' + '.join(_ind_names)
-    _btn_lbl   = "★  Saved — click to remove" if _is_saved else f"☆  Save  {row['size']}-Way Combo"
+    _btn_lbl   = "★  Saved — click to remove" if _is_saved else (button_label or f"☆  Save  {row['size']}-Way Combo")
 
     if st.button(_btn_lbl, key=f"fav_save_combo_{idx}_{_key_str[:30]}", use_container_width=True):
         _user = st.session_state.get('auth_username', '')
@@ -522,7 +537,7 @@ def render_save_combo_button(idx: int, row: dict, all_names: dict,
                 'avg_gain':         row['avg_gain'],
                 'avg_loss':         row['avg_loss'],
                 'signals':          row['total'],
-                'best_regime':      row.get('best_regime', ''),
+                'best_regime':      _regime_tag or row.get('best_regime', ''),
                 'saved_at':         _today_date.today().strftime('%b %d, %Y'),
                 'entry_price':      None,
                 'save_type':        'combo',
@@ -530,6 +545,7 @@ def render_save_combo_button(idx: int, row: dict, all_names: dict,
                 'reward_val':       reward_val,
                 'period_label':     period_label,
                 'combo_indicators': _display,
+                'signal_window':    int(signal_window),
             }
             upsert_favorite(_user, _new_fav)
             st.session_state.favorites.append(_new_fav)
@@ -792,6 +808,7 @@ def render_saved_page() -> None:
         _rv   = fav.get('risk_val')
         _rw   = fav.get('reward_val')
         _pl   = (fav.get('period_label', '') or '').split('(')[0].strip()
+        _sw   = fav.get('signal_window')
         _dt   = fav.get('saved_at', '')
 
         # pills
@@ -814,6 +831,12 @@ def render_saved_page() -> None:
             _tags += (f"<span class='sv-tag' style='color:#ce93d8;"
                       f"border-color:rgba(206,147,216,0.25);background:rgba(206,147,216,0.06);'>"
                       f"{_pl}</span>")
+        if fav.get('save_type') == 'combo' and _sw:
+            _sw_i = int(_sw)
+            _sw_lbl = 'Same bar' if _sw_i <= 1 else f'Sync {_sw_i} bars'
+            _tags += (f"<span class='sv-tag' style='color:#90caf9;'"
+                      f"border-color:rgba(144,202,249,0.25);background:rgba(144,202,249,0.06);'>"
+                      f"{_sw_lbl}</span>")
         if _reg:
             _tags += (f"<span class='sv-tag' style='color:{_rc};"
                       f"border-color:{_rc}33;background:{_rc}0A;'>{_reg}</span>")

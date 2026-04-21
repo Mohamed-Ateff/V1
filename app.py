@@ -759,12 +759,8 @@ def main():
             {l:'Elliott Wave',
              v:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="2 17 6 9 10 13 14 5 18 11 22 3"/></svg>',
              badge:'NEW'},
-            {l:'AI Analysis',
-             v:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.636 5.636l1.414 1.414M16.95 16.95l1.414 1.414M5.636 18.364l1.414-1.414M16.95 7.05l1.414-1.414"/></svg>'},
-            {l:'Validator',
-             v:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>'},
-            {l:'Backtest',
-             v:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/><polyline points="12 7 12 12 16 14"/></svg>',
+            {l:'Strategy Lab',
+             v:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v4H4z"/><path d="M4 11h16v8H4z"/><path d="M8 15h3"/><path d="M13 15h3"/></svg>',
              badge:'NEW'},
         ];
 
@@ -6022,14 +6018,13 @@ def main():
         from patterns_tab import patterns_tab
         from volume_profile_tab import volume_profile_tab
         from smc_tab import smc_tab
-        from trade_validator_tab import trade_validator_tab
         from elliott_wave_tab import elliott_wave_tab
-        from backtest_tab import backtest_tab
+        from strategy_lab_tab import strategy_lab_tab
 
         # Each tab wrapped in @st.fragment so interactions within one tab
         # do NOT re-render ALL 9 tabs (huge performance win on reruns).
 
-        tab_dec, tab0, tab1, tab2, tab_vp, tab_smc, tab_ew, tab4, tab_tv, tab_bt = st.tabs([
+        tab_dec, tab0, tab1, tab2, tab_vp, tab_smc, tab_ew, tab_lab = st.tabs([
             "Decision",
             "Regime",
             "Signals",
@@ -6037,9 +6032,7 @@ def main():
             "Volume Profile",
             "SMC",
             "Elliott Wave",
-            "AI Analysis",
-            "Trade Validator",
-            "Backtest",
+            "Strategy Lab",
         ])
 
         with tab_dec:
@@ -6085,52 +6078,29 @@ def main():
                 elliott_wave_tab(df, current_price)
             _frag_ew()
 
-        with tab4:
+        with tab_lab:
             @st.fragment
-            def _frag_ai():
-                insight_toggle(
-                    "ai_analysis_info",
-                    "How AI Analysis works",
-                    "<p>This tab uses a <strong>12-factor scoring engine</strong> to evaluate the current market setup.</p>"
-                    "<p><strong>AI Score (0–100):</strong> Every factor — momentum, trend strength, RSI positioning, MACD divergence, "
-                    "Bollinger Band compression, volume dynamics, ATR volatility, support/resistance proximity — casts a bullish or bearish vote. "
-                    "The score aggregates them. <strong style='color:#4caf50'>70+</strong> = bullish setup, "
-                    "<strong style='color:#f44336'>30−</strong> = bearish, <strong style='color:#ff9800'>30–70</strong> = neutral/wait.</p>"
-                    "<p><strong>Trade Setups:</strong> Entry, stop loss, and profit target are calculated from current ATR and nearest support/resistance levels. "
-                    "Risk/reward ratios are computed for each setup.</p>"
-                    "<p><strong>ML Predictions:</strong> Three independent models forecast 5-day, 10-day, and 20-day price moves using historical pattern matching "
-                    "and feature regression on hundreds of prior similar market conditions.</p>"
-                    "<p><strong>Historical Analogies:</strong> Searches for the 25 most similar past price patterns and shows their average forward return.</p>"
-                    "<p style='color:#9e9e9e;font-size:0.85em'>Analysis tool only — not financial advice. Always apply your own risk management.</p>",
+            def _frag_strategy_lab():
+                strategy_lab_tab(
+                    df,
+                    symbol_input,
+                    stock_name,
+                    latest,
+                    current_price,
+                    period_change,
+                    period_high,
+                    period_low,
+                    annual_vol,
+                    current_regime,
+                    adx_current,
+                    rsi_current,
+                    atr_pct,
+                    price_vs_ema20,
+                    price_vs_ema200,
+                    recent_5d_change,
+                    recent_20d_change,
                 )
-                # AI Analysis is heavy (trains 15 ML models). Defer until user visits this tab.
-                _ai_key = f"_ai_loaded_{symbol_input}"
-                if st.session_state.get(_ai_key):
-                    gemini_tab(
-                        df, symbol_input, stock_name, latest,
-                        current_price, period_change, period_high, period_low,
-                        annual_vol, current_regime, adx_current, rsi_current,
-                        atr_pct, price_vs_ema20, price_vs_ema200,
-                        recent_5d_change, recent_20d_change,
-                    )
-                else:
-                    st.info("Click **Run AI Analysis** to generate ML predictions, historical analogies, and Monte Carlo simulations.")
-                    if st.button("🤖 Run AI Analysis", key="_btn_run_ai", type="primary"):
-                        st.session_state[_ai_key] = True
-                        st.rerun()
-            _frag_ai()
-
-        with tab_tv:
-            @st.fragment
-            def _frag_tv():
-                trade_validator_tab(df, latest, current_price)
-            _frag_tv()
-
-        with tab_bt:
-            @st.fragment
-            def _frag_bt():
-                backtest_tab(df, current_price)
-            _frag_bt()
+            _frag_strategy_lab()
 
 
 

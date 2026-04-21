@@ -659,17 +659,24 @@ def find_consensus_signals(_signals_df):
 
 @st.cache_data(show_spinner=False, ttl=300)
 
-def analyze_indicator_combinations(_signals_df, _df, profit_target=0.05, holding_period=20, stop_loss=0.03, max_combo_size=4):
+def analyze_indicator_combinations(_signals_df, _df, profit_target=0.05, holding_period=20,
+                                   stop_loss=0.03, max_combo_size=4, signal_window=1):
 
     """Analyse ALL indicator combinations from 2-way pairs up to max_combo_size-way.
 
-    Each combination fires only when ALL its indicators signal a buy on the same bar.
+    Each combination fires when ALL its indicators are bullish within the alignment window.
     Results are sorted by combo size so the caller can group/filter by size.
     """
 
     from itertools import combinations as _ic
 
     signals_df = _signals_df
+    df = _df.copy()
+
+    skip_cols = {'Date', 'REGIME'}
+    for col in df.columns:
+        if col not in skip_cols and df[col].dtype == object:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
 
     buy_indicators = [col.replace('_Buy', '') for col in signals_df.columns if col.endswith('_Buy')]
 
@@ -685,7 +692,127 @@ def analyze_indicator_combinations(_signals_df, _df, profit_target=0.05, holding
 
     n          = len(signals_df)
 
-    buy_arrays = {ind: signals_df[f'{ind}_Buy'].values for ind in buy_indicators}
+    buy_event_arrays = {ind: signals_df[f'{ind}_Buy'].values for ind in buy_indicators}
+
+    def _as_state_array(mask):
+
+        return mask.fillna(False).astype(np.int8).values
+
+
+
+    def _build_combo_state_arrays(source_df):
+
+        state_arrays = {}
+
+        if 'EMA_20' in source_df.columns and 'EMA_50' in source_df.columns:
+            state_arrays['EMA'] = _as_state_array(
+                (source_df['EMA_20'] > source_df['EMA_50'])
+                & source_df['EMA_20'].notna() & source_df['EMA_50'].notna()
+            )
+
+        if 'SMA_50' in source_df.columns and 'SMA_200' in source_df.columns:
+            state_arrays['SMA'] = _as_state_array(
+                (source_df['SMA_50'] > source_df['SMA_200'])
+                & source_df['SMA_50'].notna() & source_df['SMA_200'].notna()
+            )
+
+        psar_long_col = next((c for c in source_df.columns if c.startswith('PSARl')), None)
+        if psar_long_col:
+            state_arrays['PSAR'] = _as_state_array(~source_df[psar_long_col].isna())
+
+        isa_col = next((c for c in source_df.columns if c.startswith('ISA_')), None)
+        isb_col = next((c for c in source_df.columns if c.startswith('ISB_')), None)
+        if isa_col and isb_col:
+            cloud_top = source_df[[isa_col, isb_col]].max(axis=1)
+            state_arrays['ICHI'] = _as_state_array(source_df['Close'] > cloud_top)
+
+        if 'WMA_20' in source_df.columns:
+            state_arrays['WMA'] = _as_state_array(source_df['Close'] > source_df['WMA_20'])
+
+        if 'RSI_14' in source_df.columns:
+            state_arrays['RSI'] = _as_state_array(source_df['RSI_14'] < 30)
+
+        if 'MACD_12_26_9' in source_df.columns and 'MACDs_12_26_9' in source_df.columns:
+            state_arrays['MACD'] = _as_state_array(
+                source_df['MACD_12_26_9'] > source_df['MACDs_12_26_9']
+            )
+
+        if 'STOCHk_14_3_3' in source_df.columns:
+            state_arrays['STOCH'] = _as_state_array(source_df['STOCHk_14_3_3'] < 20)
+
+        if 'ROC_12' in source_df.columns:
+            state_arrays['ROC'] = _as_state_array(source_df['ROC_12'] > 0)
+
+        if 'CCI_20' in source_df.columns:
+            state_arrays['CCI'] = _as_state_array(source_df['CCI_20'] < -100)
+
+        if 'WILLR_14' in source_df.columns:
+            state_arrays['WILLR'] = _as_state_array(source_df['WILLR_14'] < -80)
+
+        if 'BBL_20_2.0' in source_df.columns:
+            state_arrays['BB'] = _as_state_array(source_df['Close'] <= source_df['BBL_20_2.0'])
+
+        kc_lower = next((c for c in source_df.columns if c.startswith('KCLe')), None)
+        if kc_lower:
+            state_arrays['KC'] = _as_state_array(source_df['Close'] <= source_df[kc_lower])
+
+        dc_upper = next((c for c in source_df.columns if c.startswith('DCU')), None)
+        if dc_upper:
+            state_arrays['DC'] = _as_state_array(source_df['Close'] >= source_df[dc_upper])
+
+        if 'MFI_14' in source_df.columns:
+            state_arrays['MFI'] = _as_state_array(source_df['MFI_14'] < 20)
+
+        if 'CMF_20' in source_df.columns:
+            state_arrays['CMF'] = _as_state_array(source_df['CMF_20'] > 0)
+
+        if 'VWAP' in source_df.columns:
+            state_arrays['VWAP'] = _as_state_array(source_df['Close'] > source_df['VWAP'])
+
+        if 'OBV' in source_df.columns:
+            state_arrays['OBV'] = _as_state_array(
+                (source_df['OBV'] > source_df['OBV'].shift(5))
+                & (source_df['Close'] > source_df['Close'].shift(5))
+            )
+
+        dmp_col = next((c for c in source_df.columns if c.startswith('DMP_')), None)
+        dmn_col = next((c for c in source_df.columns if c.startswith('DMN_')), None)
+        adx_col = next((c for c in source_df.columns if c.startswith('ADX_')), None)
+        if dmp_col and dmn_col and adx_col:
+            state_arrays['ADX'] = _as_state_array(
+                (source_df[dmp_col] > source_df[dmn_col])
+                & (source_df[adx_col] > 20)
+            )
+
+        return state_arrays
+
+    def _rolling_signal_presence(arr, window):
+
+        arr = np.asarray(arr, dtype=np.int8)
+
+        if window <= 1:
+
+            return arr.copy()
+
+        csum = np.cumsum(arr, dtype=int)
+
+        window_sums = csum.copy()
+
+        window_sums[window:] = csum[window:] - csum[:-window]
+
+        return (window_sums > 0).astype(np.int8)
+
+
+
+    combo_state_arrays = _build_combo_state_arrays(df)
+
+    aligned_buy_arrays = {
+
+        ind: _rolling_signal_presence(combo_state_arrays.get(ind, buy_event_arrays[ind]), signal_window)
+
+        for ind in buy_indicators
+
+    }
 
 
 
@@ -699,13 +826,22 @@ def analyze_indicator_combinations(_signals_df, _df, profit_target=0.05, holding
 
         for combo_inds in _ic(buy_indicators, combo_size):
 
-            # Fast numpy AND — all indicators must fire on the same bar
+            # Fast numpy AND — all indicators must align inside the configured window.
+            # We only count the rising edge so each alignment cluster becomes one setup.
 
-            combined = buy_arrays[combo_inds[0]].copy()
+            combined = aligned_buy_arrays[combo_inds[0]].copy()
 
             for _ind in combo_inds[1:]:
 
-                combined = combined & buy_arrays[_ind]
+                combined = combined & aligned_buy_arrays[_ind]
+
+
+
+            prev_combined = np.roll(combined, 1)
+
+            prev_combined[0] = 0
+
+            combined = ((combined == 1) & (prev_combined == 0)).astype(np.int8)
 
 
 
@@ -952,6 +1088,8 @@ def analyze_indicator_combinations(_signals_df, _df, profit_target=0.05, holding
                 'signal_frequency': signal_freq,
 
                 'monthly_consistency': monthly_consistency,
+
+                'signal_window': signal_window,
 
                 'monthly_win_rates': monthly_win_rates,
 
