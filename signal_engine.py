@@ -835,6 +835,8 @@ def analyze_indicator_combinations(_signals_df, _df, profit_target=0.05, holding
 
                 combined = combined & aligned_buy_arrays[_ind]
 
+            active_bars = int(combined.sum())
+
 
 
             prev_combined = np.roll(combined, 1)
@@ -1056,6 +1058,10 @@ def analyze_indicator_combinations(_signals_df, _df, profit_target=0.05, holding
             combo_results[combo_name] = {
 
                 'total': total,
+
+                'active_bars': active_bars,
+
+                'regime_totals': regime_totals.copy(),
 
                 'successful': successful,
 

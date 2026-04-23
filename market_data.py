@@ -3,6 +3,7 @@ import yfinance as yf
 import pandas as pd
 import pandas_ta as ta
 from datetime import datetime, timedelta, timezone
+import re
 
 
 
@@ -556,6 +557,733 @@ def get_saudi_market_data(period="1d"):
 
         'tasi_change': tasi_change
 
+    }
+
+
+_TOP_PICK_POSITIVE_WORDS = (
+    "beat", "beats", "growth", "profit", "strong", "surge", "upgrade", "contract",
+    "deal", "expand", "expansion", "launch", "wins", "support", "rebound",
+    "dividend", "investment", "record", "improve", "improved", "outperform",
+)
+_TOP_PICK_NEGATIVE_WORDS = (
+    "miss", "weak", "loss", "lawsuit", "probe", "downgrade", "risk", "tariff",
+    "war", "conflict", "fall", "fell", "cut", "cuts", "decline", "downturn",
+    "default", "fraud", "pressure", "selloff", "investigation",
+)
+_TOP_PICK_NAME_STOPWORDS = {
+    "saudi", "company", "co", "holding", "holdings", "group", "bank", "corp",
+    "regional", "integrated", "limited", "the", "and", "for", "gas", "oil",
+}
+_TOP_PICK_SECTOR_RULES = [
+    (["rajhi", "snb", "sab", "bank", "alinma", "riyad", "bilad", "bsf", "saib", "anb"], "Banks"),
+    (["aramco", "sabic", "maaden", "petro", "chemical", "sipchem", "yansab", "tasnee", "luberef", "kayan"], "Energy & Materials"),
+    (["stc", "mobily", "zain", "elm", "solutions", "itc"], "Telecom & Tech"),
+    (["tawuniya", "bupa", "medgulf", "malath", "salama", "walaa", "takaful", "sanad"], "Insurance"),
+    (["marai", "savola", "nadec", "nahdi", "bindawood", "jarir", "extra", "othaim", "saco"], "Consumer"),
+    (["mouwasat", "dallah", "hammadi", "sulaiman", "care", "leejam"], "Healthcare"),
+    (["bahri", "saptco", "budget", "theeb", "lumi", "logistics"], "Transport"),
+    (["dar al arkan", "emaar", "retal", "sumou", "makkah", "jabal"], "Real Estate"),
+]
+
+
+def _coerce_float(value, default=None):
+    try:
+        parsed = float(value)
+        return parsed if pd.notna(parsed) else default
+    except Exception:
+        return default
+
+
+def _top_pick_sector(company_name, info_sector=None):
+    if info_sector:
+        return str(info_sector)
+    low_name = str(company_name or "").lower()
+    for keywords, label in _TOP_PICK_SECTOR_RULES:
+        if any(keyword in low_name for keyword in keywords):
+            return label
+    return "Other"
+
+
+def _top_pick_relevance_tokens(ticker, company_name, sector_name):
+    tokens = {str(ticker or "").replace('.SR', '').lower()}
+    for token in re.findall(r"[a-zA-Z]{3,}", str(company_name or "").lower()):
+        if token not in _TOP_PICK_NAME_STOPWORDS:
+            tokens.add(token)
+
+    sector_low = str(sector_name or "").lower()
+    if "bank" in sector_low or "financial" in sector_low:
+        tokens.update({"bank", "banking", "rates", "credit", "loan", "liquidity"})
+    elif any(word in sector_low for word in ("energy", "material", "oil", "gas", "petro", "utility")):
+        tokens.update({"oil", "crude", "opec", "gas", "energy", "petrochemical"})
+    elif "insurance" in sector_low:
+        tokens.update({"insurance", "premium", "claims", "risk"})
+    elif any(word in sector_low for word in ("telecom", "tech")):
+        tokens.update({"technology", "digital", "telecom", "data", "cloud"})
+    elif any(word in sector_low for word in ("real estate", "consumer", "transport", "healthcare")):
+        tokens.update({"consumer", "tourism", "spending", "property", "healthcare", "travel"})
+    return {token for token in tokens if token}
+
+
+def _score_news_texts(texts):
+    positive_hits = 0
+    negative_hits = 0
+    for text in texts:
+        low_text = str(text or "").lower()
+        positive_hits += sum(1 for word in _TOP_PICK_POSITIVE_WORDS if word in low_text)
+        negative_hits += sum(1 for word in _TOP_PICK_NEGATIVE_WORDS if word in low_text)
+    return positive_hits, negative_hits
+
+
+@st.cache_data(ttl=21600, show_spinner=False)
+def _get_top_pick_company_context(ticker):
+    simplified_info = {}
+    news_rows = []
+
+    try:
+        ticker_obj = yf.Ticker(ticker)
+    except Exception:
+        return {'info': simplified_info, 'news': news_rows}
+
+    fast_market_cap = None
+    try:
+        fast_info = getattr(ticker_obj, 'fast_info', None)
+        if fast_info:
+            fast_market_cap = _coerce_float(fast_info.get('marketCap'))
+    except Exception:
+        fast_market_cap = None
+
+    try:
+        info = ticker_obj.info or {}
+        simplified_info = {
+            'marketCap': _coerce_float(info.get('marketCap'), fast_market_cap),
+            'trailingPE': _coerce_float(info.get('trailingPE')),
+            'forwardPE': _coerce_float(info.get('forwardPE')),
+            'revenueGrowth': _coerce_float(info.get('revenueGrowth')),
+            'earningsGrowth': _coerce_float(info.get('earningsGrowth')),
+            'returnOnEquity': _coerce_float(info.get('returnOnEquity')),
+            'debtToEquity': _coerce_float(info.get('debtToEquity')),
+            'recommendationKey': str(info.get('recommendationKey') or '').lower(),
+            'sector': info.get('sector'),
+            'industry': info.get('industry'),
+        }
+    except Exception:
+        simplified_info = {
+            'marketCap': fast_market_cap,
+            'trailingPE': None,
+            'forwardPE': None,
+            'revenueGrowth': None,
+            'earningsGrowth': None,
+            'returnOnEquity': None,
+            'debtToEquity': None,
+            'recommendationKey': '',
+            'sector': None,
+            'industry': None,
+        }
+
+    try:
+        raw_news = getattr(ticker_obj, 'news', None) or []
+        for item in raw_news[:8]:
+            content = item.get('content') or {}
+            title = str(content.get('title') or '').strip()
+            summary = str(content.get('summary') or content.get('description') or '').strip()
+            provider = str((content.get('provider') or {}).get('displayName') or '').strip()
+            published_at = str(content.get('pubDate') or content.get('displayTime') or '').strip()
+            if title or summary:
+                news_rows.append({
+                    'title': title,
+                    'summary': summary,
+                    'provider': provider,
+                    'published_at': published_at,
+                })
+    except Exception:
+        news_rows = []
+
+    return {'info': simplified_info, 'news': news_rows}
+
+
+def _score_top_pick_context(ticker, company_name, sector_name, macro_headlines):
+    context = _get_top_pick_company_context(ticker)
+    info = context.get('info', {})
+    resolved_sector = _top_pick_sector(company_name, info.get('sector') or sector_name)
+
+    score = 0.0
+    reasons = []
+    growth_positive = False
+    quality_positive = False
+
+    revenue_growth = _coerce_float(info.get('revenueGrowth'))
+    if revenue_growth is not None:
+        if revenue_growth >= 0.10:
+            score += 5
+            growth_positive = True
+        elif revenue_growth >= 0.03:
+            score += 2
+            growth_positive = True
+        elif revenue_growth <= -0.05:
+            score -= 5
+
+    earnings_growth = _coerce_float(info.get('earningsGrowth'))
+    if earnings_growth is not None:
+        if earnings_growth >= 0.10:
+            score += 5
+            growth_positive = True
+        elif earnings_growth >= 0.03:
+            score += 2
+            growth_positive = True
+        elif earnings_growth <= -0.05:
+            score -= 5
+
+    return_on_equity = _coerce_float(info.get('returnOnEquity'))
+    if return_on_equity is not None:
+        if return_on_equity > 1:
+            return_on_equity /= 100.0
+        if return_on_equity >= 0.15:
+            score += 4
+            quality_positive = True
+        elif return_on_equity >= 0.08:
+            score += 2
+            quality_positive = True
+        elif return_on_equity < 0.03:
+            score -= 2
+
+    debt_to_equity = _coerce_float(info.get('debtToEquity'))
+    if debt_to_equity is not None:
+        if debt_to_equity <= 40:
+            score += 2
+            quality_positive = True
+        elif debt_to_equity >= 140:
+            score -= 4
+
+    pe_candidates = [
+        pe for pe in (
+            _coerce_float(info.get('forwardPE')),
+            _coerce_float(info.get('trailingPE')),
+        )
+        if pe is not None and pe > 0
+    ]
+    if pe_candidates:
+        pe_value = min(pe_candidates)
+        if 5 <= pe_value <= 22:
+            score += 3
+            quality_positive = True
+        elif pe_value >= 35:
+            score -= 3
+
+    market_cap = _coerce_float(info.get('marketCap'))
+    if market_cap is not None:
+        if market_cap >= 20_000_000_000:
+            score += 2
+        elif market_cap <= 1_000_000_000:
+            score -= 3
+
+    recommendation = str(info.get('recommendationKey') or '').lower()
+    rec_scores = {
+        'strong_buy': 8,
+        'buy': 5,
+        'outperform': 4,
+        'positive': 3,
+        'hold': 0,
+        'neutral': 0,
+        'underperform': -4,
+        'sell': -7,
+        'strong_sell': -9,
+    }
+    rec_delta = rec_scores.get(recommendation, 0)
+    score += rec_delta
+    if rec_delta > 0:
+        quality_positive = True
+
+    if growth_positive:
+        reasons.append("growth profile")
+    if quality_positive:
+        reasons.append("company quality")
+
+    relevance_tokens = _top_pick_relevance_tokens(ticker, company_name, resolved_sector)
+    relevant_texts = []
+
+    for row in context.get('news', []):
+        joined = f"{row.get('title', '')} {row.get('summary', '')}".strip().lower()
+        if joined and any(token in joined for token in relevance_tokens):
+            relevant_texts.append(joined)
+
+    if len(relevant_texts) < 2:
+        for row in (macro_headlines or [])[:18]:
+            title = str(row.get('title') or '').lower()
+            if title and any(token in title for token in relevance_tokens):
+                relevant_texts.append(title)
+
+    positive_hits, negative_hits = _score_news_texts(relevant_texts[:5])
+    if positive_hits > negative_hits and positive_hits > 0:
+        score += min(6, 2 + positive_hits - negative_hits)
+        reasons.append("supportive news")
+    elif negative_hits > positive_hits and negative_hits > 0:
+        score -= min(7, 2 + negative_hits - positive_hits)
+
+    return score, reasons, resolved_sector
+
+
+def _analyze_top_pick_price_action(hist):
+    result = {
+        'score': 0.0,
+        'reasons': [],
+        'quality_gate': False,
+        'setup_conf': 0.0,
+        'rr1': 0.0,
+        'support_price': None,
+        'resistance_price': None,
+        'struct_target_price': None,
+    }
+    if hist is None or hist.empty or len(hist) < 20:
+        return result
+
+    try:
+        from price_action_tab import _pivot_sr, _count_zone_tests, _compute_trade_setup
+    except Exception:
+        return result
+
+    df = hist[['Open', 'High', 'Low', 'Close', 'Volume']].copy()
+    cp = float(df['Close'].iloc[-1])
+    if cp <= 0:
+        return result
+
+    recent_swing = df.tail(min(len(df), 60))
+    swing_high = float(recent_swing['High'].max())
+    swing_low = float(recent_swing['Low'].min())
+
+    trend = "SIDEWAYS"
+    if len(df) >= 15:
+        higher_high = float(df['High'].iloc[-5:].max()) > float(df['High'].iloc[-15:-5].max())
+        higher_low = float(df['Low'].iloc[-5:].min()) > float(df['Low'].iloc[-15:-5].min())
+        lower_low = float(df['Low'].iloc[-5:].min()) < float(df['Low'].iloc[-15:-5].min())
+        lower_high = float(df['High'].iloc[-5:].max()) < float(df['High'].iloc[-15:-5].max())
+        if higher_high and higher_low:
+            trend = "UPTREND"
+        elif lower_low and lower_high:
+            trend = "DOWNTREND"
+
+    zone_width = max(cp * 0.012, 0.75)
+    sup1, sup2, res1, res2 = _pivot_sr(df, cp)
+    r_zone_lo = res1 - zone_width
+    s_zone_hi = sup1 + zone_width
+    r_touches = _count_zone_tests(df['High'], r_zone_lo, above=True)
+    s_touches = _count_zone_tests(df['Low'], s_zone_hi, above=False)
+    r_str = "STRONG" if r_touches >= 5 else ("MODERATE" if r_touches >= 3 else "WEAK")
+    s_str = "STRONG" if s_touches >= 5 else ("MODERATE" if s_touches >= 3 else "WEAK")
+    in_r = (res1 - zone_width) <= cp <= (res1 + zone_width)
+    in_s = (sup1 - zone_width) <= cp <= (sup1 + zone_width)
+    ma_series = df['Close'].rolling(20, min_periods=1).mean()
+    avg_volume_20 = float(df['Volume'].tail(20).mean()) if len(df) >= 20 else float(df['Volume'].mean())
+    vol_confirm = avg_volume_20 > 0 and float(df['Volume'].iloc[-1]) >= avg_volume_20 * 1.15
+
+    score = 0.0
+    reasons = []
+
+    if trend == "UPTREND":
+        score += 4
+        reasons.append("uptrend structure")
+    elif trend == "DOWNTREND":
+        score -= 6
+    else:
+        score -= 1
+
+    if len(df) >= 21:
+        prev_high_20 = float(df['High'].iloc[-21:-1].max())
+        if cp >= prev_high_20 * 0.997:
+            score += 6 if vol_confirm else 3
+            reasons.append("breakout volume" if vol_confirm else "20d breakout")
+
+    headroom_pct = max((res1 - cp) / cp * 100, 0.0)
+    support_gap_pct = max((cp - sup1) / cp * 100, 0.0)
+    if 0 <= support_gap_pct <= 2.5:
+        score += 4
+        reasons.append("near support")
+    if 0 < headroom_pct < 2.5:
+        score -= 8
+    elif headroom_pct >= 5:
+        score += 4
+        reasons.append("room to target")
+
+    setup = _compute_trade_setup(
+        df, cp, trend, sup1, sup2, res1, res2,
+        swing_low, swing_high, ma_series,
+        s_touches, r_touches, s_str, r_str, in_s, in_r,
+    )
+
+    if setup and not setup.get('no_trade'):
+        setup_conf = float(setup.get('conf', 0.0))
+        rr1 = float(setup.get('rr1', 0.0))
+        risk_pct = float(setup.get('risk_pct', 99.0))
+        score += min(18, max(8, (setup_conf - 35) * 0.30))
+
+        if rr1 >= 2.0:
+            score += 6
+            reasons.append("strong reward/risk")
+        elif rr1 >= 1.25:
+            score += 3
+            reasons.append("positive reward/risk")
+        else:
+            score -= 5
+
+        if risk_pct <= 4.5:
+            score += 3
+        elif risk_pct >= 8.0:
+            score -= 5
+
+        bullish_patterns = [
+            name.lower()
+            for name, _color in setup.get('patterns', [])
+            if 'bear' not in name.lower() and 'shooting star' not in name.lower()
+        ]
+        if bullish_patterns:
+            score += min(4, len(bullish_patterns) * 2)
+            reasons.append(bullish_patterns[0])
+
+        result.update({
+            'quality_gate': setup_conf >= 55 and rr1 >= 1.15 and headroom_pct >= 2.0,
+            'setup_conf': setup_conf,
+            'rr1': rr1,
+            'struct_target_price': float(setup.get('t1') or res1),
+        })
+    else:
+        score -= 12
+
+    result.update({
+        'score': score,
+        'reasons': reasons,
+        'support_price': float(sup1),
+        'resistance_price': float(res1),
+    })
+    return result
+
+
+@st.cache_data(ttl=600, show_spinner=False)
+def get_tomorrow_stock_forecast(limit=3):
+
+    """Rank Tadawul stocks for the next session using market-relative trend, price action, fundamentals, and filtered news context."""
+
+    all_tickers = get_all_tadawul_tickers()
+    tickers_list = list(all_tickers.keys())
+
+    import time as _time
+
+    _BATCH = 50
+    _chunks = [tickers_list[i:i + _BATCH] for i in range(0, len(tickers_list), _BATCH)]
+    if len(_chunks) > 1 and len(_chunks[-1]) == 1:
+        _chunks[-2].append(_chunks[-1][0])
+        _chunks.pop()
+
+    _frames = []
+    for _ci, _chunk in enumerate(_chunks):
+        try:
+            _part = yf.download(
+                _chunk,
+                period="3mo",
+                progress=False,
+                threads=True,
+                group_by='ticker',
+                timeout=30,
+            )
+            if _part is not None and not _part.empty:
+                _frames.append(_part)
+        except Exception:
+            pass
+        if _ci < len(_chunks) - 1:
+            _time.sleep(0.25)
+
+    if not _frames:
+        return {'top_up': [], 'top_down': [], 'coverage': 0, 'market_day': 0.0, 'market_5d': 0.0}
+
+    all_data = pd.concat(_frames, axis=1) if len(_frames) > 1 else _frames[0]
+
+    records = []
+    hist_map = {}
+
+    def _safe(series, idx=-1, default=0.0):
+        try:
+            clean = pd.to_numeric(series, errors='coerce').dropna()
+            return float(clean.iloc[idx]) if len(clean) > 0 else default
+        except Exception:
+            return default
+
+    for ticker in tickers_list:
+        try:
+            if ticker not in all_data.columns.get_level_values(0):
+                continue
+
+            hist = all_data[ticker].dropna(subset=['Close'])
+            if len(hist) < 50:
+                continue
+
+            hist = hist[['Open', 'High', 'Low', 'Close', 'Volume']].copy()
+            close = hist['Close'].astype(float)
+            open_ = hist['Open'].astype(float)
+            high = hist['High'].astype(float)
+            low = hist['Low'].astype(float)
+            volume = hist['Volume'].astype(float)
+
+            cp = float(close.iloc[-1])
+            if cp <= 0:
+                continue
+
+            hist_map[ticker] = hist
+
+            day_ret = ((cp / float(close.iloc[-2])) - 1) * 100 if len(close) >= 2 else 0.0
+            perf_5d = ((cp / float(close.iloc[-5])) - 1) * 100 if len(close) >= 5 else day_ret
+            perf_20d = ((cp / float(close.iloc[-20])) - 1) * 100 if len(close) >= 20 else perf_5d
+
+            ema20 = ta.ema(close, length=20)
+            ema50 = ta.ema(close, length=50)
+            rsi = ta.rsi(close, length=14)
+            atr = ta.atr(high, low, close, length=14)
+
+            e20 = _safe(ema20, default=cp)
+            e50 = _safe(ema50, default=cp)
+            e20_prev = _safe(ema20, idx=-5, default=e20)
+            e50_prev = _safe(ema50, idx=-5, default=e50)
+            cur_rsi = _safe(rsi, default=50)
+            cur_atr = _safe(atr, default=cp * 0.02)
+
+            vol_avg20 = float(volume.iloc[-20:].mean()) if len(volume) >= 20 else float(volume.mean())
+            vol_ratio = float(volume.iloc[-1]) / vol_avg20 if vol_avg20 > 0 else 1.0
+            avg_turnover_20 = float((close.iloc[-20:] * volume.iloc[-20:]).mean()) if len(close) >= 20 else float((close * volume).mean())
+            day_range = max(float(high.iloc[-1]) - float(low.iloc[-1]), cp * 0.001)
+            close_loc = (cp - float(low.iloc[-1])) / day_range
+            day_move = ((cp / float(open_.iloc[-1])) - 1) * 100 if float(open_.iloc[-1]) > 0 else day_ret
+            atr_pct = cur_atr / cp if cp > 0 else 0.0
+            sector_name = _top_pick_sector(all_tickers.get(ticker, ticker))
+
+            score = 0.0
+            reasons = []
+
+            if cp > e20 > e50:
+                score += 18
+                reasons.append("trend aligned")
+            elif cp > e20 and cp > e50:
+                score += 14
+                reasons.append("above key averages")
+            elif cp > e20:
+                score += 7
+                reasons.append("above EMA20")
+            elif cp < e20 < e50:
+                score -= 18
+                reasons.append("trend weak")
+            elif cp < e20 and cp < e50:
+                score -= 14
+                reasons.append("below key averages")
+            elif cp < e20:
+                score -= 7
+                reasons.append("below EMA20")
+
+            if e20 > e20_prev and e50 >= e50_prev:
+                score += 4
+                reasons.append("ema slope up")
+            elif e20 < e20_prev:
+                score -= 4
+
+            if perf_5d >= 3:
+                score += 9
+                reasons.append("5d momentum")
+            elif perf_5d >= 1:
+                score += 5
+            elif perf_5d <= -3:
+                score -= 9
+                reasons.append("5d weakness")
+            elif perf_5d <= -1:
+                score -= 5
+
+            if perf_20d >= 6:
+                score += 7
+                reasons.append("1m strength")
+            elif perf_20d <= -6:
+                score -= 7
+                reasons.append("1m lagging")
+
+            if vol_ratio >= 1.5 and day_ret > 0:
+                score += 10
+                reasons.append("volume thrust")
+            elif vol_ratio >= 1.5 and day_ret < 0:
+                score -= 10
+                reasons.append("heavy selling")
+
+            if avg_turnover_20 >= 75_000_000:
+                score += 6
+                reasons.append("strong liquidity")
+            elif avg_turnover_20 >= 25_000_000:
+                score += 3
+            elif avg_turnover_20 <= 5_000_000:
+                score -= 7
+
+            if 48 <= cur_rsi <= 68 and day_ret >= 0:
+                score += 6
+                reasons.append("healthy RSI")
+            elif cur_rsi < 32 and day_ret > 0:
+                score += 7
+                reasons.append("rebound setup")
+            elif cur_rsi > 74:
+                score -= 7
+                reasons.append("overbought")
+            elif cur_rsi < 26 and day_ret < 0:
+                score -= 4
+
+            if close_loc >= 0.75 and day_move > 0:
+                score += 5
+                reasons.append("closed near high")
+            elif close_loc <= 0.25 and day_move < 0:
+                score -= 5
+                reasons.append("closed near low")
+
+            if atr_pct >= 0.065:
+                score -= 4
+                reasons.append("high noise")
+
+            if len(high) >= 21:
+                prev_high_20 = float(high.iloc[-21:-1].max())
+                if cp >= prev_high_20 * 0.997 and day_ret >= 0:
+                    score += 6
+                    reasons.append("20d breakout")
+            if len(high) >= 61:
+                prev_high_60 = float(high.iloc[-61:-1].max())
+                if cp >= prev_high_60 * 0.995:
+                    score += 4
+                    reasons.append("multi-week leader")
+            if day_ret >= 6 and close_loc < 0.55:
+                score -= 6
+
+            records.append({
+                'ticker': ticker,
+                'name': all_tickers.get(ticker, ticker),
+                'sector': sector_name,
+                'score': score,
+                'reasons': reasons,
+                'close': cp,
+                'day_ret': day_ret,
+                'perf_5d': perf_5d,
+                'perf_20d': perf_20d,
+                'vol_ratio': vol_ratio,
+                'atr_pct': atr_pct,
+                'avg_turnover_20': avg_turnover_20,
+            })
+        except Exception:
+            continue
+
+    if not records:
+        return {'top_up': [], 'top_down': [], 'coverage': 0, 'market_day': 0.0, 'market_5d': 0.0}
+
+    major_tickers = {'2222.SR', '1120.SR', '2010.SR', '7010.SR', '2280.SR', '1180.SR'}
+    major_recs = [rec for rec in records if rec['ticker'] in major_tickers]
+    market_day = sum(rec['day_ret'] for rec in major_recs) / len(major_recs) if major_recs else sum(rec['day_ret'] for rec in records) / len(records)
+    market_5d = sum(rec['perf_5d'] for rec in major_recs) / len(major_recs) if major_recs else sum(rec['perf_5d'] for rec in records) / len(records)
+
+    for rec in records:
+        rel_5d = rec['perf_5d'] - market_5d
+        if rel_5d >= 2.0:
+            rec['score'] += 8
+            rec['reasons'].append("beating market")
+        elif rel_5d <= -2.0:
+            rec['score'] -= 8
+            rec['reasons'].append("lagging market")
+
+        if market_day >= 0.4 and rec['score'] > 0:
+            rec['score'] += 3
+        elif market_day <= -0.4 and rec['score'] < 0:
+            rec['score'] -= 3
+
+    try:
+        from macro_data import get_saudi_news_headlines
+        macro_headlines = get_saudi_news_headlines()
+    except Exception:
+        macro_headlines = []
+
+    candidate_pool_size = min(len(records), max(limit * 4 + 6, 12))
+    enriched_candidates = sorted(records, key=lambda row: row['score'], reverse=True)[:candidate_pool_size]
+
+    for rec in enriched_candidates:
+        price_action = _analyze_top_pick_price_action(hist_map.get(rec['ticker']))
+        rec['score'] += price_action.get('score', 0.0)
+        rec['setup_conf'] = price_action.get('setup_conf', 0.0)
+        rec['rr1'] = price_action.get('rr1', 0.0)
+        rec['quality_gate'] = price_action.get('quality_gate', False)
+        rec['support_price'] = price_action.get('support_price')
+        rec['resistance_price'] = price_action.get('resistance_price')
+        rec['struct_target_price'] = price_action.get('struct_target_price')
+        rec['reasons'].extend(price_action.get('reasons', []))
+
+        context_score, context_reasons, resolved_sector = _score_top_pick_context(
+            rec['ticker'],
+            rec['name'],
+            rec.get('sector'),
+            macro_headlines,
+        )
+        rec['sector'] = resolved_sector
+        rec['score'] += context_score
+        rec['reasons'] = price_action.get('reasons', []) + context_reasons + rec['reasons']
+
+    for rec in records:
+        abs_score = abs(rec['score'])
+        if abs_score >= 52:
+            confidence = "High"
+        elif abs_score >= 36:
+            confidence = "Medium"
+        else:
+            confidence = "Watch"
+
+        unique_reasons = []
+        for reason in rec['reasons']:
+            if reason not in unique_reasons:
+                unique_reasons.append(reason)
+        rec['reasons'] = unique_reasons[:4]
+
+        base_move_pct = rec.get('atr_pct', 0.0) * 100 * 0.75
+        if base_move_pct <= 0:
+            base_move_pct = max(abs(rec.get('day_ret', 0.0)), 0.7)
+        score_bonus = min(1.8, max(rec['score'], 0.0) / 55)
+        momentum_bonus = min(0.8, max(rec.get('perf_5d', 0.0), 0.0) / 10)
+        expected_move_pct = min(5.5, max(0.6, base_move_pct + score_bonus + momentum_bonus))
+
+        resistance_price = _coerce_float(rec.get('resistance_price'))
+        if resistance_price is not None and resistance_price > rec['close']:
+            structure_cap_pct = (resistance_price - rec['close']) / rec['close'] * 100 * 0.85
+            expected_move_pct = min(expected_move_pct, max(structure_cap_pct, 0.35))
+
+        target_price = rec['close'] * (1 + expected_move_pct / 100)
+        struct_target_price = _coerce_float(rec.get('struct_target_price'))
+        if struct_target_price is not None and struct_target_price > rec['close']:
+            target_price = min(target_price, struct_target_price)
+
+        rec['confidence'] = confidence
+        rec['ticker_display'] = rec['ticker'].replace('.SR', '')
+        rec['expected_move_pct'] = round(expected_move_pct, 1)
+        rec['target_price'] = round(target_price, 2)
+
+    ranked_candidates = sorted(enriched_candidates, key=lambda row: row['score'], reverse=True)
+    top_up = [
+        rec for rec in ranked_candidates
+        if rec['score'] >= 18 and rec.get('quality_gate', False)
+    ][:limit]
+    if len(top_up) < limit:
+        seen = {rec['ticker'] for rec in top_up}
+        for rec in ranked_candidates:
+            if rec['ticker'] in seen:
+                continue
+            if rec['score'] <= 12:
+                continue
+            if rec.get('setup_conf', 0.0) < 60:
+                continue
+            if rec.get('rr1', 0.0) < 0.9:
+                continue
+            top_up.append(rec)
+            seen.add(rec['ticker'])
+            if len(top_up) >= limit:
+                break
+
+    top_down = [rec for rec in sorted(records, key=lambda row: row['score']) if rec['score'] < -12][:limit]
+
+    return {
+        'top_up': top_up,
+        'top_down': top_down,
+        'coverage': len(records),
+        'market_day': market_day,
+        'market_5d': market_5d,
     }
 
 

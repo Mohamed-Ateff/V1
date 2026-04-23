@@ -24,6 +24,72 @@ def _cached_download(symbol: str, start: str, end: str) -> pd.DataFrame | None:
     return None
 
 
+def _drop_duplicate_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Keep the first copy of each column name so row.get() returns scalars, not Series."""
+    if df.columns.is_unique:
+        return df
+
+    keep_positions = []
+    seen = set()
+    for pos, col in enumerate(df.columns):
+        name = str(col)
+        if name in seen:
+            continue
+        seen.add(name)
+        keep_positions.append(pos)
+    return df.iloc[:, keep_positions].copy()
+
+
+def _coerce_scalar(value, default):
+    """Collapse duplicated-column lookups to one scalar value."""
+    if isinstance(value, pd.DataFrame):
+        if value.empty:
+            return default
+        value = value.iloc[0, 0]
+    elif isinstance(value, pd.Series):
+        if value.empty:
+            return default
+        value = value.iloc[0]
+
+    try:
+        if value is None or pd.isna(value):
+            return default
+    except Exception:
+        return default
+
+    return value
+
+
+def _first_series(df: pd.DataFrame, col_name: str) -> pd.Series | None:
+    """Return the first matching column as a Series even if duplicates exist."""
+    matches = [col for col in df.columns if str(col) == col_name]
+    if not matches:
+        return None
+    series = df.loc[:, matches[0]]
+    if isinstance(series, pd.DataFrame):
+        series = series.iloc[:, 0]
+    return pd.to_numeric(series, errors='coerce')
+
+
+def _add_regime_core_indicators(df: pd.DataFrame) -> pd.DataFrame:
+    """Compute the minimum indicator set required for stable regime detection."""
+    df = df.copy()
+
+    df['EMA_20'] = ta.ema(df['Close'], length=20)
+    df['EMA_200'] = ta.ema(df['Close'], length=200)
+    df['ATR_14'] = ta.atr(df['High'], df['Low'], df['Close'], length=14)
+
+    bbands = ta.bbands(df['Close'], length=20)
+    if bbands is not None:
+        df = pd.concat([df, bbands], axis=1)
+
+    adx = ta.adx(df['High'], df['Low'], df['Close'], length=14)
+    if adx is not None:
+        df = pd.concat([df, adx], axis=1)
+
+    return _drop_duplicate_columns(df)
+
+
 class RegimeAnalyzer:
 
     """Backend analyzer for web interface."""
@@ -36,7 +102,11 @@ class RegimeAnalyzer:
 
         self.start_date = start_date
 
+        self.requested_start_date = start_date
+
         self.end_date = end_date
+
+        self.requested_end_date = end_date
 
         self.selected_indicators = selected_indicators
 
@@ -50,9 +120,13 @@ class RegimeAnalyzer:
 
         try:
 
+            _requested_start = datetime.strptime(self.requested_start_date, '%Y-%m-%d')
+
+            _download_start = max(datetime(2002, 1, 1), _requested_start - timedelta(days=420))
+
             _end_exclusive = (datetime.strptime(self.end_date, '%Y-%m-%d') + timedelta(days=1)).strftime('%Y-%m-%d')
 
-            df = _cached_download(self.symbol, self.start_date, _end_exclusive)
+            df = _cached_download(self.symbol, _download_start.strftime('%Y-%m-%d'), _end_exclusive)
 
         except Exception as e:
 
@@ -87,6 +161,10 @@ class RegimeAnalyzer:
             if col not in df.columns:
 
                 return None
+
+        # Regime detection must not depend on whatever optional indicators the user selected.
+        # Always compute the core features needed by classify_regimes().
+        df = _add_regime_core_indicators(df)
 
         
 
@@ -228,8 +306,6 @@ class RegimeAnalyzer:
 
                 df = pd.concat([df, dc], axis=1)
 
-
-
         # ?? 4?? Volume (Smart Money Confirmation) ?????????????????????????
 
         if 'OBV' in self.selected_indicators:
@@ -284,6 +360,8 @@ class RegimeAnalyzer:
 
                 df = pd.concat([df, adx], axis=1)
 
+        df = _drop_duplicate_columns(df)
+
         
 
 # Replace None indicator columns with NaN so comparisons don't crash
@@ -314,49 +392,47 @@ class RegimeAnalyzer:
 
         """Classify regimes."""
 
+        if self.df is None or len(self.df) == 0:
+            return self.df
+
+        effective_lookback = min(lookback, max(len(self.df) - 1, 1))
+
         regimes = []
 
         
 
-        for i in range(lookback, len(self.df)):
+        for i in range(effective_lookback, len(self.df)):
 
-            recent = self.df.iloc[i-lookback:i+1]
-
-            
-
-            price = self.df.iloc[i]['Close']
-
-            ema200 = self.df.iloc[i].get('EMA_200', price)
-            if ema200 is None or (isinstance(ema200, float) and math.isnan(ema200)):
-                ema200 = price
-
-            adx = self.df.iloc[i].get('ADX_14', 20)
-            if adx is None or (isinstance(adx, float) and math.isnan(adx)):
-                adx = 20
-
-            atr = self.df.iloc[i].get('ATR_14', 0)
-            if atr is None or (isinstance(atr, float) and math.isnan(atr)):
-                atr = 0
-
-            bb_upper = self.df.iloc[i].get('BBU_20_2.0', price * 1.02)
-            if bb_upper is None or (isinstance(bb_upper, float) and math.isnan(bb_upper)):
-                bb_upper = price * 1.02
-
-            bb_lower = self.df.iloc[i].get('BBL_20_2.0', price * 0.98)
-            if bb_lower is None or (isinstance(bb_lower, float) and math.isnan(bb_lower)):
-                bb_lower = price * 0.98
+            recent = self.df.iloc[i-effective_lookback:i+1]
+            row = self.df.iloc[i]
 
             
 
-            if 'EMA_200' in recent.columns and recent['EMA_200'].notna().any():
-                above_ema200 = (recent['Close'] > recent['EMA_200'].fillna(price)).sum() / len(recent)
+            price = float(_coerce_scalar(row.get('Close', np.nan), np.nan))
+
+            ema200 = float(_coerce_scalar(row.get('EMA_200', price), price))
+
+            adx = float(_coerce_scalar(row.get('ADX_14', 20), 20))
+
+            atr = float(_coerce_scalar(row.get('ATR_14', 0), 0))
+
+            bb_upper = float(_coerce_scalar(row.get('BBU_20_2.0', price * 1.02), price * 1.02))
+
+            bb_lower = float(_coerce_scalar(row.get('BBL_20_2.0', price * 0.98), price * 0.98))
+
+            
+
+            recent_ema200 = _first_series(recent, 'EMA_200')
+            if recent_ema200 is not None and recent_ema200.notna().any():
+                close_series = pd.to_numeric(recent['Close'], errors='coerce')
+                above_ema200 = (close_series > recent_ema200.fillna(price)).sum() / len(recent)
             else:
                 above_ema200 = 0.5
 
             try:
-                ema20_now = self.df.iloc[i].get('EMA_20', None)
-                ema20_prev = self.df.iloc[i-10].get('EMA_20', None) if i >= 10 else None
-                if ema20_now is not None and ema20_prev is not None and not (isinstance(ema20_now, float) and math.isnan(ema20_now)) and not (isinstance(ema20_prev, float) and math.isnan(ema20_prev)) and ema20_prev != 0:
+                ema20_now = float(_coerce_scalar(row.get('EMA_20', None), np.nan))
+                ema20_prev = float(_coerce_scalar(self.df.iloc[i-10].get('EMA_20', None), np.nan)) if i >= 10 else np.nan
+                if not math.isnan(ema20_now) and not math.isnan(ema20_prev) and ema20_prev != 0:
                     ema_slope = (ema20_now - ema20_prev) / ema20_prev
                 else:
                     ema_slope = 0
@@ -391,9 +467,51 @@ class RegimeAnalyzer:
 
         
 
-        self.df = self.df.iloc[lookback:].copy()
+        self.df = self.df.iloc[effective_lookback:].copy()
 
         self.df['REGIME'] = regimes
+
+        requested_dates = pd.to_datetime(self.df['Date'], errors='coerce')
+        try:
+            if requested_dates.dt.tz is not None:
+                requested_dates = requested_dates.dt.tz_localize(None)
+        except Exception:
+            pass
+        try:
+            requested_dates = requested_dates.dt.normalize()
+        except Exception:
+            pass
+
+        requested_start = pd.Timestamp(self.requested_start_date).normalize()
+        requested_end = pd.Timestamp(self.requested_end_date).normalize()
+
+        visible_mask = (requested_dates >= requested_start) & (requested_dates <= requested_end)
+        visible_df = self.df.loc[visible_mask].copy()
+        fallback_gap_days = 5
+
+        # If the user picked a weekend/holiday or a one-day window, snap to the nearest
+        # recent trading bars instead of failing with an empty or one-row visible slice.
+        if len(visible_df) == 0:
+            fallback_mask = requested_dates.notna() & (requested_dates <= requested_end)
+            fallback_df = self.df.loc[fallback_mask].copy()
+            fallback_dates = requested_dates.loc[fallback_mask]
+            if not fallback_df.empty:
+                last_visible_date = fallback_dates.iloc[-1]
+                gap_days = (requested_end - last_visible_date).days
+                if 0 <= gap_days <= fallback_gap_days:
+                    visible_df = fallback_df.tail(2).copy()
+        elif len(visible_df) == 1:
+            single_index = visible_df.index[0]
+            single_date = requested_dates.loc[single_index]
+            history_mask = requested_dates.notna() & (requested_dates <= single_date)
+            history_df = self.df.loc[history_mask].copy()
+            history_dates = requested_dates.loc[history_mask]
+            if len(history_df) >= 2:
+                gap_days = (single_date - history_dates.iloc[-2]).days
+                if 0 <= gap_days <= fallback_gap_days:
+                    visible_df = history_df.tail(2).copy()
+
+        self.df = visible_df.copy()
 
         self.df.reset_index(drop=True, inplace=True)
 

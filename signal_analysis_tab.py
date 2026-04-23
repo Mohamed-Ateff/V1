@@ -49,43 +49,45 @@ def signal_analysis_tab(df, info_icon):
     muted     = theme_palette.get("muted",     "#9e9e9e")
 
     # ── CSS ──────────────────────────────────────────────────────────────────
-    st.markdown("""
-    <style>
-    .sa-kpi-grid {
-        display: grid;
-        grid-template-columns: repeat(6, minmax(0, 1fr));
-        gap: 0.65rem;
-        margin-bottom: 1.2rem;
-    }
-    .sa-kpi-card {
-        background: #1b1b1b;
-        border: 1px solid #272727;
-        border-radius: 10px;
-        padding: 0.8rem 0.85rem;
-    }
-    .sa-kpi-label {
-        font-size: 0.62rem;
-        color: #606060;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        font-weight: 700;
-        margin-bottom: 0.35rem;
-    }
-    .sa-kpi-value {
-        font-size: 1.55rem;
-        font-weight: 900;
-        line-height: 1;
-    }
-    .sa-kpi-sub {
-        font-size: 0.68rem;
-        color: #888;
-        margin-top: 0.25rem;
-        font-weight: 600;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+    st.markdown(
+        """
+        <style>
+        .sa-kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(6, minmax(0, 1fr));
+            gap: 0.65rem;
+            margin-bottom: 1.2rem;
+        }
+        .sa-kpi-card {
+            background: #1b1b1b;
+            border: 1px solid #272727;
+            border-radius: 10px;
+            padding: 0.8rem 0.85rem;
+        }
+        .sa-kpi-label {
+            font-size: 0.62rem;
+            color: #606060;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 700;
+            margin-bottom: 0.35rem;
+        }
+        .sa-kpi-value {
+            font-size: 1.55rem;
+            font-weight: 900;
+            line-height: 1;
+        }
+        .sa-kpi-sub {
+            font-size: 0.68rem;
+            color: #808080;
+            margin-top: 0.25rem;
+            font-weight: 600;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
-    # ── Controls row ──────────────────────────────────────────────────────────
     c1, c2, c3, c4 = st.columns([2, 2, 2, 2])
     with c1:
         st.markdown(
@@ -94,8 +96,13 @@ def signal_analysis_tab(df, info_icon):
             unsafe_allow_html=True,
         )
         risk_val = st.number_input(
-            "Risk", min_value=1, max_value=100, value=1, step=1,
-            label_visibility="collapsed", key="sa_risk_val",
+            "Risk",
+            min_value=1,
+            max_value=100,
+            value=1,
+            step=1,
+            label_visibility="collapsed",
+            key="sa_risk_val",
         )
     with c2:
         st.markdown(
@@ -104,8 +111,13 @@ def signal_analysis_tab(df, info_icon):
             unsafe_allow_html=True,
         )
         reward_val = st.number_input(
-            "Reward", min_value=1, max_value=100, value=2, step=1,
-            label_visibility="collapsed", key="sa_reward_val",
+            "Reward",
+            min_value=1,
+            max_value=100,
+            value=2,
+            step=1,
+            label_visibility="collapsed",
+            key="sa_reward_val",
         )
     with c3:
         st.markdown(
@@ -113,10 +125,13 @@ def signal_analysis_tab(df, info_icon):
             "letter-spacing:1px;font-weight:700;margin-bottom:0.3rem;'>Holding Period</div>",
             unsafe_allow_html=True,
         )
-        _period_map   = {"Short (5d)": 5, "Medium (63d)": 63, "Long (252d)": 252}
+        _period_map = {"Short (5d)": 5, "Medium (63d)": 63, "Long (252d)": 252}
         _period_label = st.selectbox(
-            "Period", list(_period_map.keys()), index=1,
-            label_visibility="collapsed", key="sa_period_val",
+            "Period",
+            list(_period_map.keys()),
+            index=1,
+            label_visibility="collapsed",
+            key="sa_period_val",
         )
         holding_period = _period_map[_period_label]
     with c4:
@@ -125,15 +140,22 @@ def signal_analysis_tab(df, info_icon):
             "letter-spacing:1px;font-weight:700;margin-bottom:0.3rem;'>Combo Depth</div>",
             unsafe_allow_html=True,
         )
-        _depth_opts = {"Pairs only (2)": 2, "Up to Triples (3)": 3,
-                       "Up to Quads (4)": 4, "Up to 5-Way (5)": 5, "Up to 6-Way (6)": 6}
+        _depth_opts = {
+            "Pairs only (2)": 2,
+            "Up to Triples (3)": 3,
+            "Up to Quads (4)": 4,
+            "Up to 5-Way (5)": 5,
+            "Up to 6-Way (6)": 6,
+        }
         _depth_label = st.selectbox(
-            "Depth", list(_depth_opts.keys()), index=2,
-            label_visibility="collapsed", key="sa_combo_depth",
+            "Depth",
+            list(_depth_opts.keys()),
+            index=2,
+            label_visibility="collapsed",
+            key="sa_combo_depth",
         )
         max_combo_depth = _depth_opts[_depth_label]
     combo_signal_window = 3
-    sync_window_label = "3 bars"
 
     stop_loss     = 0.02
     rr_ratio      = reward_val / risk_val
@@ -464,7 +486,9 @@ def signal_analysis_tab(df, info_icon):
                 wr  = cd["success_rate"]
                 if wr >= 100:
                     continue
-                rp = {r: v for r, v in cd.get("regime_performance", {}).items() if v > 0}
+                regime_perf_raw = cd.get("regime_performance", {})
+                regime_totals = cd.get("regime_totals", {})
+                rp = {r: regime_perf_raw.get(r, 0) for r in regime_perf_raw if regime_totals.get(r, 0) > 0}
                 best_r = max(rp, key=rp.get) if rp else ""
                 all_combo_data.append({
                     "key":          combo_key,
@@ -472,6 +496,8 @@ def signal_analysis_tab(df, info_icon):
                     "size":         size,
                     "label":        " + ".join(_all_names.get(p, p) for p in parts),
                     "total":        n_c,
+                    "active_bars":  cd.get("active_bars", n_c),
+                    "regime_totals": regime_totals,
                     "wins":         cd["successful"],
                     "losses":       cd["failed"],
                     "win_rate":     wr,
@@ -583,6 +609,7 @@ def signal_analysis_tab(df, info_icon):
                 overall_wr = row["win_rate"]
                 edge = regime_wr - overall_wr
                 signal_count = row["total"]
+                active_bars = row.get("active_bars", signal_count)
                 expectancy = row["expectancy"]
                 profit_factor = row["profit_factor"]
                 monthly_points = len(row.get("monthly_win_rates", {}))
@@ -603,11 +630,16 @@ def signal_analysis_tab(df, info_icon):
                     )
 
                 if signal_count >= 20:
-                    reasons.append(f"{signal_count} signals gives it a deeper sample than most niche combinations.")
+                    reasons.append(f"{signal_count} entries gives it a deeper sample than most niche combinations.")
                 elif signal_count >= 10:
-                    reasons.append(f"{signal_count} signals keeps it actionable without being too sparse.")
+                    reasons.append(f"{signal_count} entries keeps it actionable without being too sparse.")
                 else:
-                    reasons.append(f"Only {signal_count} signals, so this is a selective setup rather than a frequent one.")
+                    reasons.append(f"Only {signal_count} entries, so this is a selective setup rather than a frequent one.")
+
+                if active_bars > signal_count:
+                    reasons.append(
+                        f"The combo stayed aligned for {active_bars} bars, but continuous overlap is compressed into {signal_count} distinct trade entries."
+                    )
 
                 if profit_factor >= 1.5 and expectancy > 0:
                     reasons.append(
@@ -628,7 +660,7 @@ def signal_analysis_tab(df, info_icon):
                 return (
                     f"{_combo_synergy(row['indicators'])} "
                     f"In {regime.lower()} conditions it wins {regime_wr:.1f}% "
-                    f"across {row['total']} signals."
+                    f"across {row['total']} entries and {row.get('active_bars', row['total'])} active bars."
                 )
 
             def _regime_sort_key(row, regime, rank_mode):
@@ -1118,11 +1150,6 @@ def signal_analysis_tab(df, info_icon):
                     _card_radius = "16px" if hero else "14px"
                     _card_pad = "1.25rem 1.35rem" if hero else "0.95rem 1.1rem"
                     _title = f"Top {_label} setup" if hero else f"#{rank}"
-                    _count_note = (
-                        "Entry count uses active bullish overlap. A setup is counted once until that overlap resets."
-                        if hero else ""
-                    )
-
                     st.markdown(
                         (
                             f"<div style='background:{panel};border:1px solid {border};border-radius:{_card_radius};"
@@ -1156,25 +1183,18 @@ def signal_analysis_tab(df, info_icon):
                             f"<div style='font-size:0.72rem;color:{muted};margin-top:0.18rem;font-weight:600;'>"
                             f"{row['wins']} winners · {row['losses']} losers</div>"
                             f"</div></div>"
-                            f"<div style='display:grid;grid-template-columns:repeat(6,1fr);gap:0.4rem;margin-bottom:0.65rem;'>"
-                            f"{_focus_metric('Signals', str(row['total']), INFO, f'{row['signal_freq']:.1f}/100 bars', 'How many trade entries this setup produced in the full test.') }"
+                            f"<div style='display:grid;grid-template-columns:repeat(5,1fr);gap:0.4rem;margin-bottom:0.65rem;'>"
+                            f"{_focus_metric('Entries', str(row['total']), INFO, f'{row['signal_freq']:.1f}/100 bars', 'How many distinct trade entries this setup produced in the full test.') }"
                             f"{_focus_metric('Winners', str(row['wins']), BULL, tip='How many of those entries finished positive.') }"
                             f"{_focus_metric('Losers', str(row['losses']), BEAR, tip='How many of those entries finished negative.') }"
                             f"{_focus_metric('Profit Factor', f'{row['profit_factor']:.2f}', _pf_col, tip='Total gains divided by total losses. Above 1.0 means the setup made more than it lost.') }"
                             f"{_focus_metric('Expectancy', f'{row['expectancy']:+.2f}%', _exp_col, tip='Average edge per trade after wins and losses are blended together.') }"
-                            f"{_focus_metric('Avg Hold', f'{row['avg_hold']:.0f}d', INFO, tip='How long trades stayed open on average before they closed.') }"
                             f"</div>"
-                            f"<div style='display:grid;grid-template-columns:repeat(4,1fr);gap:0.4rem;'>"
+                            f"<div style='display:grid;grid-template-columns:repeat(3,1fr);gap:0.4rem;'>"
+                            f"{_focus_metric('Avg Hold', f'{row['avg_hold']:.0f}d', INFO, tip='How long trades stayed open on average before they closed.') }"
                             f"{_focus_metric('Avg Gain', f'+{row['avg_gain']:.2f}%', BULL, tip='Average size of the winning trades.') }"
                             f"{_focus_metric('Avg Loss', f'{row['avg_loss']:.2f}%', BEAR, tip='Average size of the losing trades.') }"
-                            f"{_focus_metric('Win Streak', str(row['max_consec_wins']), BULL, tip='Longest run of back-to-back winners for this setup.') }"
-                            f"{_focus_metric('Loss Streak', str(row['max_consec_losses']), BEAR, tip='Longest run of back-to-back losing trades for this setup.') }"
                             f"</div>"
-                            + (
-                                f"<div style='margin-top:0.7rem;padding:0.68rem 0.8rem;background:{panel_alt};border:1px solid {border};"
-                                f"border-radius:10px;font-size:0.74rem;color:{text_col};line-height:1.6;'>{_count_note}</div>"
-                                if _count_note else ""
-                            )
                             + "</div></div>"
                         ),
                         unsafe_allow_html=True,
@@ -1195,20 +1215,16 @@ def signal_analysis_tab(df, info_icon):
                     "combo_regime",
                     "What is Regime Champions? (tap to learn)",
                     "<p>Regime Focus groups setups by the market condition where they fit best.</p>"
-                    "<p>Cards below show the <strong>top 10 setups in each market state</strong>, ranked by overall win. Entry counts are built from active bullish overlap, not from forcing every indicator to flip on the same day.</p>"
+                    "<p>Use the tabs to jump between <strong>Trend</strong>, <strong>Range</strong>, and <strong>Volatile</strong> champions. Each tab shows the top 10 setups for that market state, ranked by overall win.</p>"
+                    "<p><strong>Entries</strong> are built from active bullish overlap, not from forcing every indicator to flip on the same day.</p>"
                 )
-                _regime_sections = [
-                    ("Trend", "TREND", 0),
-                    ("Range", "RANGE", 100),
-                    ("Volatile", "VOLATILE", 200),
-                ]
 
-                for _section_index, (_section_name, _regime_key, _save_offset) in enumerate(_regime_sections):
+                def _render_regime_champion_section(_section_name, _regime_key, _save_offset):
                     _section_meta = _regime_meta[_regime_key]
                     _regime_combos_all = [row for row in all_combo_data if row["best_regime"] == _regime_key]
                     if not _regime_combos_all:
                         _regime_combos_all = [
-                            row for row in all_combo_data if row["regime_perf"].get(_regime_key, 0) > 0
+                            row for row in all_combo_data if row.get("regime_totals", {}).get(_regime_key, 0) > 0
                         ]
                     _regime_combos = sorted(
                         _regime_combos_all,
@@ -1219,7 +1235,7 @@ def signal_analysis_tab(df, info_icon):
                     st.markdown(
                         (
                             f"<div style='display:flex;justify-content:space-between;align-items:flex-end;gap:1rem;"
-                            f"margin:{'0.45rem' if _section_index == 0 else '1.35rem'} 0 0.65rem 0;flex-wrap:wrap;'>"
+                            f"margin:0.45rem 0 0.65rem 0;flex-wrap:wrap;'>"
                             f"<div>"
                             f"<div style='font-size:0.76rem;color:{_section_meta['accent']};font-weight:900;text-transform:uppercase;letter-spacing:0.8px;'>"
                             f"{_section_name} Champions</div>"
@@ -1234,12 +1250,18 @@ def signal_analysis_tab(df, info_icon):
                     )
 
                     if not _regime_combos:
+                        _regime_trade_count = sum(row.get("regime_totals", {}).get(_regime_key, 0) for row in all_combo_data)
+                        _empty_msg = (
+                            f"No {_section_name.lower()} entries were found in the current combo set."
+                            if _regime_trade_count == 0
+                            else f"No {_section_name.lower()} champion qualified on win rate, but the tab no longer hides setups just because they went 0-for-N in that regime."
+                        )
                         st.markdown(
                             f"<div style='background:{panel};border:1px solid {border};border-radius:14px;padding:0.95rem 1rem;"
-                            f"color:{muted};font-size:0.78rem;'>No {_section_name.lower()} setups matched the current combo set.</div>",
+                            f"color:{muted};font-size:0.78rem;'>{_empty_msg}</div>",
                             unsafe_allow_html=True,
                         )
-                        continue
+                        return
 
                     _champion = _regime_combos[0]
                     _render_focus_card(_champion, 1, _regime_key, hero=True, save_idx=_save_offset + 1)
@@ -1259,6 +1281,17 @@ def signal_analysis_tab(df, info_icon):
 
                     for _rank, _row in enumerate(_regime_combos[1:], start=2):
                         _render_focus_card(_row, _rank, _regime_key, hero=False, save_idx=_save_offset + _rank)
+
+                _regime_sections = [
+                    ("Trend", "TREND", 0),
+                    ("Range", "RANGE", 100),
+                    ("Volatile", "VOLATILE", 200),
+                ]
+
+                _champion_tabs = st.tabs([f"{_name} Champions" for _name, _, _ in _regime_sections])
+                for _tab, (_section_name, _regime_key, _save_offset) in zip(_champion_tabs, _regime_sections):
+                    with _tab:
+                        _render_regime_champion_section(_section_name, _regime_key, _save_offset)
 
             # ── Deep Cards (continues in same Combinations tab) ────────────────────────────
             with ctab1:

@@ -19,6 +19,7 @@ from market_data import (
     get_saudi_market_status,
     get_all_tadawul_tickers,
     get_saudi_market_data,
+    get_tomorrow_stock_forecast,
     run_market_analysis,
 )
 from regime_analyzer import RegimeAnalyzer
@@ -2842,17 +2843,6 @@ def main():
             padding: 0 !important;
         }}
 
-        /* ── Brand header ──────────────────────────────────────────────── */
-        .lp-brand {{
-            font-size: 1.25rem;
-            font-weight: 800;
-            color: #ffffff;
-            letter-spacing: 0.5px;
-            text-align: center;
-            padding: 0.4rem 0;
-            margin: 0;
-        }}
-
         /* ── Left panel (status + buttons) ───────────────────────────────── */
         .st-key-left_panel > div > [data-testid="stVerticalBlockBorderWrapper"],
         .st-key-left_panel > div > [data-testid="stVerticalBlock"] {{
@@ -2860,10 +2850,11 @@ def main():
             border: none !important; box-shadow: none !important; padding: 0 !important;
         }}
         .st-key-left_panel > div:first-child {{
-            background: #181c1f !important;
-            border: 1px solid #252b2e !important;
-            border-radius: 20px !important;
-            padding: 1.8rem !important;
+            background: transparent !important;
+            border: none !important;
+            border-radius: 0 !important;
+            padding: 0 !important;
+            box-shadow: none !important;
             height: 100% !important;
             box-sizing: border-box !important;
         }}
@@ -3325,12 +3316,9 @@ def main():
         with st.container(key="cp_row"):
             left_col, right_col = st.columns([1, 1.6], gap="large")
 
-            # ── LEFT PANEL: branding + buttons + market stats ──────────────
+            # ── LEFT PANEL: buttons + market stats ────────────────────────
             with left_col:
                 with st.container(key="left_panel"):
-
-                    # Brand header
-                    st.markdown('<div class="lp-brand">Tadawul</div>', unsafe_allow_html=True)
 
                     # Period state + labels (used throughout left panel)
                     _ap = st.session_state.get('mkt_period', '1d')
@@ -3428,15 +3416,14 @@ def main():
                     _fl_pct   = unchanged / _total_b * 100
                     _tasi_color = "#26A69A" if tasi_change >= 0 else "#ef5350"
                     _tasi_sign = "+" if tasi_change >= 0 else ""
+                    _tasi_help = info_icon("TASI is the Saudi market index change for today. Green means the market closed higher, red means it closed lower.")
                     st.markdown(
                         f'<div class="mstat-card">'
                         f'<div class="mstat-label">Market Breadth</div>'
                         f'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,0.08);">'
-                        f'<div style="font-size:0.72rem;color:#9aa0a6;font-weight:600;">TASI</div>'
-                        f'<div style="display:flex;align-items:baseline;gap:8px;">'
-                        f'<span style="font-size:0.85rem;font-weight:700;color:#e8eaed;">{tasi_price:,.2f}</span>'
-                        f'<span style="font-size:0.72rem;font-weight:600;color:{_tasi_color};">{_tasi_sign}{tasi_change:.2f}%</span>'
-                        f'</div></div>'
+                        f'<div style="font-size:0.72rem;color:#9aa0a6;font-weight:600;">TASI {_tasi_help}</div>'
+                        f'<div style="font-size:0.9rem;font-weight:800;color:{_tasi_color};">{_tasi_sign}{tasi_change:.2f}%</div>'
+                        f'</div>'
                         f'<div class="mstat-breadth">'
                         f'<div class="mstat-bar">'
                         f'<div class="mstat-bar-up"   style="width:{_up_pct:.1f}%"></div>'
@@ -3496,69 +3483,130 @@ def main():
                         _mom_score -= 30
 
                     _mom_score = max(-100, min(100, _mom_score))
+                    _tf_data = get_tomorrow_stock_forecast(limit=3)
 
                     if _mom_score >= 50:
-                        _fc_label, _fc_color, _fc_icon = 'LIKELY UP', '#26A69A', '▲'
+                        _fc_label, _tf_tone_color, _fc_icon = 'LIKELY UP', '#26A69A', '▲'
                     elif _mom_score >= 15:
-                        _fc_label, _fc_color, _fc_icon = 'LEAN BULLISH', '#66bb6a', '↗'
+                        _fc_label, _tf_tone_color, _fc_icon = 'LEAN BULLISH', '#66bb6a', '↗'
                     elif _mom_score >= -15:
-                        _fc_label, _fc_color, _fc_icon = 'NEUTRAL', '#ffc107', '→'
-                    elif _mom_score >= -50:
-                        _fc_label, _fc_color, _fc_icon = 'LEAN BEARISH', '#ff7043', '↘'
+                        _fc_label, _tf_tone_color, _fc_icon = 'NEUTRAL', '#d9b44a', '→'
                     else:
-                        _fc_label, _fc_color, _fc_icon = 'LIKELY DOWN', '#ef5350', '▼'
+                        _fc_label, _tf_tone_color, _fc_icon = 'DEFENSIVE', '#ff8a65', '↘'
 
+                    _breadth_accent = '#26A69A' if _breadth_ratio >= 1 else '#ef5350'
+                    _tasi_accent = '#26A69A' if tasi_change >= 0 else '#ef5350'
+                    _avg_accent = '#26A69A' if avg_change >= 0 else '#ef5350'
                     _fc_bar_w = abs(_mom_score)
                     _fc_bar_side = 'right' if _mom_score >= 0 else 'left'
+                    _forecast_help = info_icon("Tomorrow Forecast is a market pressure score from -100 to +100. Negative values mean broad market pressure, positive values mean broader support for long setups, and 0 is mixed.")
+                    _top_picks_help = info_icon("Top Picks now use a staged model: market-relative trend, volume, support/resistance, price action setup quality, reward-to-risk, company fundamentals, and filtered news context. Targets are capped by nearby structure and are not guarantees.")
+
+                    def _tf_pick_rows(_rows):
+                        if not _rows:
+                            return (
+                                '<div style="padding:0.85rem 0.9rem;border:1px solid rgba(255,255,255,0.06);'
+                                'border-radius:14px;background:rgba(255,255,255,0.02);font-size:0.74rem;color:#7d848a;">'
+                                'No clean high-conviction upside setup right now. Wait for stronger structure, cleaner reward-to-risk, and better confirmation.'
+                                '</div>'
+                            )
+
+                        _parts = []
+                        for _rank, _row in enumerate(_rows[:3], start=1):
+                            _setup_html = ""
+                            if _row.get('setup_conf', 0):
+                                _setup_html = (
+                                    f'<span style="padding:3px 8px;border-radius:999px;background:rgba(33,150,243,0.12);'
+                                    f'border:1px solid rgba(33,150,243,0.22);font-size:0.58rem;color:#9fd2ff;">'
+                                    f'Setup {int(_row["setup_conf"]):d}%</span>'
+                                )
+                            _rr_html = ""
+                            if _row.get('rr1', 0):
+                                _rr_html = (
+                                    f'<span style="padding:3px 8px;border-radius:999px;background:rgba(255,193,7,0.12);'
+                                    f'border:1px solid rgba(255,193,7,0.2);font-size:0.58rem;color:#f6d77c;">'
+                                    f'R:R {_row["rr1"]:.2f}x</span>'
+                                )
+                            _reason_html = ''.join(
+                                f'<span style="padding:3px 8px;border-radius:999px;background:rgba(255,255,255,0.04);'
+                                f'border:1px solid rgba(255,255,255,0.06);font-size:0.58rem;color:#9ea5ab;">{_reason}</span>'
+                                for _reason in _row.get('reasons', [])[:3]
+                            )
+                            _parts.append(
+                                f'<div style="padding:0.82rem 0.86rem;border:1px solid rgba(255,255,255,0.08);'
+                                f'border-radius:14px;background:linear-gradient(180deg, rgba(38,166,154,0.09), rgba(255,255,255,0.02));'
+                                f'margin-top:8px;">'
+                                f'<div style="display:flex;gap:10px;align-items:flex-start;">'
+                                f'<div style="flex-shrink:0;width:28px;height:28px;border-radius:9px;background:rgba(38,166,154,0.14);'
+                                f'border:1px solid rgba(38,166,154,0.22);display:flex;align-items:center;justify-content:center;'
+                                f'font-size:0.76rem;font-weight:900;color:#7fd6ca;">{_rank}</div>'
+                                f'<div style="min-width:0;flex:1;">'
+                                f'<div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;">'
+                                f'<div style="min-width:0;">'
+                                f'<div style="font-size:0.84rem;font-weight:800;color:#eef2f3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'
+                                f'{_row["ticker_display"]} · {_row["name"]}</div>'
+                                f'<div style="font-size:0.62rem;color:#8d949a;margin-top:3px;">Upside score {_row["score"]:+.0f}</div>'
+                                f'</div>'
+                                f'<div style="flex-shrink:0;padding:3px 8px;border-radius:999px;background:rgba(38,166,154,0.14);'
+                                f'border:1px solid rgba(38,166,154,0.28);font-size:0.58rem;font-weight:800;color:#7fd6ca;'
+                                f'text-transform:uppercase;letter-spacing:0.4px;">{_row["confidence"]}</div>'
+                                f'</div>'
+                                f'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">'
+                                f'<span style="padding:3px 8px;border-radius:999px;background:rgba(38,166,154,0.12);border:1px solid rgba(38,166,154,0.22);font-size:0.58rem;color:#89ddd2;">Today {_row["day_ret"]:+.1f}%</span>'
+                                f'<span style="padding:3px 8px;border-radius:999px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);font-size:0.58rem;color:#c7ccd1;">5D {_row["perf_5d"]:+.1f}%</span>'
+                                f'{_setup_html}'
+                                f'{_rr_html}'
+                                f'<span style="padding:3px 8px;border-radius:999px;background:rgba(38,166,154,0.12);border:1px solid rgba(38,166,154,0.22);font-size:0.58rem;color:#89ddd2;">Target +{_row["expected_move_pct"]:.1f}%</span>'
+                                f'<span style="padding:3px 8px;border-radius:999px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);font-size:0.58rem;color:#c7ccd1;">To {_row["target_price"]:,.2f}</span>'
+                                f'{_reason_html}'
+                                f'</div>'
+                                f'</div>'
+                                f'</div>'
+                                f'</div>'
+                            )
+                        return ''.join(_parts)
+
+                    _tf_up_html = _tf_pick_rows(_tf_data.get('top_up', []))
                     st.markdown(
                         f'<div class="mstat-card">'
-                        f'<div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">'
-                        f'<div class="mstat-label" style="margin:0;">Tomorrow Forecast</div>'
-                        f'<span style="font-size:0.52rem;font-weight:700;color:#26A69A;background:rgba(38,166,154,0.13);'
-                        f'border:1px solid rgba(38,166,154,0.3);border-radius:99px;padding:1px 7px;letter-spacing:0.3px;">NEW</span>'
-                        f'<span style="margin-left:auto;display:flex;align-items:baseline;gap:3px;">'
-                        f'<span style="font-size:1.1rem;font-weight:900;color:{_fc_color};">{_mom_score:+d}</span>'
-                        f'<span style="font-size:0.6rem;font-weight:600;color:#505050;">/100</span>'
-                        f'<span title="Momentum Score (-100 to +100). Combines three signals: Breadth ratio (how many stocks are up vs down), TASI index movement, and average stock performance. Above +50 = likely up day, below -50 = likely down day." '
-                        f'style="display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;'
-                        f'border-radius:50%;background:rgba(255,255,255,0.06);font-size:0.45rem;color:#888;cursor:help;'
-                        f'font-weight:800;margin-left:2px;">?</span>'
-                        f'</span>'
+                        f'<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">'
+                        f'<div>'
+                        f'<div class="mstat-label" style="margin:0;">Tomorrow Forecast {_forecast_help}</div>'
                         f'</div>'
+                        f'<div style="display:flex;align-items:baseline;gap:3px;">'
+                        f'<span style="font-size:1.15rem;font-weight:900;color:{_tf_tone_color};">{_mom_score:+d}</span>'
+                        f'<span style="font-size:0.6rem;font-weight:700;color:#7f878d;">/100</span>'
+                        f'</div>'
+                        f'</div>'
+                        f'<div style="margin-top:10px;padding:0.9rem;border-radius:16px;background:linear-gradient(135deg, {_tf_tone_color}20, rgba(255,255,255,0.02));border:1px solid {_tf_tone_color}33;">'
                         f'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">'
-                        f'<span style="font-size:1.4rem;line-height:1;color:{_fc_color};">{_fc_icon}</span>'
-                        f'<span style="font-size:1rem;font-weight:800;color:{_fc_color};letter-spacing:-0.3px;">{_fc_label}</span>'
+                        f'<span style="font-size:1.35rem;line-height:1;color:{_tf_tone_color};">{_fc_icon}</span>'
+                        f'<span style="font-size:0.96rem;font-weight:800;color:{_tf_tone_color};letter-spacing:-0.2px;">{_fc_label}</span>'
                         f'</div>'
-                        f'<div style="position:relative;height:6px;background:rgba(255,255,255,0.06);border-radius:3px;margin-bottom:10px;">'
-                        f'<div style="position:absolute;top:0;{_fc_bar_side}:50%;height:100%;'
-                        f'width:{_fc_bar_w/2:.1f}%;background:{_fc_color};border-radius:3px;'
-                        f'box-shadow:0 0 8px {_fc_color}44;"></div>'
-                        f'<div style="position:absolute;top:-2px;left:calc(50% - 1px);width:2px;height:10px;'
-                        f'background:rgba(255,255,255,0.25);border-radius:1px;"></div>'
+                        f'<div style="position:relative;height:6px;background:rgba(255,255,255,0.06);border-radius:999px;margin-bottom:12px;overflow:hidden;">'
+                        f'<div style="position:absolute;top:0;{_fc_bar_side}:50%;height:100%;width:{_fc_bar_w/2:.1f}%;background:{_tf_tone_color};box-shadow:0 0 10px {_tf_tone_color}55;"></div>'
+                        f'<div style="position:absolute;top:-2px;left:calc(50% - 1px);width:2px;height:10px;background:rgba(255,255,255,0.25);border-radius:1px;"></div>'
                         f'</div>'
-                        f'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">'
-                        f'<div style="text-align:center;padding:5px;background:rgba(255,255,255,0.025);border-radius:6px;position:relative;">'
-                        f'<div style="font-size:0.62rem;color:#505050;text-transform:uppercase;letter-spacing:0.5px;">'
-                        f'Breadth <span title="Ratio of advancing stocks to declining stocks. Above 1.0 = more stocks rising than falling." '
-                        f'style="display:inline-flex;align-items:center;justify-content:center;width:12px;height:12px;'
-                        f'border-radius:50%;background:rgba(255,255,255,0.06);font-size:0.45rem;color:#888;cursor:help;'
-                        f'font-weight:800;vertical-align:middle;">?</span></div>'
-                        f'<div style="font-size:0.82rem;font-weight:700;color:{"#26A69A" if _breadth_ratio > 1 else "#ef5350"};">{_breadth_ratio:.2f}</div></div>'
-                        f'<div style="text-align:center;padding:5px;background:rgba(255,255,255,0.025);border-radius:6px;">'
-                        f'<div style="font-size:0.62rem;color:#505050;text-transform:uppercase;letter-spacing:0.5px;">'
-                        f'Advancers <span title="Percentage of stocks that closed higher today." '
-                        f'style="display:inline-flex;align-items:center;justify-content:center;width:12px;height:12px;'
-                        f'border-radius:50%;background:rgba(255,255,255,0.06);font-size:0.45rem;color:#888;cursor:help;'
-                        f'font-weight:800;vertical-align:middle;">?</span></div>'
-                        f'<div style="font-size:0.82rem;font-weight:700;color:#26A69A;">{_adv_pct:.0f}%</div></div>'
-                        f'<div style="text-align:center;padding:5px;background:rgba(255,255,255,0.025);border-radius:6px;">'
-                        f'<div style="font-size:0.62rem;color:#505050;text-transform:uppercase;letter-spacing:0.5px;">'
-                        f'Decliners <span title="Percentage of stocks that closed lower today." '
-                        f'style="display:inline-flex;align-items:center;justify-content:center;width:12px;height:12px;'
-                        f'border-radius:50%;background:rgba(255,255,255,0.06);font-size:0.45rem;color:#888;cursor:help;'
-                        f'font-weight:800;vertical-align:middle;">?</span></div>'
-                        f'<div style="font-size:0.82rem;font-weight:700;color:#ef5350;">{_dec_pct:.0f}%</div></div>'
+                        f'<div style="display:flex;justify-content:space-between;font-size:0.55rem;color:#7f878d;margin:-6px 0 10px 0;">'
+                        f'<span>-100</span><span>0</span><span>+100</span>'
                         f'</div>'
+                        f'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px;">'
+                        f'<div style="padding:0.48rem 0.42rem;border-radius:10px;background:rgba(10,13,15,0.28);border:1px solid rgba(255,255,255,0.05);text-align:center;">'
+                        f'<div style="font-size:0.56rem;color:#8d949a;text-transform:uppercase;letter-spacing:0.5px;">Breadth</div>'
+                        f'<div style="font-size:0.84rem;font-weight:800;color:{_breadth_accent};margin-top:2px;">{_breadth_ratio:.2f}</div>'
+                        f'</div>'
+                        f'<div style="padding:0.48rem 0.42rem;border-radius:10px;background:rgba(10,13,15,0.28);border:1px solid rgba(255,255,255,0.05);text-align:center;">'
+                        f'<div style="font-size:0.56rem;color:#8d949a;text-transform:uppercase;letter-spacing:0.5px;">TASI {info_icon("TASI here is the index move used inside the forecast score.")}</div>'
+                        f'<div style="font-size:0.84rem;font-weight:800;color:{_tasi_accent};margin-top:2px;">{tasi_change:+.2f}%</div>'
+                        f'</div>'
+                        f'<div style="padding:0.48rem 0.42rem;border-radius:10px;background:rgba(10,13,15,0.28);border:1px solid rgba(255,255,255,0.05);text-align:center;">'
+                        f'<div style="font-size:0.56rem;color:#8d949a;text-transform:uppercase;letter-spacing:0.5px;">Avg Stock</div>'
+                        f'<div style="font-size:0.84rem;font-weight:800;color:{_avg_accent};margin-top:2px;">{avg_change:+.2f}%</div>'
+                        f'</div>'
+                        f'</div>'
+                        f'</div>'
+                        f'<div style="margin-top:12px;font-size:0.62rem;color:#7fd6ca;text-transform:uppercase;letter-spacing:0.6px;font-weight:800;">Top Picks {_top_picks_help}</div>'
+                        f'{_tf_up_html}'
                         f'</div>',
                         unsafe_allow_html=True)
 
@@ -3696,19 +3744,20 @@ def main():
                                         selected_indicators)
                                     df = analyzer.download_data()
                                     if df is None:
-                                        st.error(f"No data found for '{symbol_input}'")
-                                    elif len(df) < 50:
-                                        st.error(f"Only {len(df)} data points — try a longer period.")
+                                        st.info(f"No price data was found for '{symbol_input}'.")
                                     else:
                                         df = analyzer.classify_regimes(
                                             lookback=lookback_period, adx_threshold=25, atr_threshold=0.03)
-                                        st.session_state.df = df
-                                        st.session_state.analyzed_symbol = symbol_input
-                                        st.session_state.additional_charts = ['ADX','RSI','MACD']
+                                        if df is None or len(df) == 0:
+                                            st.info("No usable market bars were available for the selected dates.")
+                                        else:
+                                            st.session_state.df = df
+                                            st.session_state.analyzed_symbol = symbol_input
+                                            st.session_state.additional_charts = ['ADX','RSI','MACD']
 
-                                        st.session_state.show_results = True
+                                            st.session_state.show_results = True
                                 except Exception as e:
-                                    st.error(f"Error: {str(e)}")
+                                    st.warning(f"Analysis could not complete: {str(e)}")
 
                         # ── Auto-analyze when navigated from screener ─────
                         if st.session_state.pop("screener_auto_analyze", False):
@@ -6015,7 +6064,7 @@ def main():
         from decision_tab import render_decision_tab
 
         from signal_analysis_tab import signal_analysis_tab
-        from patterns_tab import patterns_tab
+        from patterns_tab import render_patterns_price_action_workspace
         from volume_profile_tab import volume_profile_tab
         from smc_tab import smc_tab
         from elliott_wave_tab import elliott_wave_tab
@@ -6056,8 +6105,7 @@ def main():
         with tab2:
             @st.fragment
             def _frag_patterns():
-                price_action_analysis_tab(df, info_icon)
-                patterns_tab(df)
+                render_patterns_price_action_workspace(df, info_icon)
             _frag_patterns()
 
         with tab_vp:

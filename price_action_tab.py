@@ -74,11 +74,20 @@ def _count_zone_tests(series, threshold, above=True, min_gap=3):
     return tests
 
 
+def _load_pattern_context(df):
+    try:
+        from patterns_tab import get_pattern_context
+        return get_pattern_context(df)
+    except Exception:
+        return None
+
+
 def _compute_trade_setup(df, current_price, trend,
                           sup1, sup2, res1, res2,
                           swing_low, swing_high,
                           ma_series, s_touches, r_touches,
-                          s_str, r_str, in_s, in_r):
+                          s_str, r_str, in_s, in_r,
+                          pattern_context=None):
     """Compute a price-action based trade setup: entry, stop, targets, reasons."""
     if len(df) < 15:
         return None
@@ -211,6 +220,31 @@ def _compute_trade_setup(df, current_price, trend,
     if   rsi > 70: ss += 2; sr.append(f"RSI overbought ({rsi:.0f}) — upside exhaustion signal")
     elif rsi > 60: ss += 1; sr.append(f"RSI ({rsi:.0f}) — approaching overbought; bullish momentum may tire")
 
+    # Pattern confluence and false-breakout filter
+    long_filtered = False
+    long_filter_reason = ""
+    if pattern_context:
+        long_bonus = int(pattern_context.get("long_bonus", 0) or 0)
+        short_bonus = int(pattern_context.get("short_bonus", 0) or 0)
+        if long_bonus:
+            ls += long_bonus
+            for reason in pattern_context.get("long_reasons", [])[:2]:
+                lr.append("Pattern confluence: " + reason)
+        if short_bonus:
+            ss += short_bonus
+            for reason in pattern_context.get("short_reasons", [])[:2]:
+                sr.append("Pattern pressure: " + reason)
+
+        guardrails = pattern_context.get("guardrails", {})
+        penalty = int(guardrails.get("long_penalty", 0) or 0)
+        if penalty:
+            ls = max(0, ls - penalty)
+            lead_flag = guardrails.get("flags", [{}])[0].get("detail", "False-breakout / exhaustion filter is active.")
+            lr.append(f"Risk filter penalty ({penalty} pts) — {lead_flag}")
+            if guardrails.get("long_blocked"):
+                long_filtered = True
+                long_filter_reason = lead_flag
+
     # ── Determine dominant direction ─────────────────────────────────
     total = max(ls + ss, 1)
     if ls > ss:
@@ -223,8 +257,19 @@ def _compute_trade_setup(df, current_price, trend,
         setup = 'NEUTRAL'; reasons = (lr + sr)[:4]; sc = NEUT; conf = 50
     # Only return a trade setup for high-quality LONG setups
     # (user only trades long; skip shorts/neutrals and weak signals)
-    if setup != 'LONG' or ls < 5:
+    if setup != 'LONG' or ls < 5 or long_filtered:
         # Return info dict with no_trade flag so UI can show why
+        if long_filtered:
+            no_trade_reason = (
+                'False-breakout / exhaustion filter blocked the long setup — '
+                + (long_filter_reason or 'the move is too extended or the breakout is not holding cleanly.')
+            )
+        else:
+            no_trade_reason = (
+                'Bearish signals dominate — price action is not currently set up for a long entry.'
+                if setup == 'SHORT' else
+                'Signals are mixed or neutral — no clear long opportunity at this time.'
+            )
         return {
             'no_trade': True,
             'setup': setup,
@@ -232,11 +277,7 @@ def _compute_trade_setup(df, current_price, trend,
             'ls': ls, 'ss': ss,
             'rsi': rsi, 'atr': atr,
             'reasons': lr if setup == 'LONG' else sr,
-            'no_trade_reason': (
-                'Bearish signals dominate — price action is not currently set up for a long entry.'
-                if setup == 'SHORT' else
-                'Signals are mixed or neutral — no clear long opportunity at this time.'
-            ),
+            'no_trade_reason': no_trade_reason,
         }
     # ── Trade levels ─────────────────────────────────────────────────
     # Only LONG reaches here (SHORT/NEUTRAL returned early above)
@@ -263,10 +304,41 @@ def _compute_trade_setup(df, current_price, trend,
         'rsi': rsi, 'atr': atr, 'patterns': patterns,
         'reasons': reasons, 'sl_why': sl_why,
         'ls': ls, 'ss': ss, 'ma_now': ma_now,
+        'pattern_context': pattern_context,
     }
 
 
-def price_action_analysis_tab(df, info_icon):
+def _render_pattern_confluence_panel(pattern_context):
+    if not pattern_context:
+        return
+
+    strongest = pattern_context.get('strongest')
+    guardrails = pattern_context.get('guardrails', {})
+    lead_pattern = strongest['pattern'] if strongest else 'No active pattern'
+    lead_state = strongest.get('state', 'Watch') if strongest else 'Watch'
+    lead_color = strongest.get('state_color', INFO) if strongest else INFO
+    cards = [
+        ('Pattern Confluence', f"{pattern_context.get('confluence_score', 0)}", BULL,
+         f"Bull {pattern_context.get('long_bonus', 0)} pts · Bear {pattern_context.get('short_bonus', 0)} pts"),
+        ('Lead Pattern', lead_pattern, lead_color,
+         f"{lead_state} · {strongest['strength']}%" if strongest else 'No active trigger'),
+        ('Breakout Filter', guardrails.get('status', 'Clear'), guardrails.get('status_color', BULL),
+         f"Penalty {guardrails.get('long_penalty', 0)} · {len(guardrails.get('flags', []))} active checks"),
+    ]
+    cols = st.columns(3, gap='small')
+    for col, (label, value, color, detail) in zip(cols, cards):
+        with col:
+            st.markdown(
+                f"<div style='background:#1b1b1b;border:1px solid #272727;border-radius:12px;padding:0.9rem 1rem;'>"
+                f"<div style='font-size:0.62rem;color:#606060;text-transform:uppercase;letter-spacing:0.7px;font-weight:700;'>{label}</div>"
+                f"<div style='font-size:1.25rem;font-weight:900;color:{color};margin-top:0.35rem;'>{value}</div>"
+                f"<div style='font-size:0.72rem;color:#666;margin-top:0.28rem;line-height:1.5;'>{detail}</div>"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+
+
+def price_action_analysis_tab(df, info_icon, pattern_context=None):
     st.markdown(
         f"<div style='border-top:1px solid {BDR};margin:0 0 1.5rem 0;'></div>",
         unsafe_allow_html=True,
@@ -462,12 +534,14 @@ def price_action_analysis_tab(df, info_icon):
 
     # ── 4. TRADE SETUP (above chart) ─────────────────────────────────────────
     ma = recent_df["Close"].rolling(window=ma_period).mean()
+    pattern_context = pattern_context or _load_pattern_context(recent_df)
     st.markdown(_sec("Trade Setup", BULL), unsafe_allow_html=True)
     insight_toggle(
         'pa_setup',
         'How are Bull and Bear scores calculated?',
-        "<p>The <strong style='color:#4caf50'>Bull Score</strong> and <strong style='color:#f44336'>Bear Score</strong> are composite ratings (0-100) from the Price Action Engine.</p><div class='itog-row'><span class='itog-dot'></span><span><strong>Candlestick Patterns</strong> &mdash; Hammer, engulfing, doji, morning star etc. +5 to +20 points each.</span></div><div class='itog-row'><span class='itog-dot'></span><span><strong>Chart Patterns</strong> &mdash; Head &amp; shoulders, double tops/bottoms, triangles, flags. +10 to +25 points.</span></div><div class='itog-row'><span class='itog-dot'></span><span><strong>Price Action vs. Levels</strong> &mdash; Is price bouncing from support, or rejecting resistance? +5 to +15 points.</span></div><div class='itog-row'><span class='itog-dot'></span><span><strong>Volume Confirmation</strong> &mdash; Does volume confirm the move? High volume on a breakout adds confidence. +5 to +10 points.</span></div><p>A score above 60 indicates a clear directional bias. When Bull Score &gt; Bear Score by 15+ points, it is a <strong>high-conviction directional setup</strong>.</p>",
+        "<p>The <strong style='color:#4caf50'>Bull Score</strong> and <strong style='color:#f44336'>Bear Score</strong> are composite ratings from the integrated price action engine.</p><div class='itog-row'><span class='itog-dot'></span><span><strong>Trend + Levels</strong> &mdash; market structure, support/resistance quality, and where price sits inside the range.</span></div><div class='itog-row'><span class='itog-dot'></span><span><strong>Candle + Chart Patterns</strong> &mdash; engulfing candles, hammers, head &amp; shoulders, flags, wedges, triangles and other live pattern signals now feed directly into the setup score.</span></div><div class='itog-row'><span class='itog-dot'></span><span><strong>Confirmation State</strong> &mdash; each active pattern is graded as developing, triggered, retest, confirmed, or failed before it adds score.</span></div><div class='itog-row'><span class='itog-dot'></span><span><strong>False-Breakout Filter</strong> &mdash; weak breakout volume, RSI exhaustion, blow-off candles, failed triggers, and tight headroom can subtract points or block the trade.</span></div><p>A valid long setup now needs both raw price action strength and clean pattern confirmation.</p>",
     )
+    _render_pattern_confluence_panel(pattern_context)
     
     ts = _compute_trade_setup(
         df=recent_df, current_price=current_price, trend=trend,
@@ -475,6 +549,7 @@ def price_action_analysis_tab(df, info_icon):
         swing_low=swing_low, swing_high=swing_high,
         ma_series=ma, s_touches=s_touches, r_touches=r_touches,
         s_str=s_str, r_str=r_str, in_s=in_s, in_r=in_r,
+        pattern_context=pattern_context,
     )
 
     if ts is None:
@@ -502,9 +577,8 @@ def price_action_analysis_tab(df, info_icon):
             f"letter-spacing:0.6px;font-weight:700;margin-bottom:0.2rem;'>&#9650; Bull Signal Score</div>"
             f"<div style='font-size:1.6rem;font-weight:900;color:{BULL};line-height:1;'>{ts['ls']} pts</div>"
             f"<div style='font-size:0.75rem;color:#bdbdbd;margin-top:0.5rem;line-height:1.55;'>"
-            f"Scored from <b style='color:#e0e0e0;'>8 price action criteria</b>: "
-            f"trend direction, price vs 20-MA, MA slope, distance to support, "
-            f"support zone strength, candle patterns (engulfing/hammer), volume confirmation, and RSI level."
+            f"Scored from <b style='color:#e0e0e0;'>price action + pattern confluence</b>: "
+            f"trend direction, price vs 20-MA, zone quality, candlestick triggers, chart-pattern confirmation states, volume, RSI, and breakout filters."
             f"</div>"
             f"</div>"
             f"<div style='background:rgba(244,67,54,0.07);border:1px solid rgba(244,67,54,0.25);"
@@ -513,9 +587,8 @@ def price_action_analysis_tab(df, info_icon):
             f"letter-spacing:0.6px;font-weight:700;margin-bottom:0.2rem;'>&#9660; Bear Signal Score</div>"
             f"<div style='font-size:1.6rem;font-weight:900;color:{BEAR};line-height:1;'>{ts['ss']} pts</div>"
             f"<div style='font-size:0.75rem;color:#bdbdbd;margin-top:0.5rem;line-height:1.55;'>"
-            f"Same 8 criteria evaluated from the bearish side: downtrend structure, price below MA, "
-            f"proximity to resistance, bearish engulfing or shooting star candles, heavy selling volume, and RSI overbought."
-            f" A trade is only shown when Bull Score clearly beats Bear Score and hits the minimum threshold."
+            f"Same engine evaluated from the bearish side: downtrend structure, resistance pressure, bearish patterns, confirmed breakdowns, and trap risk."
+            f" A trade is only shown when the long side clearly beats both bearish pressure and the exhaustion filter."
             f"</div>"
             f"</div>"
             f"</div>"
@@ -565,7 +638,9 @@ def price_action_analysis_tab(df, info_icon):
             # Confidence bar
             + _glowbar(conf, conf_bar_cl, '6px') +
             f"<div style='font-size:0.65rem;color:#4a4a4a;margin-top:0.6rem;'>"
-            f"Long signals: {ts['ls']} pts &nbsp;|&nbsp; Short signals: {ts['ss']} pts</div>"
+            f"Long signals: {ts['ls']} pts &nbsp;|&nbsp; Short signals: {ts['ss']} pts"
+            + (f" &nbsp;|&nbsp; Pattern confluence: {pattern_context.get('long_bonus', 0)} vs {pattern_context.get('short_bonus', 0)}" if pattern_context else "")
+            + f"</div>"
             f"</div></div>",
             unsafe_allow_html=True,
         )
@@ -696,11 +771,13 @@ def get_pa_signal(df, cp):
         in_r  = (res1 - zone_width) <= float(cp) <= (res1 + zone_width)
         in_s  = (sup1 - zone_width) <= float(cp) <= (sup1 + zone_width)
         ma_series = df["Close"].rolling(20, min_periods=1).mean()
+        pattern_context = _load_pattern_context(df)
 
         setup = _compute_trade_setup(
             df, float(cp), trend, sup1, sup2, res1, res2,
             swing_low, swing_high, ma_series,
             s_touches, r_touches, s_str, r_str, in_s, in_r,
+            pattern_context=pattern_context,
         )
         if setup is None or setup.get("no_trade"):
             return None

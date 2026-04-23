@@ -33,15 +33,30 @@ def _escape(value):
     return html.escape(str(value))
 
 
+def _lab_palette():
+    palette = st.session_state.get("theme_palette", {})
+    return {
+        "panel": palette.get("panel", BG),
+        "panel_alt": palette.get("panel_alt", BG2),
+        "text": palette.get("text", "#ffffff"),
+        "muted": palette.get("muted", "#9e9e9e"),
+        "border": palette.get("border", BDR),
+    }
+
+
 def _inject_lab_css():
+    palette = _lab_palette()
+    panel = palette["panel"]
+    panel_alt = palette["panel_alt"]
+    text = palette["text"]
+    muted = palette["muted"]
+    border = palette["border"]
     st.markdown(
         f"""
         <style>
         .slab-hero {{
-            background:
-                radial-gradient(circle at top right, {_hex_rgba(INFO, 0.12)}, transparent 38%),
-                linear-gradient(135deg, rgba(18,18,18,0.98), rgba(26,26,26,0.98));
-            border:1px solid #2a2a2a;
+            background:{panel};
+            border:1px solid {border};
             border-radius:20px;
             padding:1.35rem 1.4rem 1.2rem 1.4rem;
             margin-bottom:0.9rem;
@@ -61,39 +76,68 @@ def _inject_lab_css():
             gap:1rem;
             align-items:stretch;
         }}
+        .slab-callout-top {{
+            display:flex;
+            justify-content:space-between;
+            align-items:flex-start;
+            gap:0.8rem;
+            flex-wrap:wrap;
+            margin-bottom:0.9rem;
+        }}
         .slab-title {{
             font-size:1.45rem;
             font-weight:900;
-            color:#f5f5f5;
+            color:{text};
             line-height:1.15;
             margin-bottom:0.35rem;
         }}
         .slab-subtitle {{
             font-size:0.82rem;
-            color:#acacac;
+            color:{muted};
             line-height:1.7;
             max-width:760px;
         }}
         .slab-callout {{
-            margin-top:0.9rem;
-            background:#151515;
-            border:1px solid #262626;
+            background:{panel_alt};
+            border:1px solid {border};
             border-radius:16px;
-            padding:0.95rem 1rem;
+            padding:1.05rem 1.1rem 1rem 1.1rem;
         }}
         .slab-kicker {{
-            font-size:0.62rem;
-            color:#707070;
+            font-size:0.64rem;
+            color:{muted};
             text-transform:uppercase;
-            letter-spacing:0.8px;
+            letter-spacing:0.95px;
             font-weight:800;
-            margin-bottom:0.24rem;
+            margin-bottom:0.32rem;
+        }}
+        .slab-callout-heading {{
+            font-size:0.82rem;
+            color:{text};
+            font-weight:800;
+            display:flex;
+            align-items:center;
+            gap:0.35rem;
+            letter-spacing:0.2px;
+        }}
+        .slab-callout-badge {{
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+            gap:0.35rem;
+            padding:0.42rem 0.7rem;
+            border-radius:999px;
+            border:1px solid transparent;
+            font-size:0.7rem;
+            font-weight:900;
+            letter-spacing:0.3px;
         }}
         .slab-callout-title {{
-            font-size:1.05rem;
-            font-weight:900;
-            line-height:1.2;
-            margin-bottom:0.28rem;
+            font-size:clamp(3.2rem, 7vw, 5rem);
+            font-weight:950;
+            line-height:0.92;
+            letter-spacing:-0.05em;
+            margin-bottom:0.8rem;
         }}
         .slab-callout-copy {{
             font-size:0.8rem;
@@ -118,8 +162,8 @@ def _inject_lab_css():
             letter-spacing:0.2px;
         }}
         .slab-side-panel {{
-            background:rgba(255,255,255,0.02);
-            border:1px solid #2a2a2a;
+            background:{panel_alt};
+            border:1px solid {border};
             border-radius:18px;
             padding:1rem 1rem 0.9rem 1rem;
             display:flex;
@@ -132,7 +176,7 @@ def _inject_lab_css():
             justify-content:space-between;
             gap:0.8rem;
             padding-bottom:0.58rem;
-            border-bottom:1px solid #262626;
+            border-bottom:1px solid {border};
         }}
         .slab-side-row:last-child {{
             border-bottom:none;
@@ -140,14 +184,14 @@ def _inject_lab_css():
         }}
         .slab-side-label {{
             font-size:0.66rem;
-            color:#707070;
+            color:{muted};
             text-transform:uppercase;
             letter-spacing:0.7px;
             font-weight:800;
         }}
         .slab-side-value {{
             font-size:0.88rem;
-            color:#f0f0f0;
+            color:{text};
             font-weight:900;
             text-align:right;
         }}
@@ -158,18 +202,21 @@ def _inject_lab_css():
             margin:0.72rem 0 0.95rem 0;
         }}
         .slab-metric {{
-            background:#161616;
-            border:1px solid #272727;
+            background:{panel_alt};
+            border:1px solid {border};
             border-radius:14px;
             padding:0.95rem 1rem;
         }}
         .slab-metric-label {{
             font-size:0.62rem;
-            color:#666;
+            color:{muted};
             text-transform:uppercase;
             letter-spacing:0.85px;
             font-weight:800;
             margin-bottom:0.35rem;
+            display:flex;
+            align-items:center;
+            gap:0.28rem;
         }}
         .slab-metric-value {{
             font-size:1.38rem;
@@ -179,7 +226,7 @@ def _inject_lab_css():
         }}
         .slab-metric-sub {{
             font-size:0.74rem;
-            color:#9b9b9b;
+            color:{muted};
             line-height:1.5;
         }}
         .slab-section {{
@@ -199,31 +246,32 @@ def _inject_lab_css():
             font-weight:900;
             letter-spacing:0.6px;
             text-transform:uppercase;
+            color:{text};
         }}
         .slab-section-subtitle {{
             font-size:0.76rem;
-            color:#8d8d8d;
+            color:{muted};
             margin-top:0.16rem;
             line-height:1.55;
         }}
         .slab-note {{
-            background:#151515;
-            border:1px solid #262626;
+            background:{panel_alt};
+            border:1px solid {border};
             border-radius:14px;
             padding:0.95rem 1rem;
             margin-bottom:0.8rem;
         }}
-        .slab-note strong {{ color:#f3f3f3; }}
+        .slab-note strong {{ color:{text}; }}
         .slab-card {{
-            background:#151515;
-            border:1px solid #272727;
+            background:{panel_alt};
+            border:1px solid {border};
             border-radius:16px;
             padding:1rem;
             height:100%;
         }}
         .slab-card-label {{
             font-size:0.64rem;
-            color:#666;
+            color:{muted};
             text-transform:uppercase;
             letter-spacing:0.85px;
             font-weight:900;
@@ -237,7 +285,7 @@ def _inject_lab_css():
         }}
         .slab-card-sub {{
             font-size:0.76rem;
-            color:#a4a4a4;
+            color:{muted};
             line-height:1.55;
             margin-bottom:0.65rem;
         }}
@@ -246,30 +294,30 @@ def _inject_lab_css():
             padding-left:1rem;
         }}
         .slab-list li {{
-            color:#d0d0d0;
+            color:{text};
             font-size:0.76rem;
             line-height:1.6;
             margin-bottom:0.34rem;
         }}
         .slab-list li::marker {{
-            color:#888;
+            color:{muted};
         }}
         .slab-mini {{
             display:flex;
             justify-content:space-between;
             gap:0.8rem;
             padding:0.42rem 0;
-            border-top:1px solid #252525;
+            border-top:1px solid {border};
         }}
         .slab-mini:first-of-type {{ border-top:none; padding-top:0; }}
         .slab-mini-label {{
             font-size:0.69rem;
-            color:#8a8a8a;
+            color:{muted};
             line-height:1.4;
         }}
         .slab-mini-value {{
             font-size:0.78rem;
-            color:#f0f0f0;
+            color:{text};
             font-weight:800;
             text-align:right;
         }}
@@ -282,14 +330,15 @@ def _inject_lab_css():
     )
 
 
-def _metric_card(label, value, color, sub=""):
+def _metric_card(label, value, color, sub="", tip=""):
+    tip_html = f" {info_icon(tip)}" if tip else ""
     sub_html = (
         f"<div class='slab-metric-sub'>{_escape(sub)}</div>"
         if sub else ""
     )
     return (
         f"<div class='slab-metric'>"
-        f"<div class='slab-metric-label'>{label}</div>"
+        f"<div class='slab-metric-label'>{_escape(label)}{tip_html}</div>"
         f"<div class='slab-metric-value' style='color:{color};text-shadow:0 0 16px {color}33;'>{_escape(value)}</div>"
         f"{sub_html}"
         f"</div>"
@@ -297,14 +346,15 @@ def _metric_card(label, value, color, sub=""):
 
 
 def _section_header(title, color, subtitle=""):
+    palette = _lab_palette()
     subtitle_html = (
         f"<div class='slab-section-subtitle'>{subtitle}</div>"
         if subtitle else ""
     )
     st.markdown(
         f"<div class='slab-section'>"
-        f"<span class='slab-section-bar' style='background:{color};box-shadow:0 0 10px {color}55;'></span>"
-        f"<div><div class='slab-section-title' style='color:{color};'>{title}</div>{subtitle_html}</div>"
+        f"<span class='slab-section-bar' style='background:{palette['border']};box-shadow:none;'></span>"
+        f"<div><div class='slab-section-title'>{title}</div>{subtitle_html}</div>"
         f"</div>",
         unsafe_allow_html=True,
     )
@@ -419,32 +469,26 @@ def _top_factor_reasons(decision_data):
 
 def _plain_action_note(decision_data, validator_snapshot, ai_snapshot, backtest_snapshot):
     verdict = decision_data.get("verdict", "WAIT")
-    direction = _direction_from_verdict(verdict)
     confluence = validator_snapshot.get("score")
     best_win = backtest_snapshot.get("best_win_rate")
-    live_label = backtest_snapshot.get("live_label", "No live trigger")
-    ai_bias = ai_snapshot.get("headline", "AI view unavailable")
 
     if verdict == "BUY":
         if confluence is not None and confluence >= 60:
-            return "The setup is actionable on the long side. Decision, validator, and AI are mostly pointing the same way, so the job is execution quality rather than more analysis."
-        return "The setup is bullish, but agreement is not fully clean. Treat it as a live opportunity only if price behaves well around the entry and risk stays controlled."
+            return "BUY is actionable. The engines are aligned enough, so the focus is execution and risk."
+        return "BUY bias only. Take it only if the entry stays clean and the risk is controlled."
 
     if verdict == "SELL":
         if confluence is not None and confluence >= 60:
-            return "The setup is actionable on the short side. The important question is not more indicators, it is whether you are comfortable executing a bearish plan with the current stop distance."
-        return "The setup leans bearish, but the engine stack is not fully aligned yet. Wait for cleaner weakness before treating it as a high-conviction short."
+            return "SELL is actionable. The important part now is execution quality, not more analysis."
+        return "SELL bias only. Wait for cleaner weakness before treating it as a high-conviction short."
 
     if verdict in ("LEAN BULL", "LEAN BEAR"):
-        return (
-            f"This is a lean, not a full trigger. The bias is {verdict.lower()}, so the right move is to watch confirmation instead of forcing a trade now. "
-            f"AI is reading {ai_bias.lower()}, and the live proof layer currently shows {live_label.lower()}."
-        )
+        return f"{verdict} only. Watch for confirmation and do not force the trade yet."
 
     if best_win is not None and best_win >= 58:
-        return "History still shows a workable edge in this market, but the current chart is not giving a clean enough trigger. Wait for structure to improve instead of trading the idea too early."
+        return "History still has edge, but the current chart is not clean enough yet."
 
-    return "There is no strong decision edge right now. Keep this board for context, but let the next move be driven by clearer structure or better engine agreement."
+    return "No clean edge right now. Wait for clearer structure or better agreement."
 
 
 @st.cache_data(ttl=180, show_spinner=False)
@@ -635,12 +679,12 @@ def _build_backtest_snapshot(_df, frame_key):
 
 
 def _render_hero(decision_data, ai_snapshot, validator_snapshot, backtest_snapshot):
+    palette = _lab_palette()
     verdict = decision_data.get("verdict", "WAIT")
     verdict_color = _verdict_color(verdict)
     confidence = decision_data.get("confidence", 0)
-    rr_label, rr_color = _risk_style(_safe_float(decision_data.get("rr2"), 0.0))
+    _, rr_color = _risk_style(_safe_float(decision_data.get("rr2"), 0.0))
     regime = decision_data.get("regime", "N/A")
-    action_note = _plain_action_note(decision_data, validator_snapshot, ai_snapshot, backtest_snapshot)
     backtest_wr = backtest_snapshot.get("best_win_rate")
     backtest_wr_text = f"{backtest_wr:.0f}%" if backtest_wr is not None else "--"
     validator_text = (
@@ -648,27 +692,26 @@ def _render_hero(decision_data, ai_snapshot, validator_snapshot, backtest_snapsh
         if validator_snapshot.get("score") is not None else "--"
     )
     ai_score_text = f"{ai_snapshot['score']:.0f}/100" if ai_snapshot.get("score") is not None else "--"
+    entry_quality = decision_data.get("entry_quality", "N/A") or "N/A"
+    entry_quality_color = decision_data.get("eq_col") or INFO
 
     st.markdown(
         f"<div class='slab-hero'>"
-        f"<div class='slab-eyebrow'>Strategy Lab</div>"
         f"<div class='slab-hero-grid'>"
-        f"<div>"
-        f"<div class='slab-title'>Decide first, then verify with evidence.</div>"
-        f"<div class='slab-subtitle'>"
-        f"This board gives one clean call, one trade plan, and only the evidence that changes the decision. "
-        f"Use the deep tools later if you need to audit the engines."
-        f"</div>"
         f"<div class='slab-callout'>"
-        f"<div class='slab-kicker'>Best Call Now</div>"
-        f"<div class='slab-callout-title' style='color:{verdict_color};'>{_escape(verdict)}</div>"
-        f"<div class='slab-callout-copy'>{_escape(action_note)}</div>"
+        f"<div class='slab-callout-top'>"
+        f"<div>"
+        f"<div class='slab-kicker'>Best Call Now {info_icon('Fastest decision output from the engine for the current chart.')}</div>"
+        f"<div class='slab-callout-heading'>Decision {info_icon('Primary action generated from the decision engine after scoring the current setup.')}</div>"
+        f"</div>"
+        f"<div class='slab-callout-badge' style='color:{verdict_color};border-color:{_hex_rgba(verdict_color, 0.32)};background:{_hex_rgba(verdict_color, 0.12)};'>Confidence {confidence}%</div>"
+        f"</div>"
+        f"<div class='slab-callout-title' style='color:{verdict_color};text-shadow:0 0 28px {verdict_color}33;'>{_escape(verdict)}</div>"
         f"<div class='slab-chip-row'>"
-        f"{_chip('Confidence', f'{confidence}%', verdict_color)}"
-        f"{_chip('Regime', regime, INFO)}"
+        f"{_chip('Regime', regime, palette['muted'])}"
         f"{_chip('R:R to T2', f"1:{_safe_float(decision_data.get('rr2'), 0.0):.1f}", rr_color)}"
-        f"{_chip('Entry quality', decision_data.get('entry_quality', 'N/A') or 'N/A', decision_data.get('eq_col') or INFO)}"
-        f"</div></div></div>"
+        f"{_chip('Entry quality', entry_quality, entry_quality_color)}"
+        f"</div></div>"
         f"<div class='slab-side-panel'>"
         f"<div class='slab-side-row'><span class='slab-side-label'>Decision score {info_icon('Net strength of the decision engine after weighting all active factors.')}</span><span class='slab-side-value' style='color:{verdict_color};'>{decision_data.get('pct', 0):+.1f}</span></div>"
         f"<div class='slab-side-row'><span class='slab-side-label'>AI read {info_icon('Fast AI score built from the AI analysis engine.')}</span><span class='slab-side-value'>{ai_score_text}</span></div>"
@@ -677,10 +720,10 @@ def _render_hero(decision_data, ai_snapshot, validator_snapshot, backtest_snapsh
         f"</div>"
         f"</div>"
         f"<div class='slab-grid'>"
-        f"{_metric_card('Bull vs Bear', f"{decision_data.get('bull_n', 0)} / {decision_data.get('bear_n', 0)}", verdict_color, 'How many factors are helping vs hurting the current setup')}"
-        f"{_metric_card('Risk', f"{_safe_float(decision_data.get('risk_pct'), 0.0):.1f}%", BEAR if _safe_float(decision_data.get('risk_pct'), 0.0) > 2.5 else NEUT, 'Distance from entry to stop')}"
-        f"{_metric_card('Validator', validator_snapshot.get('label', '--'), validator_snapshot.get('color', NEUT), f"{validator_snapshot.get('agree', 0)} agree · {validator_snapshot.get('conflict', 0)} conflict")}"
-        f"{_metric_card('Live Proof', backtest_snapshot.get('live_label', '--'), backtest_snapshot.get('live_color', NEUT), backtest_snapshot.get('live_detail', ''))}"
+        f"{_metric_card('Bull vs Bear', f"{decision_data.get('bull_n', 0)} / {decision_data.get('bear_n', 0)}", verdict_color, tip='How many factors are helping vs hurting the current setup')}"
+        f"{_metric_card('Risk', f"{_safe_float(decision_data.get('risk_pct'), 0.0):.1f}%", BEAR if _safe_float(decision_data.get('risk_pct'), 0.0) > 2.5 else NEUT, tip='Distance from entry to stop')}"
+        f"{_metric_card('Validator', validator_snapshot.get('label', '--'), validator_snapshot.get('color', NEUT), tip='How much the separate engines agree with the current trade direction.')}"
+        f"{_metric_card('Live Proof', backtest_snapshot.get('live_label', '--'), backtest_snapshot.get('live_color', NEUT), tip='Whether a strong historical setup is active right now.')}"
         f"</div>"
         f"</div>",
         unsafe_allow_html=True,
@@ -688,19 +731,10 @@ def _render_hero(decision_data, ai_snapshot, validator_snapshot, backtest_snapsh
 
 
 def _render_trade_plan(decision_data):
-    _section_header("Trade Plan", GOLD, "One clean ladder. Skip this section if the board is telling you to wait.")
-    insight_toggle(
-        "strategy_lab_trade_help",
-        "What this plan means",
-        "<p><strong>Entry</strong> is the current working price for the decision engine.</p>"
-        "<p><strong>Stop</strong> is where the idea is considered wrong, not where you hope it turns back.</p>"
-        "<p><strong>Targets</strong> show the reward ladder so you can judge if the risk is worth taking.</p>",
-    )
-
     verdict = decision_data.get("verdict", "WAIT")
     if verdict == "WAIT":
         st.markdown(
-            "<div class='slab-note'><strong>No active trade plan.</strong> The decision engine is not clean enough yet, so the right move is patience. Keep the ladder hidden until the verdict becomes bullish or bearish.</div>",
+            "<div class='slab-note'><strong>No active trade plan.</strong> Verdict is WAIT.</div>",
             unsafe_allow_html=True,
         )
         return
@@ -723,45 +757,32 @@ def _render_trade_plan(decision_data):
 
 
 def _render_reason_cards(decision_data):
+    palette = _lab_palette()
     support_lines, risk_lines = _top_factor_reasons(decision_data)
-    _section_header("Why This Call", INFO, "Only the strongest reasons are shown so the board stays readable.")
-    insight_toggle(
-        "strategy_lab_reason_help",
-        "How to read the reasons",
-        "<p>The left card shows the factors doing the most work for the current call.</p>"
-        "<p>The right card shows what can still break the setup. If the risk card is stronger than the support card, the trade is not clean yet.</p>",
-    )
+    _section_header("Why This Call", INFO)
 
     left_col, right_col = st.columns(2)
     with left_col:
         st.markdown(
             f"<div class='slab-card'>"
-            f"<div class='slab-card-label' style='color:{BULL};'>What Helps</div>"
-            f"<div class='slab-card-value' style='color:{BULL};'>Support is coming from real factors</div>"
-            f"<div class='slab-card-sub'>These are the pieces currently pushing the decision in its favored direction.</div>"
+            f"<div class='slab-card-label' style='color:{palette['muted']};'>What Helps</div>"
+            f"<div class='slab-card-value' style='color:{BULL};'>Support</div>"
             f"{_reason_list(support_lines, 'No positive drivers are strong enough yet.')}</div>",
             unsafe_allow_html=True,
         )
     with right_col:
         st.markdown(
             f"<div class='slab-card'>"
-            f"<div class='slab-card-label' style='color:{BEAR};'>What Can Break It</div>"
-            f"<div class='slab-card-value' style='color:{BEAR};'>These are the main risks</div>"
-            f"<div class='slab-card-sub'>If these stay dominant, the setup should be downgraded or skipped.</div>"
+            f"<div class='slab-card-label' style='color:{palette['muted']};'>What Can Break It</div>"
+            f"<div class='slab-card-value' style='color:{BEAR};'>Risks</div>"
             f"{_reason_list(risk_lines, 'No major opposing factor is active right now.')}</div>",
             unsafe_allow_html=True,
         )
 
 
 def _render_evidence_cards(ai_snapshot, validator_snapshot, backtest_snapshot):
-    _section_header("Evidence Board", INFO, "Three fast checks: forecast, agreement, and proof.")
-    insight_toggle(
-        "strategy_lab_evidence_help",
-        "Why these three blocks matter",
-        "<p><strong>Forecast</strong> asks where the market is likely leaning.</p>"
-        "<p><strong>Agreement</strong> checks whether separate engines support the same call.</p>"
-        "<p><strong>Proof</strong> checks whether similar ideas actually worked in the past.</p>",
-    )
+    palette = _lab_palette()
+    _section_header("Evidence", INFO)
 
     ai_prob = ai_snapshot.get("ml_prob")
     ai_prob_text = f"{ai_prob:.0f}% up" if ai_prob is not None else "--"
@@ -783,7 +804,7 @@ def _render_evidence_cards(ai_snapshot, validator_snapshot, backtest_snapshot):
             ai_lines.append(_mini_row("Avg analogue return", f"{ai_snapshot['historical_avg_return']:+.2f}%"))
         st.markdown(
             f"<div class='slab-card'>"
-            f"<div class='slab-card-label' style='color:{ai_snapshot.get('score_color', INFO)};'>Forecast</div>"
+            f"<div class='slab-card-label' style='color:{palette['muted']};'>Forecast</div>"
             f"<div class='slab-card-value' style='color:{ai_snapshot.get('score_color', INFO)};'>{_escape(ai_snapshot.get('decision', 'Unavailable'))}</div>"
             f"<div class='slab-card-sub'>{_escape(ai_snapshot.get('headline', 'AI view unavailable'))}</div>"
             f"{_mini_row('Fast AI score', f"{ai_snapshot['score']:.0f}/100" if ai_snapshot.get('score') is not None else '--')}"
@@ -796,9 +817,8 @@ def _render_evidence_cards(ai_snapshot, validator_snapshot, backtest_snapshot):
     with col_validator:
         st.markdown(
             f"<div class='slab-card'>"
-            f"<div class='slab-card-label' style='color:{validator_snapshot.get('color', NEUT)};'>Agreement</div>"
+            f"<div class='slab-card-label' style='color:{palette['muted']};'>Agreement</div>"
             f"<div class='slab-card-value' style='color:{validator_snapshot.get('color', NEUT)};'>{_escape(validator_snapshot.get('label', '--'))}</div>"
-            f"<div class='slab-card-sub'>This is the fast answer to one question: are the engines helping this trade or fighting it?</div>"
             f"{_mini_row('Confluence score', validator_text)}"
             f"{_mini_row('Agree', str(validator_snapshot.get('agree', 0)))}"
             f"{_mini_row('Conflict', str(validator_snapshot.get('conflict', 0)))}"
@@ -809,7 +829,7 @@ def _render_evidence_cards(ai_snapshot, validator_snapshot, backtest_snapshot):
     with col_backtest:
         st.markdown(
             f"<div class='slab-card'>"
-            f"<div class='slab-card-label' style='color:{backtest_snapshot.get('live_color', GOLD)};'>Proof</div>"
+            f"<div class='slab-card-label' style='color:{palette['muted']};'>Proof</div>"
             f"<div class='slab-card-value' style='color:{backtest_snapshot.get('live_color', GOLD)};'>{_escape(backtest_snapshot.get('live_label', '--'))}</div>"
             f"<div class='slab-card-sub'>{_escape(backtest_snapshot.get('live_detail', ''))}</div>"
             f"{_mini_row('Best proven setup', backtest_snapshot.get('best_label', '--'))}"
@@ -822,7 +842,8 @@ def _render_evidence_cards(ai_snapshot, validator_snapshot, backtest_snapshot):
 
 
 def _render_validator_conflicts(validator_snapshot):
-    _section_header("Agreement Detail", BULL, "See which engines support the call and which ones are fighting it.")
+    palette = _lab_palette()
+    _section_header("Agreement Detail", BULL)
 
     agree_text = _reason_list(
         validator_snapshot.get("best_agree", []),
@@ -837,18 +858,16 @@ def _render_validator_conflicts(validator_snapshot):
     with left_col:
         st.markdown(
             f"<div class='slab-card'>"
-            f"<div class='slab-card-label' style='color:{BULL};'>Strongest Agreement</div>"
-            f"<div class='slab-card-value' style='color:{BULL};'>What is backing the trade</div>"
-            f"<div class='slab-card-sub'>These are the engines carrying the most weight on the same side as the decision.</div>"
+            f"<div class='slab-card-label' style='color:{palette['muted']};'>Strongest Agreement</div>"
+            f"<div class='slab-card-value' style='color:{BULL};'>Backing the trade</div>"
             f"{agree_text}</div>",
             unsafe_allow_html=True,
         )
     with right_col:
         st.markdown(
             f"<div class='slab-card'>"
-            f"<div class='slab-card-label' style='color:{BEAR};'>Strongest Conflict</div>"
-            f"<div class='slab-card-value' style='color:{BEAR};'>What still needs respect</div>"
-            f"<div class='slab-card-sub'>These are the objections worth respecting before you size up the trade.</div>"
+            f"<div class='slab-card-label' style='color:{palette['muted']};'>Strongest Conflict</div>"
+            f"<div class='slab-card-value' style='color:{BEAR};'>Fighting the trade</div>"
             f"{conflict_text}</div>",
             unsafe_allow_html=True,
         )
@@ -875,13 +894,6 @@ def _render_ai_section(
 ):
     from gemini_tab import gemini_tab
 
-    insight_toggle(
-        "strategy_lab_ai_info",
-        "Open the full AI forecast",
-        "<p>This expands the original AI Analysis engine with its deeper forecast, analogy, and probability views.</p>"
-        "<p>The board above already gives the fast decision. Open this only when you want to audit the AI reasoning in detail.</p>",
-    )
-
     ai_key = f"_ai_loaded_{symbol_input}"
     if st.session_state.get(ai_key):
         gemini_tab(
@@ -905,7 +917,6 @@ def _render_ai_section(
         )
         return
 
-    st.info("Open the full AI engine only when you need the deeper forecast views. The Strategy Lab board already shows the important AI numbers.")
     if st.button("Load Full AI Forecast", key=f"strategy_lab_ai_run_{symbol_input}", type="primary"):
         st.session_state[ai_key] = True
         st.rerun()
@@ -944,36 +955,16 @@ def strategy_lab_tab(
         backtest_snapshot = _build_backtest_snapshot(df, frame_key)
 
     _render_hero(decision_data, ai_snapshot, validator_snapshot, backtest_snapshot)
-    insight_toggle(
-        "strategy_lab_main_help",
-        "How to use this board",
-        "<p><strong>Start at Best Call Now.</strong> That is the decision answer.</p>"
-        "<p><strong>Check the Trade Plan.</strong> If the stop is too wide or the reward is too thin, skip the trade even if the bias is right.</p>"
-        "<p><strong>Use the Evidence Board.</strong> If forecast, agreement, and proof are all weak, do not let one pretty metric trick you into a trade.</p>",
-    )
 
     _render_trade_plan(decision_data)
     _render_reason_cards(decision_data)
     _render_evidence_cards(ai_snapshot, validator_snapshot, backtest_snapshot)
     _render_validator_conflicts(validator_snapshot)
 
-    _section_header("Deep Tools", PURP, "Open the original full engines only when you need to inspect more detail.")
-    detail_view = st.pills(
-        "Strategy Lab Deep View",
-        ["Decision Board", "AI Forecast", "Validator Detail", "Backtest Detail", "Full Stack"],
-        default="Decision Board",
-        label_visibility="collapsed",
-        key=f"strategy_lab_view_{symbol_input}",
-    )
+    _section_header("Deep Tools", PURP)
+    deep_ai, deep_validator, deep_backtest = st.tabs(["AI Forecast", "Validator Detail", "Backtest Detail"])
 
-    if detail_view == "Decision Board":
-        st.markdown(
-            "<div class='slab-note'><strong>Decision Board is already shown above.</strong> Open one of the deep tools only if you need the full legacy engine output.</div>",
-            unsafe_allow_html=True,
-        )
-
-    if detail_view in ("AI Forecast", "Full Stack"):
-        _section_header("AI Forecast", INFO, "Deep forecast, analogies, and probability read")
+    with deep_ai:
         _render_ai_section(
             df,
             symbol_input,
@@ -994,14 +985,12 @@ def strategy_lab_tab(
             recent_20d_change,
         )
 
-    if detail_view in ("Validator Detail", "Full Stack"):
-        _section_header("Validator Detail", BULL, "Full engine-by-engine validation for the live setup")
+    with deep_validator:
         from trade_validator_tab import trade_validator_tab
 
         trade_validator_tab(df, latest, current_price)
 
-    if detail_view in ("Backtest Detail", "Full Stack"):
-        _section_header("Backtest Detail", GOLD, "Historical edge scan and live setup detection")
+    with deep_backtest:
         from backtest_tab import backtest_tab
 
         backtest_tab(df, current_price)

@@ -6,6 +6,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
+import yfinance as yf
 from plotly.subplots import make_subplots
 
 # ── Design tokens ────────────────────────────────────────────────────────────
@@ -18,6 +19,14 @@ BG    = "#181818"
 BG2   = "#212121"
 BG3   = "#212121"
 BDR   = "#303030"
+_STATE_COLORS = {
+    "Developing": INFO,
+    "Triggered": "#4A9EFF",
+    "Retest": NEUT,
+    "Confirmed": BULL,
+    "Failed": BEAR,
+    "Watch": NEUT,
+}
 
 
 def _sec(title, color=None):
@@ -494,6 +503,369 @@ def _make(date, name, category, bias, strength, price, desc,
     )
 
 
+def _atr14(df):
+    h = df["High"].astype(float)
+    l = df["Low"].astype(float)
+    c = df["Close"].astype(float)
+    tr = pd.concat([(h - l), (h - c.shift(1)).abs(), (l - c.shift(1)).abs()], axis=1).max(axis=1)
+    atr = float(tr.rolling(14, min_periods=1).mean().iloc[-1])
+    if not np.isfinite(atr) or atr <= 0:
+        atr = float((h - l).mean())
+    return max(atr, 0.01)
+
+
+def _rsi14(df):
+    close = df["Close"].astype(float)
+    delta = close.diff()
+    avg_gain = delta.clip(lower=0).rolling(14, min_periods=1).mean().iloc[-1]
+    avg_loss = (-delta).clip(lower=0).rolling(14, min_periods=1).mean().iloc[-1]
+    return float(100 - 100 / (1 + avg_gain / (avg_loss + 1e-9)))
+
+
+def _dedupe_patterns(patterns):
+    deduped = []
+    seen = {}
+    for pattern in patterns:
+        key = pattern["pattern"]
+        dt = pd.to_datetime(pattern["date"])
+        if key in seen and abs((dt - seen[key]).days) < 2:
+            continue
+        seen[key] = dt
+        deduped.append(pattern)
+    return deduped
+
+
+def _normalize_market_df(df):
+    work_df = df.copy()
+    if isinstance(work_df.columns, pd.MultiIndex):
+        preferred = {"Date", "Open", "High", "Low", "Close", "Adj Close", "Volume"}
+        normalized_cols = []
+        for col in work_df.columns.to_flat_index():
+            parts = [str(part) for part in col if part not in ("", None)]
+            chosen = next((part for part in parts if part in preferred), parts[0] if parts else "")
+            normalized_cols.append(chosen)
+        work_df.columns = normalized_cols
+    return work_df
+
+
+def _pattern_row(df, pattern_dt):
+    normalized = pd.to_datetime(df["Date"]).dt.normalize()
+    target = pd.to_datetime(pattern_dt).normalize()
+    mask = normalized == target
+    if mask.any():
+        return df.loc[mask].iloc[-1], int(np.flatnonzero(mask.to_numpy())[-1])
+    return df.iloc[-1], len(df) - 1
+
+
+def _derive_pattern_levels(pattern, df, atr):
+    row, _ = _pattern_row(df, pattern["date"])
+    bar_high = float(row["High"])
+    bar_low = float(row["Low"])
+    pattern_price = float(pattern.get("price") or row["Close"])
+
+    if pattern["type"] == "Bullish":
+        entry = float(pattern.get("entry") or max(pattern_price, bar_high * 1.001))
+        stop = float(pattern.get("stop") or min(bar_low, pattern_price - atr * 1.1))
+        target = float(pattern.get("target") or (entry + max(entry - stop, atr) * 2.0))
+        trigger = float(pattern.get("neckline") or entry)
+    elif pattern["type"] == "Bearish":
+        entry = float(pattern.get("entry") or min(pattern_price, bar_low * 0.999))
+        stop = float(pattern.get("stop") or max(bar_high, pattern_price + atr * 1.1))
+        target = float(pattern.get("target") or (entry - max(stop - entry, atr) * 2.0))
+        trigger = float(pattern.get("neckline") or entry)
+    else:
+        entry = float(pattern.get("entry") or pattern_price)
+        stop = float(pattern.get("stop") or (pattern_price - atr))
+        target = float(pattern.get("target") or (pattern_price + atr))
+        trigger = entry
+
+    return {
+        "entry_ref": round(entry, 2),
+        "stop_ref": round(stop, 2),
+        "target_ref": round(target, 2),
+        "trigger_ref": round(trigger, 2),
+        "bar_high": bar_high,
+        "bar_low": bar_low,
+    }
+
+
+def _enrich_pattern(pattern, df, current_price, atr, vol_ratio):
+    enriched = pattern.copy()
+    levels = _derive_pattern_levels(pattern, df, atr)
+    enriched.update(levels)
+
+    _, pattern_pos = _pattern_row(df, pattern["date"])
+    age_bars = max(0, len(df) - 1 - pattern_pos)
+    recent = df.tail(3)
+    last_close = float(df["Close"].iloc[-1])
+    recent_low = float(recent["Low"].min())
+    recent_high = float(recent["High"].max())
+    trigger = max(levels["trigger_ref"], 0.01)
+    stop = max(levels["stop_ref"], 0.01)
+    target = levels["target_ref"]
+
+    if pattern["type"] == "Bullish":
+        failed = last_close <= stop * 1.002 or (recent_high >= trigger * 1.002 and last_close < trigger * 0.998)
+        retest = last_close >= trigger * 0.998 and recent_low <= trigger * 1.004 and age_bars <= 8
+        confirmed = last_close >= trigger * 1.008 and vol_ratio >= 1.05 and age_bars <= 12
+        triggered = last_close >= trigger * 0.998 or abs(last_close - trigger) / trigger <= 0.012
+        if failed:
+            state = "Failed"
+            note = "Breakout lost the trigger level or slipped through the invalidation zone."
+        elif retest and current_price > trigger:
+            state = "Retest"
+            note = "Breakout is holding above the trigger after a retest, which is usually the cleanest continuation state."
+        elif confirmed:
+            state = "Confirmed"
+            note = "Price is trading above the trigger with supporting volume, so the pattern is fully confirmed."
+        elif triggered:
+            state = "Triggered"
+            note = "Price has reached the trigger, but the move still needs follow-through to become confirmed."
+        else:
+            state = "Developing"
+            note = "Structure is present, but price has not broken the trigger cleanly yet."
+        target_gap_pct = (target - current_price) / max(current_price, 0.01) * 100 if target else None
+        rr = (target - current_price) / max(current_price - stop, 0.01) if target else None
+    elif pattern["type"] == "Bearish":
+        failed = last_close >= stop * 0.998 or (recent_low <= trigger * 0.998 and last_close > trigger * 1.002)
+        retest = last_close <= trigger * 1.002 and recent_high >= trigger * 0.996 and age_bars <= 8
+        confirmed = last_close <= trigger * 0.992 and vol_ratio >= 1.05 and age_bars <= 12
+        triggered = last_close <= trigger * 1.002 or abs(last_close - trigger) / trigger <= 0.012
+        if failed:
+            state = "Failed"
+            note = "Breakdown lost momentum and price reclaimed the invalidation zone."
+        elif retest and current_price < trigger:
+            state = "Retest"
+            note = "Breakdown is holding below the trigger after a retest, which keeps bearish pressure intact."
+        elif confirmed:
+            state = "Confirmed"
+            note = "Price is trading below the trigger with supporting volume, so the pattern is fully confirmed."
+        elif triggered:
+            state = "Triggered"
+            note = "Price has reached the trigger, but the move still needs continuation to become confirmed."
+        else:
+            state = "Developing"
+            note = "Structure is present, but price has not broken the trigger decisively yet."
+        target_gap_pct = (current_price - target) / max(current_price, 0.01) * 100 if target else None
+        rr = (current_price - target) / max(stop - current_price, 0.01) if target else None
+    else:
+        state = "Watch"
+        note = "Neutral pattern. Wait for price to resolve direction before acting on it."
+        target_gap_pct = None
+        rr = None
+
+    state_score = {
+        "Failed": -3,
+        "Developing": 0,
+        "Triggered": 1,
+        "Retest": 2,
+        "Confirmed": 3,
+        "Watch": 0,
+    }.get(state, 0)
+
+    enriched.update({
+        "state": state,
+        "state_color": _STATE_COLORS.get(state, INFO),
+        "state_note": note,
+        "state_score": state_score,
+        "age_bars": age_bars,
+        "vol_ratio": round(vol_ratio, 2),
+        "target_gap_pct": round(target_gap_pct, 2) if target_gap_pct is not None and np.isfinite(target_gap_pct) else None,
+        "rr": round(rr, 2) if rr is not None and np.isfinite(rr) else None,
+    })
+    return enriched
+
+
+def _evaluate_guardrails(df, active_patterns, current_price, atr, rsi, vol_ratio):
+    flags = []
+    long_penalty = 0
+    last_row = df.iloc[-1]
+    day_range = max(float(last_row["High"] - last_row["Low"]), 0.01)
+    upper_wick = float(last_row["High"] - max(last_row["Close"], last_row["Open"]))
+
+    if len(df) > 21:
+        prior_high = float(df["High"].iloc[-21:-1].max())
+    else:
+        prior_high = float(df["High"].iloc[:-1].max()) if len(df) > 1 else float(last_row["High"])
+    weak_breakout = current_price > prior_high * 1.002 and vol_ratio < 0.95
+    if weak_breakout:
+        long_penalty += 2
+        flags.append({
+            "title": "Weak breakout volume",
+            "detail": "Price stretched above the recent swing high, but volume did not confirm the move.",
+            "color": NEUT,
+        })
+
+    if rsi >= 74:
+        long_penalty += 2
+        flags.append({
+            "title": "RSI exhaustion",
+            "detail": f"RSI is already {rsi:.0f}, so the move is entering late-stage extension territory.",
+            "color": BEAR,
+        })
+
+    if atr > 0 and day_range / atr >= 1.8 and upper_wick / day_range >= 0.35:
+        long_penalty += 2
+        flags.append({
+            "title": "Blow-off candle",
+            "detail": "Latest candle expanded too far versus ATR and faded from the highs, which often marks exhaustion.",
+            "color": BEAR,
+        })
+
+    failed_bullish = [p for p in active_patterns if p["type"] == "Bullish" and p.get("state") == "Failed"]
+    if failed_bullish:
+        long_penalty += 3
+        names = ", ".join(p["pattern"] for p in failed_bullish[:2])
+        flags.append({
+            "title": "Failed bullish trigger",
+            "detail": names + " already failed its breakout hold, so the long setup should be filtered unless price reclaims the trigger.",
+            "color": BEAR,
+        })
+
+    tight_headroom = [
+        p for p in active_patterns
+        if p["type"] == "Bullish"
+        and p.get("state") in {"Triggered", "Retest", "Confirmed"}
+        and p.get("target_gap_pct") is not None
+        and p["target_gap_pct"] < 2.5
+    ]
+    if tight_headroom:
+        long_penalty += 1
+        flags.append({
+            "title": "Measured target is close",
+            "detail": "At least one active bullish pattern is already near its measured target, so the reward window is narrowing.",
+            "color": NEUT,
+        })
+
+    return {
+        "flags": flags[:4],
+        "long_penalty": long_penalty,
+        "long_blocked": long_penalty >= 4,
+        "status": "Filtered" if long_penalty >= 4 else "Caution" if long_penalty > 0 else "Clear",
+        "status_color": BEAR if long_penalty >= 4 else NEUT if long_penalty > 0 else BULL,
+    }
+
+
+def get_pattern_context(df):
+    if df is None or len(df) < 30:
+        return None
+    required = ["Open", "High", "Low", "Close", "Date"]
+    if any(col not in df.columns for col in required):
+        return None
+
+    work_df = _normalize_market_df(df)
+    work_df["Date"] = pd.to_datetime(work_df["Date"])
+    current_price = float(work_df["Close"].iloc[-1])
+    atr = _atr14(work_df)
+    rsi = _rsi14(work_df)
+    if "Volume" in work_df.columns and len(work_df) >= 20:
+        base_vol = float(work_df["Volume"].tail(20).mean() or 0)
+        last_vol = float(work_df["Volume"].iloc[-1] or 0)
+        vol_ratio = (last_vol / base_vol) if base_vol > 0 else 1.0
+    else:
+        vol_ratio = 1.0
+
+    all_patterns = _dedupe_patterns(sorted(
+        _detect_candlestick(work_df) + _detect_chart(work_df),
+        key=lambda item: (pd.to_datetime(item["date"]), item["strength"]),
+        reverse=True,
+    ))
+    recent_dates = set(work_df["Date"].tail(10).dt.normalize().tolist())
+    enriched = [_enrich_pattern(pattern, work_df, current_price, atr, vol_ratio) for pattern in all_patterns]
+    active = [pattern for pattern in enriched if pd.to_datetime(pattern["date"]).normalize() in recent_dates]
+    historical = [pattern for pattern in enriched if pd.to_datetime(pattern["date"]).normalize() not in recent_dates]
+
+    bull_cnt = sum(1 for pattern in active if pattern["type"] == "Bullish")
+    bear_cnt = sum(1 for pattern in active if pattern["type"] == "Bearish")
+    neut_cnt = len(active) - bull_cnt - bear_cnt
+    state_counts = {
+        key: sum(1 for pattern in active if pattern.get("state") == key)
+        for key in ["Developing", "Triggered", "Retest", "Confirmed", "Failed"]
+    }
+
+    long_bonus = 0
+    short_bonus = 0
+    long_reasons = []
+    short_reasons = []
+    ranked_active = sorted(
+        active,
+        key=lambda item: (item.get("state_score", 0), item["strength"], 1 if item["category"] == "Chart" else 0),
+        reverse=True,
+    )
+    for pattern in ranked_active:
+        if pattern["type"] not in {"Bullish", "Bearish"}:
+            continue
+        base = 2 if pattern["category"] == "Chart" else 1
+        strength_bonus = 1 if pattern["strength"] >= 80 else 0
+        state_bonus = max(pattern.get("state_score", 0), 0)
+        points = min(base + strength_bonus + state_bonus, 4)
+        reason = f"{pattern['pattern']} is {pattern.get('state', 'developing').lower()} ({pattern['strength']}% strength)"
+        if pattern["type"] == "Bullish" and pattern.get("state") != "Failed":
+            long_bonus += points
+            if len(long_reasons) < 3:
+                long_reasons.append(reason)
+        if pattern["type"] == "Bearish" and pattern.get("state") != "Failed":
+            short_bonus += points
+            if len(short_reasons) < 3:
+                short_reasons.append(reason)
+
+    long_bonus = min(long_bonus, 6)
+    short_bonus = min(short_bonus, 6)
+    guardrails = _evaluate_guardrails(work_df, active, current_price, atr, rsi, vol_ratio)
+
+    net_bias = bull_cnt - bear_cnt
+    strongest = ranked_active[0] if ranked_active else None
+    bias_score = long_bonus - short_bonus - guardrails["long_penalty"]
+    if bias_score > 0 and bull_cnt > 0 and not guardrails["long_blocked"]:
+        signal_lbl = "BUY"
+        bias_col = BULL
+    elif net_bias < 0 or short_bonus > long_bonus + 1:
+        signal_lbl = "SELL"
+        bias_col = BEAR
+    else:
+        signal_lbl = "WAIT"
+        bias_col = NEUT
+
+    if not active:
+        reason = "No active patterns detected in the last 10 trading sessions."
+    else:
+        top = strongest
+        reason = (
+            f"{bull_cnt} bullish, {bear_cnt} bearish, {neut_cnt} neutral in the last 10 bars. "
+            f"Lead pattern: {top['pattern']} is {top.get('state', 'developing').lower()} at {top['strength']}% strength."
+        )
+        if guardrails["long_penalty"]:
+            reason += " Breakout filter is active, so long setups need extra confirmation."
+
+    confluence_score = int(max(0, min(100, 50 + (long_bonus - short_bonus) * 8 - guardrails["long_penalty"] * 6)))
+
+    return {
+        "df": work_df,
+        "current_price": current_price,
+        "all_patterns": enriched,
+        "active": active,
+        "historical": historical,
+        "bull_cnt": bull_cnt,
+        "bear_cnt": bear_cnt,
+        "neut_cnt": neut_cnt,
+        "state_counts": state_counts,
+        "net_bias": net_bias,
+        "strongest": strongest,
+        "signal": signal_lbl,
+        "signal_color": bias_col,
+        "reason": reason,
+        "atr": atr,
+        "rsi": rsi,
+        "vol_ratio": vol_ratio,
+        "long_bonus": long_bonus,
+        "short_bonus": short_bonus,
+        "long_reasons": long_reasons,
+        "short_reasons": short_reasons,
+        "guardrails": guardrails,
+        "confluence_score": confluence_score,
+    }
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 #  CHART BUILDER
 # ══════════════════════════════════════════════════════════════════════════════
@@ -636,8 +1008,17 @@ def _build_pattern_chart(df, patterns, current_price):
 def _pattern_card(p, current_price):
     bias_col = BULL if p["type"] == "Bullish" else BEAR if p["type"] == "Bearish" else NEUT
     sig_col  = BULL if p["signal"] == "BUY"  else BEAR if p["signal"] == "SELL"  else NEUT
+    state = p.get("state", "Watch")
+    state_col = p.get("state_color", _STATE_COLORS.get(state, INFO))
     dt_str   = pd.to_datetime(p["date"]).strftime("%d %b %Y")
     bar_w    = p["strength"]
+    entry = p.get("entry_ref")
+    stop = p.get("stop_ref")
+    target = p.get("target_ref")
+    rr = p.get("rr")
+    headroom = p.get("target_gap_pct")
+    headroom_txt = f"{headroom:+.1f}%" if headroom is not None else "-"
+    rr_txt = f"{rr:.1f}x" if rr is not None else "-"
 
     html = (
         "<div style='background:#1b1b1b;border:1px solid #272727;"
@@ -654,6 +1035,10 @@ def _pattern_card(p, current_price):
         "background:rgba(" + ','.join(str(int(sig_col[i:i+2],16)) for i in (1,3,5)) + ",0.12);"
         "border-radius:5px;padding:0.15rem 0.55rem;letter-spacing:0.5px;white-space:nowrap;'>"
         + p["signal"] + "</div>"
+        "<div style='font-size:0.65rem;font-weight:700;color:" + state_col + ";"
+        "background:rgba(" + ','.join(str(int(state_col[i:i+2],16)) for i in (1,3,5)) + ",0.12);"
+        "border-radius:5px;padding:0.15rem 0.55rem;letter-spacing:0.5px;white-space:nowrap;'>"
+        + state + "</div>"
         "</div>"
         # right: strength bar + date
         "<div style='display:flex;align-items:center;gap:1.2rem;flex-shrink:0;'>"
@@ -666,6 +1051,34 @@ def _pattern_card(p, current_price):
         "</div>"
         "<div style='font-size:0.75rem;color:#555;white-space:nowrap;'>" + dt_str + "</div>"
         "</div>"
+        "</div>"
+        "<div style='padding:0.95rem 1.3rem;display:grid;grid-template-columns:1.65fr 1fr;gap:0.95rem;'>"
+        "<div>"
+        "<div style='font-size:0.78rem;color:#a0a0a0;line-height:1.6;margin-bottom:0.7rem;'>"
+        + p.get("description", "") + "</div>"
+        "<div style='font-size:0.74rem;color:" + state_col + ";font-weight:700;margin-bottom:0.25rem;'>"
+        + p.get("state_note", "") + "</div>"
+        "<div style='font-size:0.68rem;color:#666;letter-spacing:0.4px;text-transform:uppercase;'>"
+        + p.get("category", "Pattern") + " setup · Current " + f"${current_price:.2f}" + "</div>"
+        "</div>"
+        "<div style='display:grid;grid-template-columns:1fr 1fr;gap:0.45rem;'>"
+        "<div style='background:#161616;border:1px solid #272727;border-radius:9px;padding:0.55rem 0.7rem;'>"
+        "<div style='font-size:0.60rem;color:#606060;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;'>Entry</div>"
+        "<div style='font-size:0.88rem;color:#e0e0e0;font-weight:800;margin-top:0.15rem;'>$" + (f"{entry:.2f}" if entry is not None else "-") + "</div>"
+        "</div>"
+        "<div style='background:#161616;border:1px solid #272727;border-radius:9px;padding:0.55rem 0.7rem;'>"
+        "<div style='font-size:0.60rem;color:#606060;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;'>Stop</div>"
+        "<div style='font-size:0.88rem;color:" + BEAR + ";font-weight:800;margin-top:0.15rem;'>$" + (f"{stop:.2f}" if stop is not None else "-") + "</div>"
+        "</div>"
+        "<div style='background:#161616;border:1px solid #272727;border-radius:9px;padding:0.55rem 0.7rem;'>"
+        "<div style='font-size:0.60rem;color:#606060;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;'>Target</div>"
+        "<div style='font-size:0.88rem;color:" + BULL + ";font-weight:800;margin-top:0.15rem;'>$" + (f"{target:.2f}" if target is not None else "-") + "</div>"
+        "</div>"
+        "<div style='background:#161616;border:1px solid #272727;border-radius:9px;padding:0.55rem 0.7rem;'>"
+        "<div style='font-size:0.60rem;color:#606060;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;'>R:R / Headroom</div>"
+        "<div style='font-size:0.88rem;color:" + state_col + ";font-weight:800;margin-top:0.15rem;'>" + rr_txt + " · " + headroom_txt + "</div>"
+        "</div>"
+        "</div>"
         "</div></div>"
     )
     st.markdown(html, unsafe_allow_html=True)
@@ -675,7 +1088,7 @@ def _pattern_card(p, current_price):
 #  MAIN TAB FUNCTION
 # ══════════════════════════════════════════════════════════════════════════════
 
-def patterns_tab(df):
+def patterns_tab(df, pattern_context=None):
     global BG, BG2, BG3, BDR
     theme_palette = st.session_state.get('theme_palette', {})
     BG = theme_palette.get('panel', BG)
@@ -683,104 +1096,24 @@ def patterns_tab(df):
     BG3 = theme_palette.get('panel_alt', BG3)
     BDR = theme_palette.get('border', BDR)
 
-    if len(df) < 30:
+    pattern_context = pattern_context or get_pattern_context(df)
+    if pattern_context is None:
         st.warning("Not enough data for pattern analysis.")
         return
 
-    required = ["Open", "High", "Low", "Close", "Date"]
-    missing  = [c for c in required if c not in df.columns]
-    if missing:
-        st.warning("Missing columns: " + ", ".join(missing))
-        return
-
-    df = df.copy()
-    df["Date"] = pd.to_datetime(df["Date"])
-
-    current_price = float(df["Close"].iloc[-1])
-    latest_date   = df["Date"].max()
-
-    # ── Run detection ────────────────────────────────────────────────────────
-    cs_patterns   = _detect_candlestick(df)
-    ch_patterns   = _detect_chart(df)
-    all_patterns  = cs_patterns + ch_patterns
-
-    # Sort by date desc, then strength desc
-    all_patterns.sort(key=lambda x: (pd.to_datetime(x["date"]),
-                                     x["strength"]), reverse=True)
-
-    # Deduplicate: keep only the most recent instance of each pattern name
-    # within a 2-bar calendar window to avoid same-day duplicates
-    seen: dict = {}
-    deduped = []
-    for p in all_patterns:
-        key = p["pattern"]
-        dt  = pd.to_datetime(p["date"])
-        if key in seen and abs((dt - seen[key]).days) < 2:
-            continue
-        seen[key] = dt
-        deduped.append(p)
-    all_patterns = deduped
-
-    # Split: active = patterns on any of the last 10 actual trading bars
-    # Using actual data dates avoids calendar-day gaps (weekends, holidays)
-    recent_dates = set(df["Date"].tail(10).dt.normalize().tolist())
-    active   = [p for p in all_patterns
-                if pd.to_datetime(p["date"]).normalize() in recent_dates]
-    hist     = [p for p in all_patterns
-                if pd.to_datetime(p["date"]).normalize() not in recent_dates]
-
-    bull_cnt = sum(1 for p in active if p["type"] == "Bullish")
-    bear_cnt = sum(1 for p in active if p["type"] == "Bearish")
-    neut_cnt = len(active) - bull_cnt - bear_cnt
-    net_bias = bull_cnt - bear_cnt
-
-    # Signal: BUY / SELL / WAIT
-    if net_bias > 0:
-        signal_lbl = "BUY"
-        bias_col   = BULL
-    elif net_bias < 0:
-        signal_lbl = "SELL"
-        bias_col   = BEAR
-    else:
-        signal_lbl = "WAIT"
-        bias_col   = NEUT
-
-    strongest = max(active, key=lambda p: p["strength"]) if active else None
-
-    # Build reason sentence
-    if not active:
-        reason = "No active patterns detected in the last 10 trading sessions."
-    else:
-        top = max(active, key=lambda p: p["strength"])
-        top_dt = pd.to_datetime(top["date"]).strftime("%b %d")
-        top_sc = BULL if top["signal"] == "BUY" else BEAR if top["signal"] == "SELL" else NEUT
-        top_sig_badge = (
-            "<span style='color:" + top_sc + ";font-weight:700;'>"
-            + top["signal"] + "</span>"
-        )
-        if net_bias > 0:
-            reason = (
-                str(bull_cnt) + " bullish vs " + str(bear_cnt) + " bearish pattern"
-                + ("s" if bear_cnt != 1 else "") + " — "
-                + "<strong style='color:#ffffff;'>" + top["pattern"] + "</strong>"
-                + " (" + str(top["strength"]) + "% strength, " + top_sig_badge
-                + " on " + top_dt + ") leads the signal."
-            )
-        elif net_bias < 0:
-            reason = (
-                str(bear_cnt) + " bearish vs " + str(bull_cnt) + " bullish pattern"
-                + ("s" if bull_cnt != 1 else "") + " — "
-                + "<strong style='color:#ffffff;'>" + top["pattern"] + "</strong>"
-                + " (" + str(top["strength"]) + "% strength, " + top_sig_badge
-                + " on " + top_dt + ") leads the signal."
-            )
-        else:
-            reason = (
-                "Equal bullish and bearish pressure (" + str(bull_cnt) + " each) — "
-                + "<strong style='color:#ffffff;'>" + top["pattern"] + "</strong>"
-                + " (" + str(top["strength"]) + "% strength) detected on " + top_dt
-                + ". Wait for a clearer directional move."
-            )
+    df = pattern_context["df"]
+    current_price = pattern_context["current_price"]
+    active = pattern_context["active"]
+    hist = pattern_context["historical"]
+    bull_cnt = pattern_context["bull_cnt"]
+    bear_cnt = pattern_context["bear_cnt"]
+    neut_cnt = pattern_context["neut_cnt"]
+    signal_lbl = pattern_context["signal"]
+    bias_col = pattern_context["signal_color"]
+    strongest = pattern_context["strongest"]
+    reason = pattern_context["reason"]
+    guardrails = pattern_context["guardrails"]
+    state_counts = pattern_context["state_counts"]
 
     # ── Hero banner ──────────────────────────────────────────────────────────
     hero_html = (
@@ -799,6 +1132,39 @@ def patterns_tab(df):
     )
     st.markdown(hero_html, unsafe_allow_html=True)
 
+    summary_cards = [
+        ("Bullish Active", str(bull_cnt), BULL, f"{pattern_context['long_bonus']} pts confluence"),
+        ("Bearish Active", str(bear_cnt), BEAR, f"{pattern_context['short_bonus']} pts pressure"),
+        ("Confirmed / Retest", str(state_counts["Confirmed"] + state_counts["Retest"]), INFO,
+         f"{state_counts['Triggered']} triggered · {state_counts['Developing']} developing"),
+        ("Breakout Filter", guardrails["status"], guardrails["status_color"],
+         f"Penalty {guardrails['long_penalty']} · RSI {pattern_context['rsi']:.0f}"),
+    ]
+    sum_cols = st.columns(len(summary_cards), gap="small")
+    for col, (label, value, color, detail) in zip(sum_cols, summary_cards):
+        with col:
+            st.markdown(
+                "<div style='background:#1b1b1b;border:1px solid #272727;border-radius:12px;"
+                "padding:0.9rem 1rem;box-shadow:0 1px 8px rgba(0,0,0,0.14);'>"
+                "<div style='font-size:0.62rem;color:#606060;text-transform:uppercase;letter-spacing:0.7px;font-weight:700;'>" + label + "</div>"
+                "<div style='font-size:1.45rem;font-weight:900;color:" + color + ";margin-top:0.35rem;'>" + value + "</div>"
+                "<div style='font-size:0.72rem;color:#666;margin-top:0.3rem;line-height:1.5;'>" + detail + "</div>"
+                "</div>",
+                unsafe_allow_html=True,
+            )
+
+    if guardrails["flags"]:
+        st.markdown(_sec("False-Breakout & Exhaustion Filter", guardrails["status_color"]), unsafe_allow_html=True)
+        for flag in guardrails["flags"]:
+            st.markdown(
+                "<div style='background:#1b1b1b;border:1px solid #272727;border-left:4px solid " + flag["color"] + ";"
+                "border-radius:12px;padding:0.85rem 1rem;margin-bottom:0.55rem;'>"
+                "<div style='font-size:0.78rem;font-weight:800;color:" + flag["color"] + ";margin-bottom:0.25rem;'>" + flag["title"] + "</div>"
+                "<div style='font-size:0.76rem;color:#9a9a9a;line-height:1.55;'>" + flag["detail"] + "</div>"
+                "</div>",
+                unsafe_allow_html=True,
+            )
+
     # ── Price Ladder (BUY only) ──────────────────────────────────────────────
     if signal_lbl == "BUY":
         try:
@@ -811,7 +1177,7 @@ def patterns_tab(df):
 
     # ── Chart ────────────────────────────────────────────────────────────────
     st.plotly_chart(
-        _build_pattern_chart(df, all_patterns, current_price),
+        _build_pattern_chart(df, pattern_context["all_patterns"], current_price),
         width="stretch",
         config={"displayModeBar": False},
     )
@@ -830,6 +1196,296 @@ def patterns_tab(df):
             "</div>",
             unsafe_allow_html=True,
         )
+
+    if hist:
+        st.markdown(_sec(f"Recent Historical Patterns ({min(len(hist), 6)})", INFO), unsafe_allow_html=True)
+        for p in hist[:6]:
+            _pattern_card(p, current_price)
+
+
+@st.cache_data(ttl=900, show_spinner=False)
+def _scan_market_pattern_setups(limit=12):
+    try:
+        from market_data import get_all_tadawul_tickers
+    except Exception:
+        return {"ready": [], "alerts": [], "scanned": 0}
+
+    tickers_map = get_all_tadawul_tickers()
+    tickers = list(tickers_map.keys())
+    frames = []
+    batch_size = 40
+    for start in range(0, len(tickers), batch_size):
+        chunk = tickers[start:start + batch_size]
+        try:
+            part = yf.download(
+                chunk,
+                period="6mo",
+                interval="1d",
+                progress=False,
+                threads=True,
+                group_by="ticker",
+                timeout=30,
+                auto_adjust=False,
+            )
+            if part is not None and not part.empty:
+                frames.append(part)
+        except Exception:
+            continue
+
+    if not frames:
+        return {"ready": [], "alerts": [], "scanned": 0}
+
+    data = pd.concat(frames, axis=1) if len(frames) > 1 else frames[0]
+    is_multi = isinstance(data.columns, pd.MultiIndex)
+    ready = []
+    alerts = []
+    scanned = 0
+
+    for ticker in tickers:
+        try:
+            if is_multi:
+                if ticker not in data.columns.get_level_values(0):
+                    continue
+                hist = data[ticker].copy()
+            else:
+                hist = data.copy()
+
+            hist = hist.dropna(subset=["Close"])
+            if len(hist) < 80:
+                continue
+
+            hist = hist.reset_index()
+            if "Date" not in hist.columns:
+                hist = hist.rename(columns={hist.columns[0]: "Date"})
+
+            required = ["Date", "Open", "High", "Low", "Close"]
+            if any(col not in hist.columns for col in required):
+                continue
+
+            context = get_pattern_context(hist)
+            if not context or not context.get("active"):
+                continue
+
+            scanned += 1
+            bullish = sorted(
+                [
+                    pattern for pattern in context["active"]
+                    if pattern["type"] == "Bullish" and pattern.get("state") in {"Triggered", "Retest", "Confirmed"}
+                ],
+                key=lambda item: (item.get("state_score", 0), item["strength"], item.get("rr") or 0),
+                reverse=True,
+            )
+            bearish = sorted(
+                [
+                    pattern for pattern in context["active"]
+                    if pattern["type"] == "Bearish" and pattern.get("state") in {"Triggered", "Retest", "Confirmed"}
+                ],
+                key=lambda item: (item.get("state_score", 0), item["strength"]),
+                reverse=True,
+            )
+
+            if bullish and not context["guardrails"].get("long_blocked"):
+                lead = bullish[0]
+                score = int(max(0, min(100,
+                    lead["strength"] * 0.6
+                    + context["long_bonus"] * 6
+                    + max(lead.get("rr") or 0, 0) * 7
+                    - context["guardrails"].get("long_penalty", 0) * 8
+                )))
+                ready.append({
+                    "ticker": ticker.replace(".SR", ""),
+                    "name": tickers_map.get(ticker, ticker),
+                    "bias": "Bullish",
+                    "bias_color": BULL,
+                    "pattern": lead["pattern"],
+                    "state": lead.get("state", "Triggered"),
+                    "state_color": lead.get("state_color", BULL),
+                    "strength": lead["strength"],
+                    "price": context["current_price"],
+                    "entry": lead.get("entry_ref"),
+                    "stop": lead.get("stop_ref"),
+                    "target": lead.get("target_ref"),
+                    "rr": lead.get("rr"),
+                    "score": score,
+                    "detail": lead.get("state_note", ""),
+                })
+                continue
+
+            alert_pattern = bearish[0] if bearish else None
+            if alert_pattern is None:
+                failed_bulls = [pattern for pattern in context["active"] if pattern["type"] == "Bullish" and pattern.get("state") == "Failed"]
+                if failed_bulls:
+                    alert_pattern = sorted(failed_bulls, key=lambda item: item["strength"], reverse=True)[0]
+            if alert_pattern is None:
+                continue
+
+            bias = "Bearish" if alert_pattern["type"] == "Bearish" else "Bull Trap"
+            score = int(max(0, min(100,
+                alert_pattern["strength"] * 0.6
+                + context["short_bonus"] * 6
+                + context["guardrails"].get("long_penalty", 0) * 8
+            )))
+            alert_detail = alert_pattern.get("state_note", "")
+            if context["guardrails"].get("flags"):
+                alert_detail = context["guardrails"]["flags"][0]["detail"]
+            alerts.append({
+                "ticker": ticker.replace(".SR", ""),
+                "name": tickers_map.get(ticker, ticker),
+                "bias": bias,
+                "bias_color": BEAR,
+                "pattern": alert_pattern["pattern"],
+                "state": alert_pattern.get("state", "Watch"),
+                "state_color": alert_pattern.get("state_color", BEAR),
+                "strength": alert_pattern["strength"],
+                "price": context["current_price"],
+                "entry": alert_pattern.get("entry_ref"),
+                "stop": alert_pattern.get("stop_ref"),
+                "target": alert_pattern.get("target_ref"),
+                "rr": alert_pattern.get("rr"),
+                "score": score,
+                "detail": alert_detail,
+            })
+        except Exception:
+            continue
+
+    ready.sort(key=lambda item: (item["score"], item["strength"]), reverse=True)
+    alerts.sort(key=lambda item: (item["score"], item["strength"]), reverse=True)
+    return {
+        "ready": ready[:limit],
+        "alerts": alerts[:limit],
+        "scanned": scanned,
+    }
+
+
+def _scanner_card(setup):
+    accent = setup["bias_color"]
+    state_color = setup.get("state_color", accent)
+    rr_txt = f"{setup['rr']:.1f}x" if setup.get("rr") is not None else "-"
+    return (
+        "<div style='background:#1b1b1b;border:1px solid #272727;border-radius:13px;overflow:hidden;margin-bottom:0.8rem;'>"
+        "<div style='padding:0.9rem 1.05rem;background:linear-gradient(135deg,rgba(" + ','.join(str(int(accent[i:i+2],16)) for i in (1,3,5)) + ",0.08),transparent);border-bottom:1px solid #272727;'>"
+        "<div style='display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;'>"
+        "<div>"
+        "<div style='font-size:0.72rem;color:#7d7d7d;text-transform:uppercase;letter-spacing:0.7px;font-weight:700;'>"
+        + setup["ticker"] + " · " + setup["name"] + "</div>"
+        "<div style='font-size:1.02rem;font-weight:900;color:#f0f0f0;margin-top:0.18rem;'>" + setup["pattern"] + "</div>"
+        "</div>"
+        "<div style='text-align:right;'>"
+        "<div style='font-size:0.66rem;color:#606060;text-transform:uppercase;letter-spacing:0.6px;font-weight:700;'>Scan Score</div>"
+        "<div style='font-size:1.45rem;font-weight:900;color:" + accent + ";line-height:1;'>" + str(setup["score"]) + "</div>"
+        "</div>"
+        "</div>"
+        "<div style='display:flex;gap:0.45rem;flex-wrap:wrap;margin-top:0.65rem;'>"
+        "<span style='font-size:0.64rem;font-weight:700;color:" + accent + ";background:rgba(" + ','.join(str(int(accent[i:i+2],16)) for i in (1,3,5)) + ",0.12);border-radius:999px;padding:0.18rem 0.55rem;letter-spacing:0.4px;'>" + setup["bias"] + "</span>"
+        "<span style='font-size:0.64rem;font-weight:700;color:" + state_color + ";background:rgba(" + ','.join(str(int(state_color[i:i+2],16)) for i in (1,3,5)) + ",0.12);border-radius:999px;padding:0.18rem 0.55rem;letter-spacing:0.4px;'>" + setup["state"] + "</span>"
+        "<span style='font-size:0.64rem;font-weight:700;color:#bdbdbd;background:#161616;border-radius:999px;padding:0.18rem 0.55rem;letter-spacing:0.4px;'>Strength " + str(setup["strength"]) + "%</span>"
+        "</div>"
+        "</div>"
+        "<div style='padding:0.95rem 1.05rem;display:grid;grid-template-columns:repeat(4,1fr);gap:0.45rem;'>"
+        "<div style='background:#161616;border:1px solid #272727;border-radius:9px;padding:0.55rem 0.7rem;'><div style='font-size:0.60rem;color:#606060;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;'>Price</div><div style='font-size:0.86rem;color:#f0f0f0;font-weight:800;margin-top:0.15rem;'>$" + f"{setup['price']:.2f}" + "</div></div>"
+        "<div style='background:#161616;border:1px solid #272727;border-radius:9px;padding:0.55rem 0.7rem;'><div style='font-size:0.60rem;color:#606060;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;'>Entry</div><div style='font-size:0.86rem;color:#f0f0f0;font-weight:800;margin-top:0.15rem;'>$" + (f"{setup['entry']:.2f}" if setup.get('entry') is not None else "-") + "</div></div>"
+        "<div style='background:#161616;border:1px solid #272727;border-radius:9px;padding:0.55rem 0.7rem;'><div style='font-size:0.60rem;color:#606060;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;'>Stop</div><div style='font-size:0.86rem;color:" + BEAR + ";font-weight:800;margin-top:0.15rem;'>$" + (f"{setup['stop']:.2f}" if setup.get('stop') is not None else "-") + "</div></div>"
+        "<div style='background:#161616;border:1px solid #272727;border-radius:9px;padding:0.55rem 0.7rem;'><div style='font-size:0.60rem;color:#606060;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;'>Target / R:R</div><div style='font-size:0.86rem;color:" + BULL + ";font-weight:800;margin-top:0.15rem;'>$" + (f"{setup['target']:.2f}" if setup.get('target') is not None else "-") + " · " + rr_txt + "</div></div>"
+        "</div>"
+        "<div style='padding:0 1.05rem 1rem 1.05rem;font-size:0.75rem;color:#9a9a9a;line-height:1.55;'>" + setup["detail"] + "</div>"
+        "</div>"
+    )
+
+
+def _render_market_pattern_scanner():
+    head_cols = st.columns([1, 3], gap="small")
+    with head_cols[0]:
+        if st.button("Refresh Scanner", key="ppa_refresh_scanner", width="stretch"):
+            _scan_market_pattern_setups.clear()
+    with head_cols[1]:
+        st.markdown(
+            "<div style='background:#1b1b1b;border:1px solid #272727;border-radius:12px;padding:0.9rem 1rem;'>"
+            "<div style='font-size:0.78rem;color:#bdbdbd;font-weight:700;'>Market-wide pattern scan</div>"
+            "<div style='font-size:0.74rem;color:#7d7d7d;margin-top:0.2rem;line-height:1.5;'>"
+            "This scan ranks current Tadawul setups by live pattern confirmation, confluence quality, and trap filtering."
+            "</div></div>",
+            unsafe_allow_html=True,
+        )
+
+    with st.spinner("Scanning live Tadawul patterns..."):
+        scan = _scan_market_pattern_setups(limit=12)
+
+    stats = [
+        ("Scanned", str(scan["scanned"]), INFO, "Symbols with enough history and at least one active pattern"),
+        ("Long-ready", str(len(scan["ready"])), BULL, "Triggered / retest / confirmed bullish setups that passed the filter"),
+        ("Trap Alerts", str(len(scan["alerts"])), BEAR, "Bearish confirmations or failed bullish patterns worth avoiding"),
+    ]
+    stat_cols = st.columns(len(stats), gap="small")
+    for col, (label, value, color, detail) in zip(stat_cols, stats):
+        with col:
+            st.markdown(
+                "<div style='background:#1b1b1b;border:1px solid #272727;border-radius:12px;padding:0.85rem 1rem;'>"
+                "<div style='font-size:0.62rem;color:#606060;text-transform:uppercase;letter-spacing:0.7px;font-weight:700;'>" + label + "</div>"
+                "<div style='font-size:1.4rem;font-weight:900;color:" + color + ";margin-top:0.3rem;'>" + value + "</div>"
+                "<div style='font-size:0.72rem;color:#666;margin-top:0.28rem;line-height:1.45;'>" + detail + "</div>"
+                "</div>",
+                unsafe_allow_html=True,
+            )
+
+    st.markdown(_sec("Top Long Setups", BULL), unsafe_allow_html=True)
+    if scan["ready"]:
+        ready_cols = st.columns(2, gap="medium")
+        for idx, setup in enumerate(scan["ready"]):
+            with ready_cols[idx % 2]:
+                st.markdown(_scanner_card(setup), unsafe_allow_html=True)
+    else:
+        st.markdown(
+            "<div style='background:#1b1b1b;border:1px solid #272727;border-radius:12px;padding:1rem 1.1rem;color:#8a8a8a;'>"
+            "No clean long-ready pattern setups passed the confirmation and trap filters right now."
+            "</div>",
+            unsafe_allow_html=True,
+        )
+
+    st.markdown(_sec("Trap Alerts", BEAR), unsafe_allow_html=True)
+    if scan["alerts"]:
+        alert_cols = st.columns(2, gap="medium")
+        for idx, setup in enumerate(scan["alerts"]):
+            with alert_cols[idx % 2]:
+                st.markdown(_scanner_card(setup), unsafe_allow_html=True)
+    else:
+        st.markdown(
+            "<div style='background:#1b1b1b;border:1px solid #272727;border-radius:12px;padding:1rem 1.1rem;color:#8a8a8a;'>"
+            "No broad bearish trap signatures are dominating the scanner at the moment."
+            "</div>",
+            unsafe_allow_html=True,
+        )
+
+
+def render_patterns_price_action_workspace(df, info_icon):
+    pattern_context = get_pattern_context(df)
+    if pattern_context is None:
+        patterns_tab(df)
+        return
+
+    strongest = pattern_context.get("strongest")
+    lead_pattern = strongest["pattern"] if strongest else "No active pattern"
+    lead_state = strongest.get("state", "Watch") if strongest else "Watch"
+    lead_color = strongest.get("state_color", INFO) if strongest else INFO
+    guardrails = pattern_context.get("guardrails", {})
+    st.markdown(
+        "<div style='background:#1b1b1b;border:1px solid #272727;border-radius:14px;overflow:hidden;margin-bottom:1rem;'>"
+        "<div style='padding:1rem 1.25rem;background:linear-gradient(135deg,rgba(" + ','.join(str(int(lead_color[i:i+2],16)) for i in (1,3,5)) + ",0.08),transparent);'>"
+        "<div style='font-size:0.62rem;color:#606060;text-transform:uppercase;letter-spacing:1px;font-weight:700;'>Patterns & Price Action Workspace</div>"
+        "<div style='display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;margin-top:0.45rem;'>"
+        "<div style='font-size:0.92rem;color:#e0e0e0;font-weight:800;'>Lead setup: " + lead_pattern + " · " + lead_state + "</div>"
+        "<div style='font-size:0.74rem;color:#8f8f8f;'>Confluence " + str(pattern_context.get("confluence_score", 0)) + " · Filter " + guardrails.get("status", "Clear") + "</div>"
+        "</div></div></div>",
+        unsafe_allow_html=True,
+    )
+
+    setup_tab, board_tab, scanner_tab = st.tabs(["Integrated Setup", "Pattern Board", "Market Scanner"])
+    with setup_tab:
+        from price_action_tab import price_action_analysis_tab
+        price_action_analysis_tab(df, info_icon, pattern_context=pattern_context)
+    with board_tab:
+        patterns_tab(df, pattern_context=pattern_context)
+    with scanner_tab:
+        _render_market_pattern_scanner()
 
 
 # ══════════════════════════════════════════════════════════════════════════════

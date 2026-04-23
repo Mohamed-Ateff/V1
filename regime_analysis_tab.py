@@ -60,6 +60,20 @@ REGIME_STRATEGY = {
 }
 
 
+def _normalize_regime_df(df):
+    clean = df.copy()
+    regimes = clean["REGIME"].astype("string").str.strip().str.upper()
+    regimes = regimes.replace({
+        "TRENDING": "TREND",
+        "SIDEWAYS": "RANGE",
+        "VOLATILITY": "VOLATILE",
+    })
+    regimes = regimes.where(regimes.isin(REGIME_COLOR.keys()))
+    regimes = regimes.ffill().bfill().fillna("RANGE")
+    clean["REGIME"] = regimes
+    return clean
+
+
 def _streak(df):
     regime = df["REGIME"].iloc[-1]
     count = 0
@@ -105,6 +119,8 @@ def _stat_tile(label, value, sub, val_color, bg, border, muted, bar_pct=None, ba
 
 
 def render_regime_analysis_tab(df, info_icon, create_regime_distribution_chart):
+    df = _normalize_regime_df(df)
+
     theme_palette  = st.session_state.get('theme_palette', {})
     bg_card = theme_palette.get('panel_alt', BG2)
     bg_plot = theme_palette.get('panel', BG)
