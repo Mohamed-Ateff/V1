@@ -9,8 +9,7 @@ import warnings
 import numpy as np
 from plotly.subplots import make_subplots
 
-from auth import auth_wall, show_user_badge, load_favorites, upsert_favorite, delete_favorite, logout
-from favorites_tab import favorites_css, render_favorites_panel, render_saved_page
+from auth import auth_wall, show_user_badge, logout
 from gemini_tab import gemini_tab
 from price_action_tab import price_action_analysis_tab
 
@@ -589,25 +588,12 @@ def main():
 
         st.session_state.show_macro = False
 
-    if 'show_saved_page' not in st.session_state:
-
-        st.session_state.show_saved_page = False
-
     if 'show_acpts' not in st.session_state:
 
         st.session_state.show_acpts = False
 
-
-
-
-
-    # ?? Load favorites from DB once per session ???????????????????????????
-
-    if 'favorites' not in st.session_state:
-
-        _user = st.session_state.get('auth_username', '')
-
-        st.session_state.favorites = load_favorites(_user) if _user else []
+    if 'show_champions_vault' not in st.session_state:
+        st.session_state.show_champions_vault = False
 
 
 
@@ -949,7 +935,7 @@ def main():
     </script>
     """, height=0)
 
-    if not st.session_state.show_results and not st.session_state.show_market_results and not st.session_state.show_market_pulse and not st.session_state.show_macro and not st.session_state.show_saved_page and not st.session_state.show_acpts:
+    if not st.session_state.show_results and not st.session_state.show_market_results and not st.session_state.show_market_pulse and not st.session_state.show_macro and not st.session_state.show_acpts and not st.session_state.show_champions_vault:
 
         # CONTROLS PAGE
 
@@ -1732,272 +1718,6 @@ def main():
         }}
 
 
-
-        /* ?? Favorites panel ?? */
-
-        .st-key-fav_panel_wrap {{
-
-            background: {cp_s1} !important;
-
-            border: 1px solid {cp_b1} !important;
-
-            border-radius: 14px !important;
-
-            padding: 1.4rem 1.8rem 1.6rem 1.8rem !important;
-
-            box-sizing: border-box !important;
-
-            margin-bottom: 1rem !important;
-
-        }}
-
-        .st-key-fav_panel_wrap > div,
-
-        .st-key-fav_panel_wrap [data-testid="stVerticalBlockBorderWrapper"],
-
-        .st-key-fav_panel_wrap [data-testid="stVerticalBlock"] {{
-
-            background: transparent !important;
-
-            background-color: transparent !important;
-
-            border: none !important;
-
-            box-shadow: none !important;
-
-            padding: 0 !important;
-
-        }}
-
-        .st-key-fav_close_panel .stButton > button {{
-
-            background: transparent !important;
-
-            border: 1px solid rgba(239,83,80,0.30) !important;
-
-            border-radius: 7px !important;
-
-            color: rgba(239,83,80,0.70) !important;
-
-            height: 2rem !important;
-
-            min-height: 2rem !important;
-
-            font-size: 0.70rem !important;
-
-            font-weight: 700 !important;
-
-            padding: 0 0.85rem !important;
-
-            transition: all 0.12s ease !important;
-
-        }}
-
-        .st-key-fav_close_panel .stButton > button:hover {{
-
-            background: rgba(239,83,80,0.10) !important;
-
-            border-color: rgba(239,83,80,0.60) !important;
-
-            color: #ef5350 !important;
-
-        }}
-
-        [class*="st-key-fav_del_"] .stButton > button {{
-
-            background: transparent !important;
-
-            border: 1px solid rgba(239,83,80,0.22) !important;
-
-            border-radius: 8px !important;
-
-            color: rgba(239,83,80,0.50) !important;
-
-            min-height: 6rem !important;
-
-            height: 100% !important;
-
-            font-size: 1rem !important;
-
-            padding: 0 !important;
-
-            transition: all 0.12s ease !important;
-
-        }}
-
-        [class*="st-key-fav_del_"] .stButton > button:hover {{
-
-            background: rgba(239,83,80,0.10) !important;
-
-            border-color: rgba(239,83,80,0.55) !important;
-
-            color: #ef5350 !important;
-
-        }}
-
-        .fav-hdr {{ display:flex; align-items:center; gap:0.55rem;
-
-                    padding-bottom:0.85rem; margin-bottom:0.85rem;
-
-                    border-bottom:1px solid {cp_b2}; }}
-
-        .fav-hdr-icon {{ font-size:1.1rem; }}
-
-        .fav-hdr-title {{ font-size:0.88rem; font-weight:700; color:{cp_text1};
-
-                          flex:1; letter-spacing:-0.1px; }}
-
-        .fav-hdr-count {{ background:rgba(244,114,182,0.10);
-
-                          border:1px solid rgba(244,114,182,0.25);
-
-                          color:#f472b6; font-size:0.63rem; font-weight:700;
-
-                          border-radius:20px; padding:0.10rem 0.5rem; }}
-
-        .fav-empty {{ display:flex; flex-direction:column; align-items:center;
-
-                      padding:2rem 1rem; gap:0.5rem; }}
-
-        .fav-empty-icon {{ font-size:2.2rem; opacity:0.18; }}
-
-        .fav-empty-txt {{ font-size:0.73rem; color:{cp_text2}; text-align:center;
-
-                          font-weight:500; max-width:320px; line-height:1.7;
-
-                          opacity:0.75; }}
-
-        .fav-card {{
-
-            background: {cp_s2};
-
-            border: 1px solid {cp_b2};
-
-            border-radius: 10px;
-
-            overflow: hidden;
-
-            margin-bottom: 0.5rem;
-
-        }}
-
-        .fav-card-top {{
-
-            display: flex;
-
-            align-items: center;
-
-            gap: 0.65rem;
-
-            padding: 0.8rem 1rem 0.7rem 1rem;
-
-            border-bottom: 1px solid {cp_b2};
-
-            flex-wrap: wrap;
-
-        }}
-
-        .fav-sym {{
-
-            background: rgba(244,114,182,0.10);
-
-            border: 1px solid rgba(244,114,182,0.25);
-
-            border-radius: 6px;
-
-            padding: 0.18rem 0.6rem;
-
-            font-size: 0.76rem; font-weight: 800;
-
-            color: #f472b6; letter-spacing: 0.4px;
-
-        }}
-
-        .fav-sep {{ color:{cp_text3}; opacity:0.40; font-weight:300; font-size:1rem; }}
-
-        .fav-pill {{
-
-            background: rgba(38,166,154,0.10);
-
-            border: 1px solid rgba(38,166,154,0.22);
-
-            border-radius: 5px; padding: 0.13rem 0.5rem;
-
-            font-size: 0.67rem; font-weight: 700; color: #26A69A;
-
-        }}
-
-        .fav-plus {{ font-size:0.63rem; color:{cp_text3}; font-weight:600; }}
-
-        .fav-regime {{
-
-            margin-left: auto;
-
-            font-size: 0.58rem; font-weight: 700;
-
-            text-transform: uppercase; letter-spacing: 0.6px;
-
-            border-radius: 5px; padding: 0.13rem 0.5rem;
-
-            border: 1px solid currentColor; opacity: 0.85;
-
-        }}
-
-        .fav-date {{
-
-            font-size: 0.57rem; color: {cp_text3}; opacity: 0.60;
-
-            margin-left: 0.15rem; align-self: center;
-
-        }}
-
-        .fav-card-bot {{
-
-            display: grid;
-
-            grid-template-columns: repeat(4, 1fr);
-
-            padding: 0.7rem 1rem 0.75rem 1rem;
-
-            gap: 0;
-
-        }}
-
-        .fav-si {{
-
-            display: flex; flex-direction: column;
-
-            align-items: center; justify-content: center;
-
-            padding: 0.18rem 0;
-
-        }}
-
-        .fav-si:not(:last-child) {{
-
-            border-right: 1px solid {cp_b2};
-
-        }}
-
-        .fsl {{
-
-            font-size: 0.51rem; font-weight: 700;
-
-            text-transform: uppercase; letter-spacing: 0.7px;
-
-            color: {cp_text3}; margin-bottom: 0.2rem; opacity: 0.70;
-
-        }}
-
-        .fsv {{
-
-            font-size: 0.90rem; font-weight: 800;
-
-            color: {cp_text1}; line-height: 1;
-
-        }}
-
-        
 
         /* ??????????????????????????????????????????????????????????????
 
@@ -2789,13 +2509,21 @@ def main():
 
         </style>""", unsafe_allow_html=True)
 
-        # ??????????????????????????????????????????????????????????????
-        # FETCH MARKET DATA FIRST FOR SIDEBAR
         # ══════════════════════════════════════════════════════════════════════
-        market_status = get_saudi_market_status()
+        # MARKET DATA — session-state guard prevents re-download on every rerun
+        # (cache_data TTL=1800 handles server-level; session_state handles this
+        #  browser session so period-changes are the only thing that re-fetches)
+        # ══════════════════════════════════════════════════════════════════════
         if 'mkt_period' not in st.session_state:
             st.session_state.mkt_period = '1d'
-        market_data = get_saudi_market_data(period=st.session_state.mkt_period)
+        _mkt_p = st.session_state.mkt_period
+        _ss_mkt_key  = f'_mkt_{_mkt_p}'
+        _ss_stat_key = f'_mstat_{_mkt_p}'
+        if _ss_mkt_key not in st.session_state:
+            st.session_state[_ss_stat_key] = get_saudi_market_status()
+            st.session_state[_ss_mkt_key]  = get_saudi_market_data(period=_mkt_p)
+        market_status = st.session_state[_ss_stat_key]
+        market_data   = st.session_state[_ss_mkt_key]
 
         # ══════════════════════════════════════════════════════════════════════
         # CONTROL PANEL - Clean toolbar + Market Cards
@@ -2810,24 +2538,22 @@ def main():
         sentiment = market_data.get('sentiment', 'NEUTRAL') if market_data else 'NEUTRAL'
         tasi_price = market_data.get('tasi_price', 0) if market_data else 0
         tasi_change = market_data.get('tasi_change', 0) if market_data else 0
-        
+
         perf_color = "#26A69A" if avg_change >= 0 else "#ef5350"
         perf_sign = "+" if avg_change >= 0 else ""
         sent_colors = {"STRONG BUY": "#4caf50", "BULLISH": "#26A69A", "NEUTRAL": "#ffc107", "BEARISH": "#ef5350", "STRONG SELL": "#f44336"}
         sent_color = sent_colors.get(sentiment, "#9e9e9e")
         status_class = "open" if is_open else "closed"
-        
-        # Theme & favorites state
-        current_theme = st.session_state.get("ui_theme", "dark")
-        is_dark = current_theme == "dark"
-        theme_icon = "☀" if is_dark else "☽"
-        fav_count = len(st.session_state.get('favorites', []))
-        has_favs = fav_count > 0
         username = st.session_state.auth_username
         
         # User panel toggle
         if 'show_user_panel' not in st.session_state:
             st.session_state.show_user_panel = False
+
+        # Load favorites from DB once per session
+        if 'favorites' not in st.session_state:
+            from auth import load_favorites
+            st.session_state.favorites = load_favorites(st.session_state.auth_username)
         
         st.markdown(f"""
         <style>
@@ -2944,6 +2670,52 @@ def main():
         .st-key-btn_user .stButton > button:hover {{
             background: rgba(255,255,255,0.07) !important;
             border-color: #3a4550 !important; color: #c8d6e5 !important;
+        }}
+        .st-key-btn_champions .stButton > button {{
+            background: rgba(167,139,250,0.07) !important;
+            border: 1px solid rgba(167,139,250,0.22) !important;
+            border-radius: 10px !important; color: #a78bfa !important;
+            font-size: 0.77rem !important; font-weight: 700 !important;
+            width: 100% !important; padding: 0.52rem 0.3rem !important;
+            height: auto !important; white-space: nowrap !important;
+        }}
+        .st-key-btn_champions .stButton > button:hover {{
+            background: rgba(167,139,250,0.16) !important;
+            border-color: rgba(167,139,250,0.5) !important;
+        }}
+        [class*="st-key-rcbtn_u_"] .stButton > button {{
+            width: 100% !important;
+            border-radius: 0 0 14px 14px !important;
+            background: #0a0d0f !important;
+            border: none !important;
+            border-top: 1px solid #181c1f !important;
+            color: #363636 !important;
+            font-size: 0.76rem !important; font-weight: 700 !important;
+            padding: 0.55rem 1rem !important;
+            transition: all 0.18s ease !important;
+            letter-spacing: 0.2px !important;
+        }}
+        [class*="st-key-rcbtn_u_"] .stButton > button:hover {{
+            background: rgba(167,139,250,0.08) !important;
+            color: #a78bfa !important;
+            border-top-color: rgba(167,139,250,0.35) !important;
+        }}
+        [class*="st-key-rcbtn_s_"] .stButton > button {{
+            width: 100% !important;
+            border-radius: 0 0 14px 14px !important;
+            background: rgba(167,139,250,0.07) !important;
+            border: none !important;
+            border-top: 1px solid rgba(167,139,250,0.25) !important;
+            color: #a78bfa !important;
+            font-size: 0.76rem !important; font-weight: 800 !important;
+            padding: 0.55rem 1rem !important;
+            transition: all 0.18s ease !important;
+            letter-spacing: 0.2px !important;
+        }}
+        [class*="st-key-rcbtn_s_"] .stButton > button:hover {{
+            background: rgba(239,83,80,0.08) !important;
+            color: #ef5350 !important;
+            border-top-color: rgba(239,83,80,0.3) !important;
         }}
         .st-key-btn_pulse .stButton > button {{
             background: rgba(74,158,255,0.07) !important;
@@ -3096,7 +2868,7 @@ def main():
         .cp-cat-dot {{ width:7px; height:7px; border-radius:50%; display:inline-block; }}
 
         /* ── Toolbar wrap (no-op — layout handled by left_panel column CSS) ── */
-        .st-key-btn_saved, .st-key-btn_user {{ width: 100% !important; }}
+        .st-key-btn_saved, .st-key-btn_user, .st-key-btn_champions {{ width: 100% !important; }}
         
         /* ═══════════════════════════════════════════════════════════════════
            USER PANEL DROPDOWN - Matches app panel style
@@ -3343,19 +3115,25 @@ def main():
                                         st.session_state.mkt_period = _pk
                                         st.rerun()
 
-                    # Action buttons — 2 columns: Saved | User
-                    _b1, _b2 = st.columns(2, gap="small")
-                    with _b1:
-                        with st.container(key="btn_saved"):
-                            _fav_lbl = f"\u2661  Saved \u00b7 {fav_count}" if has_favs else "\u2661  Saved"
-                            if st.button(_fav_lbl, key="toolbar_fav", width="stretch"):
-                                st.session_state.show_saved_page = True
-                                st.rerun()
-                    with _b2:
+                    # Action buttons — User + Champions Vault
+                    fav_count = len(st.session_state.get('favorites', []))
+                    _bu1, _bu2 = st.columns([1, 1], gap="small")
+                    with _bu1:
                         with st.container(key="btn_user"):
                             _usr_lbl = f"◉  {username[:10]}"
-                            if st.button(_usr_lbl, key="toolbar_user", width="stretch"):
+                            if st.button(_usr_lbl, key="toolbar_user", use_container_width=True):
                                 st.session_state.show_user_panel = not st.session_state.show_user_panel
+                                if st.session_state.show_user_panel:
+                                    st.session_state.show_champions_vault = False
+                                st.rerun()
+                    with _bu2:
+                        with st.container(key="btn_champions"):
+                            _cv_is_active = st.session_state.get('show_champions_vault', False)
+                            _cv_lbl = "✕  Vault" if _cv_is_active else "⚡  Vault"
+                            if st.button(_cv_lbl, key="toolbar_champions", use_container_width=True):
+                                st.session_state.show_champions_vault = not _cv_is_active
+                                if not _cv_is_active:
+                                    st.session_state.show_user_panel = False
                                 st.rerun()
 
                     # User panel dropdown
@@ -3941,11 +3719,11 @@ def main():
                                       on_click=_acpts_run_full, key="acpts_run_full")
                             st.markdown("</div>", unsafe_allow_html=True)
 
-    elif st.session_state.show_saved_page:
+    elif st.session_state.show_champions_vault:
 
         apply_ui_theme()
-
-        render_saved_page()
+        from favorites_tab import render_champions_vault_page
+        render_champions_vault_page()
 
     elif st.session_state.show_acpts:
 

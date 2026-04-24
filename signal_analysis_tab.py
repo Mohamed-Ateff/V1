@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from math import sqrt as _sqrt
-from favorites_tab import render_save_button, render_save_indicator_button, render_save_combo_button
 from ui_helpers import insight_toggle
 
 
@@ -161,18 +160,31 @@ def signal_analysis_tab(df, info_icon):
     rr_ratio      = reward_val / risk_val
     profit_target = stop_loss * rr_ratio
 
-    # ── Run engines ───────────────────────────────────────────────────────────
-    with st.spinner("Running signal analysis…"):
-        signals_df = detect_signals(df)
-        results, successful_signals, all_signal_details = evaluate_signal_success(
-            df, signals_df, profit_target, holding_period, stop_loss
+    # ── Run engines (cached in session_state — reruns like Save clicks are instant) ──
+    _sym      = st.session_state.get('analyzed_symbol', '')
+    _last_bar = str(df.index[-1]) if len(df) > 0 else ''
+    _sa_key   = (_sym, _last_bar, holding_period, max_combo_depth, risk_val, reward_val)
+
+    if st.session_state.get('_sa_cache_key') == _sa_key:
+        (signals_df, results, successful_signals, all_signal_details,
+         consensus_signals, combo_results, monthly_performance) = st.session_state['_sa_cache']
+    else:
+        with st.spinner("Running signal analysis…"):
+            signals_df = detect_signals(df)
+            results, successful_signals, all_signal_details = evaluate_signal_success(
+                df, signals_df, profit_target, holding_period, stop_loss
+            )
+            consensus_signals   = find_consensus_signals(signals_df)
+            combo_results       = analyze_indicator_combinations(
+                signals_df, df, profit_target, holding_period, stop_loss, max_combo_depth,
+                combo_signal_window,
+            )
+            monthly_performance = calculate_monthly_performance(all_signal_details)
+        st.session_state['_sa_cache'] = (
+            signals_df, results, successful_signals, all_signal_details,
+            consensus_signals, combo_results, monthly_performance,
         )
-        consensus_signals   = find_consensus_signals(signals_df)
-        combo_results       = analyze_indicator_combinations(
-            signals_df, df, profit_target, holding_period, stop_loss, max_combo_depth,
-            combo_signal_window,
-        )
-        monthly_performance = calculate_monthly_performance(all_signal_details)
+        st.session_state['_sa_cache_key'] = _sa_key
 
     # ── Aggregate stats ───────────────────────────────────────────────────────
     total_signals    = sum(d["total_signals"] for d in results.values())
@@ -441,9 +453,6 @@ def signal_analysis_tab(df, info_icon):
                     + "</div></div></div>"
                 ), unsafe_allow_html=True)
 
-
-                with st.container(key=f"ind_save_wrap_{idx}_{ind['key']}"):
-                    render_save_indicator_button(idx, ind, risk_val, reward_val, _period_label)
 
                 st.markdown("<div style='margin-bottom:1.5rem;'></div>", unsafe_allow_html=True)
 
@@ -1012,12 +1021,6 @@ def signal_analysis_tab(df, info_icon):
                     f"</div></div>",
                     unsafe_allow_html=True,
                 )
-                with st.container(key="combo_save_wrap_champ"):
-                    render_save_combo_button(
-                        0, champ, _all_names, risk_val, reward_val, _period_label,
-                        combo_signal_window,
-                    )
-
                 # Full sortable table
                 _tbl_rows = []
                 for _ti, _tr in enumerate(all_combo_data):
@@ -1199,18 +1202,6 @@ def signal_analysis_tab(df, info_icon):
                         ),
                         unsafe_allow_html=True,
                     )
-                    render_save_combo_button(
-                        8800 + (save_idx if save_idx is not None else rank),
-                        dict(row, best_regime=focus_regime),
-                        _all_names,
-                        risk_val,
-                        reward_val,
-                        _period_label,
-                        combo_signal_window,
-                        regime_tag=focus_regime,
-                        button_label=f"☆  Save  {_label} setup",
-                    )
-
                 insight_toggle(
                     "combo_regime",
                     "What is Regime Champions? (tap to learn)",
@@ -1265,6 +1256,8 @@ def signal_analysis_tab(df, info_icon):
 
                     _champion = _regime_combos[0]
                     _render_focus_card(_champion, 1, _regime_key, hero=True, save_idx=_save_offset + 1)
+                    from favorites_tab import render_save_regime_champion_button
+                    render_save_regime_champion_button(_champion, _regime_key, _period_label, _save_offset + 1)
 
                     if len(_regime_combos) > 1:
                         st.markdown(
@@ -1281,6 +1274,7 @@ def signal_analysis_tab(df, info_icon):
 
                     for _rank, _row in enumerate(_regime_combos[1:], start=2):
                         _render_focus_card(_row, _rank, _regime_key, hero=False, save_idx=_save_offset + _rank)
+                        render_save_regime_champion_button(_row, _regime_key, _period_label, _save_offset + _rank)
 
                 _regime_sections = [
                     ("Trend", "TREND", 0),
@@ -1455,12 +1449,6 @@ def signal_analysis_tab(df, info_icon):
                 for _ci, _cr in enumerate(_top_n):
                     _cac4 = combo_accent_cycle[_ci % len(combo_accent_cycle)]
                     _make_combo_card(_cr, f"#{_ci + 1}", _cac4)
-                    with st.container(key=f"combo_save_wrap_{_sv}_{_ci}"):
-                        render_save_combo_button(
-                            _ci + _sv * 100, _cr, _all_names, risk_val, reward_val, _period_label,
-                            combo_signal_window,
-                        )
-
                 # Remaining in table
                 if _rest2:
                     _rest_rows2 = [{

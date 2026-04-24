@@ -17,7 +17,7 @@ import re
 
 
 
-@st.cache_data(ttl=60)  # Cache for 60 seconds
+@st.cache_data(ttl=300)  # Cache for 5 minutes
 
 def get_saudi_market_status():
 
@@ -125,7 +125,7 @@ def get_saudi_market_status():
 
 
 
-@st.cache_data(ttl=300)  # Cache for 5 minutes - important for speed
+@st.cache_data(ttl=3600)  # Cache for 1 hour — ticker list rarely changes
 
 def get_all_tadawul_tickers():
 
@@ -336,7 +336,7 @@ def get_all_tadawul_tickers():
 
 
 
-@st.cache_data(ttl=120, show_spinner=False)  # 2 min cache
+@st.cache_data(ttl=1800, show_spinner=False)  # 30 min cache
 
 def get_saudi_market_data(period="1d"):
 
@@ -956,7 +956,7 @@ def _analyze_top_pick_price_action(hist):
     return result
 
 
-@st.cache_data(ttl=600, show_spinner=False)
+@st.cache_data(ttl=3600, show_spinner=False)
 def get_tomorrow_stock_forecast(limit=3):
 
     """Rank Tadawul stocks for the next session using market-relative trend, price action, fundamentals, and filtered news context."""
