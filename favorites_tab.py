@@ -1,4 +1,4 @@
-﻿"""
+"""
 favorites_tab.py
 ────────────────
 All favorites feature logic in one place:
@@ -942,23 +942,37 @@ def render_saved_page() -> None:
         _section("Regime Champions", "#a78bfa", _rc_favs, "Champion")
 
 
-# ── Regime Champion save button ───────────────────────────────────────────────
+# ── Save Strategy button ──────────────────────────────────────────────────────
+# Uses on_click callback — NO @st.fragment in loops (causes identity bugs).
+# The callback fires synchronously before the rerun, so the button label
+# updates on the very next render with zero lag.
+
+def _rc_toggle(fav_id: str, new_fav: dict) -> None:
+    """on_click callback: toggle a regime-champion strategy save/remove."""
+    _user = st.session_state.get('auth_username', '')
+    if not _user:
+        st.session_state['_rc_toast'] = ("Not logged in", "❌")
+        return
+    _cur = st.session_state.get('favorites', [])
+    _exists = any(f.get('id') == fav_id for f in _cur)
+    try:
+        if _exists:
+            delete_favorite(_user, fav_id)
+            st.session_state.favorites = [f for f in _cur if f.get('id') != fav_id]
+            st.session_state['_rc_toast'] = ("Strategy removed", "🗑️")
+        elif new_fav is not None:
+            upsert_favorite(_user, new_fav)
+            st.session_state.favorites = _cur + [new_fav]
+            st.session_state['_rc_toast'] = ("Strategy saved!", "⭐")
+    except Exception as _e:
+        st.session_state['_rc_toast'] = (f"Save failed: {_e}", "❌")
+
 
 def render_save_regime_champion_button(row, regime_key, period_label, save_idx):
-    """☆/★ Save-to-Vault toggle button rendered below a Regime Champion card.
-
-    Uses an inline button-return check (not on_click) so it works reliably
-    inside @st.fragment.  Calls st.rerun() with no scope so Streamlit picks
-    fragment scope when inside a fragment, app scope when outside — keeping
-    the user on the same tab after saving.
-    """
     _sym    = st.session_state.get('analyzed_symbol', '')
     _pk     = period_label.replace(' ', '').replace('(', '_').replace(')', '').replace('/', '')
     _combo  = row.get('label', '')
     _fav_id = f"rc__{_sym}__{regime_key}__{_pk}__r{save_idx}"
-
-    _cur_favs = st.session_state.get('favorites', [])
-    _is_saved = any(f.get('id') == _fav_id for f in _cur_favs)
 
     _new_fav = {
         'id':               _fav_id,
@@ -982,358 +996,369 @@ def render_save_regime_champion_button(row, regime_key, period_label, save_idx):
         'reward_val':       st.session_state.get('sa_reward_val', 2),
     }
 
-    _wrap_key = f"rcbtn_s_{save_idx}_{regime_key}" if _is_saved else f"rcbtn_u_{save_idx}_{regime_key}"
-    _btn_key  = f"rc_save_{_fav_id.replace('__','_').replace('.','_').replace(' ','_')}"
-    _btn_lbl  = "★  Saved to Vault  ·  click to remove" if _is_saved else "☆  Save to Vault"
+    _cur_favs = st.session_state.get('favorites', [])
+    _is_saved = any(f.get('id') == _fav_id for f in _cur_favs)
+    _btn_lbl  = "★  Strategy Saved  ·  Click to Remove" if _is_saved else "☆  Save Strategy"
 
-    def _do_save(_fid=_fav_id, _nf=_new_fav, _saved=_is_saved):
-        try:
-            _toggle_favorite(_fid, None if _saved else _nf)
-        except Exception as _e:
-            st.toast(f"Save failed: {_e}", icon="❌")
-            return
-        if _saved:
-            st.toast("Removed from Champions Vault", icon="🗑️")
-        else:
-            st.toast("Saved to Champions Vault!", icon="⚡")
-
-    with st.container(key=_wrap_key):
-        st.button(_btn_lbl, key=_btn_key, on_click=_do_save, use_container_width=True)
+    st.button(
+        _btn_lbl,
+        key=f"sb_{save_idx}_{regime_key}",
+        use_container_width=True,
+        on_click=_rc_toggle,
+        args=(_fav_id, _new_fav),
+    )
 
 
-# ── Champions Vault full-page view ────────────────────────────────────────────
+# ── Saved Strategies full-page view ───────────────────────────────────────────
 
 def render_champions_vault_page():
     favs    = st.session_state.get('favorites', [])
     rc_favs = [f for f in favs if f.get('save_type') == 'regime_champion']
     _user   = st.session_state.get('auth_username', '')
 
+    _REGIME_META = {
+        'TREND':    ('#26A69A', '↗', 'Trend'),
+        'RANGE':    ('#4A9EFF', '↔', 'Range'),
+        'VOLATILE': ('#FF6B6B', '⚡', 'Volatile'),
+    }
     _PERIODS = ['Short (5d)', 'Medium (63d)', 'Long (252d)']
-    _P_LABEL  = ['Short', 'Medium', 'Long']
-    _P_SUB    = ['5 days', '63 days', '252 days']
-    _REGIMES  = [
-        ('TREND',    '#26A69A', '↗'),
-        ('RANGE',    '#4A9EFF', '↔'),
-        ('VOLATILE', '#FF6B6B', '⚡'),
-    ]
+    _PERIOD_SHORT = {'Short (5d)': 'Short', 'Medium (63d)': 'Medium', 'Long (252d)': 'Long'}
 
     st.markdown("""
     <style>
-    /* ── page chrome ── */
     header[data-testid="stHeader"],
     [data-testid="stToolbar"],
     [data-testid="stDecoration"] { display:none !important; }
-    .block-container {
-        padding-top: 2rem !important;
+
+    .main .block-container, div.block-container {
+        max-width: 96% !important;
+        padding-left: 2rem !important;
+        padding-right: 2rem !important;
+        padding-top: 1.4rem !important;
         padding-bottom: 4rem !important;
-        max-width: 1100px !important;
     }
 
-    /* ── page header ── */
-    .cv-page-hdr {
-        display: flex; align-items: center; gap: 1rem;
-        padding-bottom: 1.8rem;
-        border-bottom: 1px solid #13171b;
-        margin-bottom: 2rem;
+    /* ── hero header ── */
+    .ss-hero {
+        background:#1b1b1b; border:1px solid #272727; border-radius:14px;
+        overflow:hidden; margin-bottom:1.4rem;
+        box-shadow:0 4px 24px rgba(0,0,0,0.25);
     }
-    .cv-icon {
-        width: 44px; height: 44px; border-radius: 12px;
-        background: rgba(167,139,250,0.1); border: 1px solid rgba(167,139,250,0.18);
-        display: flex; align-items: center; justify-content: center;
-        font-size: 1.3rem; flex-shrink: 0;
+    .ss-hero-inner { padding:1.4rem 1.8rem 1.5rem; }
+    .ss-hero-top {
+        display:flex; justify-content:space-between; align-items:center;
+        flex-wrap:wrap; gap:0.6rem; margin-bottom:1rem;
     }
-    .cv-title { font-size: 1.45rem; font-weight: 900; color: #edf0f4; letter-spacing: -0.5px; }
-    .cv-subtitle { font-size: 0.68rem; font-weight: 600; color: #38434f; margin-top: 0.15rem; }
-    .cv-badge {
-        margin-left: auto;
-        font-size: 0.62rem; font-weight: 800; letter-spacing: 0.5px;
-        color: #a78bfa; background: rgba(167,139,250,0.08);
-        border: 1px solid rgba(167,139,250,0.16);
-        border-radius: 999px; padding: 0.3rem 0.85rem;
-        text-transform: uppercase; white-space: nowrap;
+    .ss-hero-left { display:flex; align-items:center; gap:0.9rem; }
+    .ss-icon {
+        display:inline-flex; align-items:center; justify-content:center;
+        width:44px; height:44px; border-radius:11px;
+        background:rgba(167,139,250,0.10); border:1px solid rgba(167,139,250,0.25);
+        font-size:1.35rem; flex-shrink:0;
     }
+    .ss-hero-name { font-size:1.35rem; font-weight:900; color:#e0e0e0; line-height:1.2; letter-spacing:-0.3px; }
+    .ss-hero-sub  { font-size:0.72rem; color:#505050; margin-top:0.2rem; font-weight:600; }
+    .ss-hero-pill {
+        font-size:0.68rem; font-weight:800; color:#a78bfa;
+        background:rgba(167,139,250,0.10); border:1px solid rgba(167,139,250,0.28);
+        border-radius:999px; padding:0.4rem 1rem;
+        text-transform:uppercase; letter-spacing:0.6px; white-space:nowrap;
+    }
+    .ss-divider { border:none; border-top:1px solid #272727; margin:0 0 1rem 0; }
 
-    /* ── hero stats ── */
-    .cv-stats {
-        display: grid; grid-template-columns: repeat(6,1fr); gap: 0.75rem;
-        margin-bottom: 2.8rem;
+    /* ── KPI tiles ── */
+    .ss-kpi-row {
+        display:grid; grid-template-columns:repeat(5,1fr); gap:0.65rem;
     }
-    .cv-stat {
-        background: #0c0f12; border: 1px solid #161b1f;
-        border-radius: 16px; padding: 1.1rem 1.15rem 0.95rem;
-        position: relative; overflow: hidden;
+    .ss-kpi {
+        background:#161616; border:1px solid #272727; border-radius:10px;
+        padding:0.85rem 1rem; position:relative; overflow:hidden;
     }
-    .cv-stat-bar {
-        position: absolute; top: 0; left: 0; right: 0; height: 2px;
-        border-radius: 16px 16px 0 0;
-    }
-    .cv-stat-val {
-        font-size: 1.7rem; font-weight: 900; line-height: 1; margin-bottom: 0.3rem;
-    }
-    .cv-stat-lbl {
-        font-size: 0.5rem; font-weight: 800; color: #252d38;
-        text-transform: uppercase; letter-spacing: 1px;
-    }
-
-    /* ── stock section ── */
-    .cv-stock-hdr {
-        display: flex; align-items: center; gap: 0.85rem;
-        margin: 0 0 1.1rem 0;
-    }
-    .cv-stock-accent { width: 3px; height: 1.5rem; border-radius: 2px; background: #a78bfa; flex-shrink:0; }
-    .cv-stock-sym  { font-size: 1.15rem; font-weight: 900; color: #e5eaf0; letter-spacing:-0.3px; }
-    .cv-stock-name { font-size: 0.64rem; font-weight: 700; color: #2e3a48; }
-    .cv-stock-pill {
-        margin-left: auto;
-        font-size: 0.56rem; font-weight: 800; letter-spacing: 0.4px;
-        color: #5a6570; background: #0f1316;
-        border: 1px solid #181e24; border-radius: 999px;
-        padding: 0.22rem 0.65rem; text-transform: uppercase;
-    }
-
-    /* ── grid ── */
-    .cv-col-lbl {
-        font-size: 0.56rem; font-weight: 800; color: #22292f;
-        text-transform: uppercase; letter-spacing: 0.9px; padding-bottom: 0.45rem;
-    }
-    .cv-col-lbl.period { text-align: center; border-bottom: 1px solid #111518; }
-    .cv-grid-div { height: 1px; background: #0e1215; margin: 0.3rem 0 1rem 0; }
-
-    /* ── regime pill ── */
-    .cv-reg {
-        display: inline-flex; align-items: center; gap: 0.3rem;
-        font-size: 0.68rem; font-weight: 800;
-        padding: 0.32rem 0.8rem; border-radius: 999px; white-space: nowrap;
-    }
-
-    /* ── champion card ── */
-    .cv-card {
-        background: #0c0f12; border: 1px solid #161b1f;
-        border-radius: 14px; padding: 0.95rem 1rem 0.8rem;
-        position: relative; overflow: hidden;
-    }
-    .cv-card-top { position:absolute; top:0; left:0; right:0; height:2px; border-radius:14px 14px 0 0; }
-    .cv-card-combo {
-        font-size: 0.78rem; font-weight: 800; color: #c5ccd4;
-        line-height: 1.5; margin-bottom: 0.6rem;
-    }
-    .cv-card-stats { display: flex; gap: 0.8rem; flex-wrap: wrap; }
-    .cv-cs { display: flex; flex-direction: column; gap: 0.1rem; }
-    .cv-cl { font-size: 0.44rem; font-weight: 800; color: #1e2730;
-             text-transform: uppercase; letter-spacing: 0.6px; }
-    .cv-cv { font-size: 0.82rem; font-weight: 900; line-height: 1; }
-
-    /* ── empty cell ── */
-    .cv-empty-cell {
-        display: flex; align-items: center; justify-content: center;
-        min-height: 90px; color: #131820; font-size: 1.5rem;
-    }
-
-    /* ── empty page state ── */
-    .cv-empty-page {
-        display: flex; flex-direction: column; align-items: center;
-        justify-content: center; padding: 6rem 2rem; text-align: center; gap: 1.3rem;
-    }
-    .cv-empty-ring {
-        width: 88px; height: 88px; border-radius: 50%;
-        border: 2px solid #161b1f;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 2.4rem; color: #1a2028;
-    }
-    .cv-empty-title { font-size: 1.05rem; font-weight: 800; color: #303a45; }
-    .cv-empty-body  { font-size: 0.74rem; color: #222c36; max-width: 420px; line-height: 1.9; }
+    .ss-kpi-bar { position:absolute; top:0; left:0; right:0; height:2px; border-radius:10px 10px 0 0; }
+    .ss-kpi-lbl { font-size:0.58rem; color:#505050; text-transform:uppercase; letter-spacing:1px; font-weight:700; margin-bottom:0.4rem; }
+    .ss-kpi-val { font-size:1.55rem; font-weight:900; line-height:1; }
 
     /* ── back button ── */
     .st-key-cv_back_wrap .stButton > button {
-        background: transparent !important;
-        border: 1px solid #191e23 !important;
-        border-radius: 10px !important;
-        color: #384450 !important;
-        font-size: 0.72rem !important; font-weight: 700 !important;
-        padding: 0.52rem 1rem !important;
-        height: auto !important; min-height: auto !important;
-        letter-spacing: 0.2px !important;
+        background:#1e1e1e !important; border:1px solid #303030 !important;
+        border-radius:10px !important; color:#9e9e9e !important;
+        font-size:0.78rem !important; font-weight:700 !important;
+        padding:0.5rem 1rem !important; height:auto !important; min-height:auto !important;
+        transition:all 0.15s ease !important;
     }
     .st-key-cv_back_wrap .stButton > button:hover {
-        border-color: #2a3540 !important;
-        color: #7a8fa0 !important;
-        background: rgba(255,255,255,0.025) !important;
+        background:#272727 !important; border-color:#404040 !important; color:#e0e0e0 !important;
     }
 
-    /* ── remove button ── */
-    [class*="st-key-cvr_"] .stButton > button {
-        background: transparent !important;
-        border: 1px solid #161b1f !important;
-        border-radius: 7px !important;
-        color: #222c36 !important;
-        font-size: 0.58rem !important; font-weight: 700 !important;
-        padding: 0.22rem 0.6rem !important;
-        height: auto !important; min-height: auto !important;
-        transition: all 0.15s ease !important;
-        margin-top: 0.45rem !important;
+    /* ── stock block ── */
+    .ss-stock-block {
+        background:#1b1b1b; border:1px solid #272727; border-radius:14px;
+        margin-bottom:1.2rem; overflow:hidden;
+        box-shadow:0 2px 16px rgba(0,0,0,0.2);
     }
-    [class*="st-key-cvr_"] .stButton > button:hover {
-        background: rgba(239,83,80,0.07) !important;
-        border-color: rgba(239,83,80,0.35) !important;
-        color: #ef5350 !important;
+    .ss-stock-hdr {
+        display:flex; align-items:center; gap:0.8rem;
+        padding:1rem 1.4rem; border-bottom:1px solid #272727;
+        background:#1e1e1e;
     }
+    .ss-stock-bar { width:4px; height:1.6rem; border-radius:3px; background:#a78bfa; flex-shrink:0; }
+    .ss-stock-sym  { font-size:1.1rem; font-weight:900; color:#e0e0e0; letter-spacing:-0.2px; }
+    .ss-stock-name { font-size:0.72rem; color:#505050; font-weight:600; margin-left:0.1rem; }
+    .ss-stock-badge {
+        margin-left:auto; font-size:0.6rem; font-weight:800; letter-spacing:0.5px;
+        color:#a78bfa; background:rgba(167,139,250,0.08);
+        border:1px solid rgba(167,139,250,0.22); border-radius:999px;
+        padding:0.28rem 0.75rem; text-transform:uppercase;
+    }
+
+    /* ── period column headers ── */
+    .ss-period-hdr {
+        padding:0.5rem 0.7rem 0.45rem;
+        background:#181818; border-bottom:1px solid #1f1f1f;
+        display:flex; align-items:center; gap:0.4rem;
+    }
+    .ss-period-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; background:#a78bfa; }
+    .ss-period-lbl { font-size:0.6rem; font-weight:800; color:#a78bfa; text-transform:uppercase; letter-spacing:0.8px; }
+    .ss-period-n   { font-size:0.55rem; color:#383838; font-weight:600; }
+
+    /* ── strategy card — ultra compact row ── */
+    .ss-sc {
+        margin:0.35rem 0.5rem 0;
+        border-radius:7px; overflow:hidden;
+        border:1px solid #242424; background:#171717;
+        display:flex; align-items:stretch;
+    }
+    .ss-sc-accent { width:3px; flex-shrink:0; }
+    .ss-sc-body {
+        flex:1; min-width:0;
+        padding:0.45rem 0.55rem 0.42rem;
+        display:flex; flex-direction:column; gap:0.28rem;
+    }
+    .ss-sc-row1 { display:flex; align-items:center; gap:0.4rem; }
+    .ss-sc-regime {
+        font-size:0.55rem; font-weight:800;
+        padding:0.15rem 0.45rem; border-radius:999px;
+        text-transform:uppercase; letter-spacing:0.4px;
+        border:1px solid; white-space:nowrap; flex-shrink:0;
+    }
+    .ss-sc-combo {
+        font-size:0.72rem; font-weight:700; color:#c0c0c0;
+        white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+        flex:1; min-width:0;
+    }
+    .ss-sc-row2 { display:flex; align-items:center; gap:0.5rem; }
+    .ss-sc-stat { font-size:0.62rem; font-weight:800; white-space:nowrap; }
+    .ss-sc-lbl  { font-size:0.52rem; font-weight:600; color:#444; margin-right:0.18rem; }
+    .ss-sc-del {
+        flex-shrink:0; display:flex; align-items:center;
+        padding:0 0.45rem; cursor:pointer;
+        border-left:1px solid #242424;
+    }
+
+    /* ── period column empty ── */
+    .ss-period-empty {
+        margin:0.4rem 0.5rem 0.5rem; border-radius:6px;
+        border:1px dashed #222; padding:0.7rem 0.5rem;
+        text-align:center; font-size:0.58rem; color:#2e2e2e; font-weight:600;
+    }
+
+    /* ── remove button (tiny, right-aligned inside card) ── */
+    [class*="st-key-ssrm_"] .stButton > button {
+        background:transparent !important; border:none !important;
+        color:rgba(239,83,80,0.28) !important;
+        font-size:0.7rem !important; font-weight:700 !important;
+        padding:0.2rem 0.4rem !important;
+        height:auto !important; min-height:auto !important;
+        transition:color 0.12s ease !important;
+        line-height:1 !important;
+    }
+    [class*="st-key-ssrm_"] .stButton > button:hover {
+        color:#ef5350 !important; background:transparent !important;
+    }
+
+    /* ── empty state ── */
+    .ss-empty {
+        background:#1b1b1b; border:1px solid #272727; border-radius:14px;
+        padding:5rem 2rem; text-align:center; box-shadow:0 4px 24px rgba(0,0,0,0.3);
+    }
+    .ss-empty-ring {
+        width:80px; height:80px; border-radius:50%;
+        background:rgba(167,139,250,0.08); border:2px solid rgba(167,139,250,0.25);
+        display:inline-flex; align-items:center; justify-content:center;
+        font-size:2rem; margin-bottom:1.1rem; color:#a78bfa;
+    }
+    .ss-empty-title { font-size:1.1rem; font-weight:800; color:#e0e0e0; margin-bottom:0.5rem; }
+    .ss-empty-body  { font-size:0.8rem; color:#505050; max-width:500px; margin:0 auto; line-height:1.7; }
     </style>
     """, unsafe_allow_html=True)
 
-    # ── header ────────────────────────────────────────────────────────────
+    # ── KPI counts ────────────────────────────────────────────────────────────
     _n       = len(rc_favs)
     _stocks  = len(set(f.get('symbol', '') for f in rc_favs))
-    _hdr_l, _hdr_r = st.columns([8, 1.4])
-    with _hdr_l:
+    _trend_n = sum(1 for f in rc_favs if f.get('best_regime') == 'TREND')
+    _range_n = sum(1 for f in rc_favs if f.get('best_regime') == 'RANGE')
+    _vol_n   = sum(1 for f in rc_favs if f.get('best_regime') == 'VOLATILE')
+
+    # ── header row: hero block + back button ─────────────────────────────────
+    _hl, _hr = st.columns([11, 1.1])
+    with _hl:
         st.markdown(
-            "<div class='cv-page-hdr'>"
-            "<div class='cv-icon'>⚡</div>"
-            "<div><div class='cv-title'>Champions Vault</div>"
-            "<div class='cv-subtitle'>Saved regime champions grouped by stock and holding period</div></div>"
-            f"<span class='cv-badge'>{_n} saved · {_stocks} stock{'s' if _stocks != 1 else ''}</span>"
-            "</div>",
+            "<div class='ss-hero'><div class='ss-hero-inner'>"
+            "<div class='ss-hero-top'>"
+            "<div class='ss-hero-left'>"
+            "<div class='ss-icon'>★</div>"
+            "<div>"
+            "<div class='ss-hero-name'>Saved Strategies</div>"
+            "<div class='ss-hero-sub'>All saved champions — grouped by stock &amp; period</div>"
+            "</div></div>"
+            f"<span class='ss-hero-pill'>{_n} saved &nbsp;·&nbsp; {_stocks} stock{'s' if _stocks != 1 else ''}</span>"
+            "</div>"
+            "<hr class='ss-divider'>"
+            "<div class='ss-kpi-row'>"
+            f"<div class='ss-kpi'><div class='ss-kpi-bar' style='background:#606060'></div>"
+            f"<div class='ss-kpi-lbl'>Total Stocks</div>"
+            f"<div class='ss-kpi-val' style='color:#9e9e9e'>{_stocks}</div></div>"
+            f"<div class='ss-kpi'><div class='ss-kpi-bar' style='background:#a78bfa'></div>"
+            f"<div class='ss-kpi-lbl'>Total Saved</div>"
+            f"<div class='ss-kpi-val' style='color:#a78bfa'>{_n}</div></div>"
+            f"<div class='ss-kpi'><div class='ss-kpi-bar' style='background:#26A69A'></div>"
+            f"<div class='ss-kpi-lbl'>Trend</div>"
+            f"<div class='ss-kpi-val' style='color:#26A69A'>{_trend_n}</div></div>"
+            f"<div class='ss-kpi'><div class='ss-kpi-bar' style='background:#4A9EFF'></div>"
+            f"<div class='ss-kpi-lbl'>Range</div>"
+            f"<div class='ss-kpi-val' style='color:#4A9EFF'>{_range_n}</div></div>"
+            f"<div class='ss-kpi'><div class='ss-kpi-bar' style='background:#FF6B6B'></div>"
+            f"<div class='ss-kpi-lbl'>Volatile</div>"
+            f"<div class='ss-kpi-val' style='color:#FF6B6B'>{_vol_n}</div></div>"
+            "</div>"
+            "</div></div>",
             unsafe_allow_html=True)
-    with _hdr_r:
+    with _hr:
+        st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
         with st.container(key="cv_back_wrap"):
             if st.button("← Back", key="cv_back_btn", use_container_width=True):
                 st.session_state.show_champions_vault = False
                 st.rerun()
 
-    # ── hero stats ────────────────────────────────────────────────────────
-    _trend_n = sum(1 for f in rc_favs if f.get('best_regime') == 'TREND')
-    _range_n = sum(1 for f in rc_favs if f.get('best_regime') == 'RANGE')
-    _vol_n   = sum(1 for f in rc_favs if f.get('best_regime') == 'VOLATILE')
-    _avg_wr  = (sum(f.get('win_rate', 0)       for f in rc_favs) / _n) if _n else 0
-    _avg_pf  = (sum(f.get('profit_factor', 0)  for f in rc_favs) / _n) if _n else 0
-    _wc      = '#26A69A' if _avg_wr >= 55 else ('#FFC107' if _avg_wr >= 45 else '#ef5350')
-    _pc      = '#26A69A' if _avg_pf >= 1.5 else ('#FFC107' if _avg_pf >= 1.0 else '#ef5350')
-    st.markdown(
-        f"<div class='cv-stats'>"
-        f"<div class='cv-stat'><div class='cv-stat-bar' style='background:linear-gradient(90deg,#a78bfa,transparent)'></div>"
-        f"<div class='cv-stat-val' style='color:#a78bfa'>{_n}</div><div class='cv-stat-lbl'>Total Saved</div></div>"
-
-        f"<div class='cv-stat'><div class='cv-stat-bar' style='background:linear-gradient(90deg,#26A69A,transparent)'></div>"
-        f"<div class='cv-stat-val' style='color:#26A69A'>{_trend_n}</div><div class='cv-stat-lbl'>Trend</div></div>"
-
-        f"<div class='cv-stat'><div class='cv-stat-bar' style='background:linear-gradient(90deg,#4A9EFF,transparent)'></div>"
-        f"<div class='cv-stat-val' style='color:#4A9EFF'>{_range_n}</div><div class='cv-stat-lbl'>Range</div></div>"
-
-        f"<div class='cv-stat'><div class='cv-stat-bar' style='background:linear-gradient(90deg,#FF6B6B,transparent)'></div>"
-        f"<div class='cv-stat-val' style='color:#FF6B6B'>{_vol_n}</div><div class='cv-stat-lbl'>Volatile</div></div>"
-
-        f"<div class='cv-stat'><div class='cv-stat-bar' style='background:linear-gradient(90deg,{_wc},transparent)'></div>"
-        f"<div class='cv-stat-val' style='color:{_wc}'>{_avg_wr:.1f}%</div><div class='cv-stat-lbl'>Avg Win Rate</div></div>"
-
-        f"<div class='cv-stat'><div class='cv-stat-bar' style='background:linear-gradient(90deg,{_pc},transparent)'></div>"
-        f"<div class='cv-stat-val' style='color:{_pc}'>{_avg_pf:.2f}x</div><div class='cv-stat-lbl'>Avg P. Factor</div></div>"
-        f"</div>",
-        unsafe_allow_html=True)
-
-    # ── empty state ────────────────────────────────────────────────────────
+    # ── empty state ───────────────────────────────────────────────────────────
     if not rc_favs:
         st.markdown(
-            "<div class='cv-empty-page'>"
-            "<div class='cv-empty-ring'>⚡</div>"
-            "<div class='cv-empty-title'>Your vault is empty</div>"
-            "<div class='cv-empty-body'>Go to <b>Signal Analysis → Indicator Combinations → Regime Champions</b>, "
-            "run analysis on any stock, then tap <b style='color:#a78bfa'>☆ Save to Vault</b> "
-            "on any champion card.</div>"
+            "<div class='ss-empty'>"
+            "<div class='ss-empty-ring'>★</div>"
+            "<div class='ss-empty-title'>No saved strategies yet</div>"
+            "<div class='ss-empty-body'>Run analysis on any stock, go to "
+            "<b style='color:#e0e0e0'>Signal Analysis → Indicator Combinations → Regime Champions</b>, "
+            "then tap <b style='color:#a78bfa'>☆ Save Strategy</b>.</div>"
             "</div>",
             unsafe_allow_html=True)
         return
 
-    # ── build lookup ───────────────────────────────────────────────────────
-    _lookup: dict = {}
+    # ── build per-stock, per-period lookup ────────────────────────────────────
+    # Structure: { symbol: { 'sname': str, 'periods': { period_label: [fav, ...] } } }
+    _by_stock: dict = {}
     for _f in rc_favs:
         _s  = _f.get('symbol', '—')
         _sn = _f.get('stock_name', '')
-        _pl = _f.get('period_label', '—')
-        _rg = _f.get('best_regime', '—')
-        if _s not in _lookup:
-            _lookup[_s] = {'sname': _sn, 'periods': {}}
-        _lookup[_s]['periods'].setdefault(_pl, {})[_rg] = _f
+        _pl = _f.get('period_label', 'Medium (63d)')
+        if _s not in _by_stock:
+            _by_stock[_s] = {'sname': _sn, 'periods': {p: [] for p in _PERIODS}}
+        # normalize period labels that don't exactly match known keys
+        _matched = next((p for p in _PERIODS if p.lower().startswith(_pl.split()[0].lower())), _pl)
+        _by_stock[_s]['periods'].setdefault(_matched, []).append(_f)
 
-    # ── render per stock ───────────────────────────────────────────────────
-    for _sym, _sdata in sorted(_lookup.items()):
+    # sort strategies within each period by win_rate desc
+    for _sd in _by_stock.values():
+        for _pl in _sd['periods']:
+            _sd['periods'][_pl].sort(key=lambda f: -float(f.get('win_rate', 0) or 0))
+
+    # ── render one block per stock ────────────────────────────────────────────
+    _gidx = 0
+    for _sym, _sdata in sorted(_by_stock.items()):
         _sname   = _sdata['sname']
         _periods = _sdata['periods']
-        _sym_cnt = sum(len(v) for v in _periods.values())
+        _strat_n = sum(len(v) for v in _periods.values())
 
-        # stock header
+        # stock block header (pure HTML — no Streamlit columns for the header)
         st.markdown(
-            f"<div class='cv-stock-hdr'>"
-            f"<div class='cv-stock-accent'></div>"
-            f"<span class='cv-stock-sym'>{_sym}</span>"
-            + (f"<span class='cv-stock-name'>{_sname}</span>" if _sname else "")
-            + f"<span class='cv-stock-pill'>{_sym_cnt} saved</span>"
+            "<div class='ss-stock-block'>"
+            "<div class='ss-stock-hdr'>"
+            "<div class='ss-stock-bar'></div>"
+            f"<span class='ss-stock-sym'>{_sym.replace('.SR','')}</span>"
+            + (f"<span class='ss-stock-name'>{_sname}</span>" if _sname else "")
+            + f"<span class='ss-stock-badge'>{_strat_n} saved</span>"
             "</div>",
             unsafe_allow_html=True)
 
-        # column header row
-        _gh = st.columns([0.9, 2.5, 2.5, 2.5], gap="medium")
-        with _gh[0]:
-            st.markdown("<div class='cv-col-lbl'>Regime</div>", unsafe_allow_html=True)
-        for _ci, (_pl, _ps) in enumerate(zip(_P_LABEL, _P_SUB)):
-            with _gh[_ci + 1]:
-                st.markdown(
-                    f"<div class='cv-col-lbl period'>{_pl}"
-                    f"<span style='color:#181e24'> · {_ps}</span></div>",
-                    unsafe_allow_html=True)
-        st.markdown("<div class='cv-grid-div'></div>", unsafe_allow_html=True)
+        # 3 equal columns: Short | Medium | Long
+        _col_short, _col_med, _col_long = st.columns(3, gap="small")
+        _period_cols = {
+            'Short (5d)':   _col_short,
+            'Medium (63d)': _col_med,
+            'Long (252d)':  _col_long,
+        }
 
-        # one row per regime
-        for _rk, _rc, _ri in _REGIMES:
-            _row = st.columns([0.9, 2.5, 2.5, 2.5], gap="medium")
-
-            with _row[0]:
+        for _pl, _col in _period_cols.items():
+            _strats_in_period = _periods.get(_pl, [])
+            _short_lbl = _PERIOD_SHORT[_pl]
+            with _col:
+                # period column header
                 st.markdown(
-                    f"<div style='padding:0.7rem 0'>"
-                    f"<span class='cv-reg' style='color:{_rc};background:{_rc}10;"
-                    f"border:1px solid {_rc}28'>{_ri}&nbsp;{_rk.title()}</span></div>",
+                    f"<div class='ss-period-hdr'>"
+                    f"<div class='ss-period-dot'></div>"
+                    f"<span class='ss-period-lbl'>{_short_lbl}</span>"
+                    f"<span class='ss-period-n'>({len(_strats_in_period)})</span>"
+                    f"</div>",
                     unsafe_allow_html=True)
 
-            for _pi, _period in enumerate(_PERIODS):
-                with _row[_pi + 1]:
-                    _f = _periods.get(_period, {}).get(_rk)
-                    if _f:
-                        _wr    = _f.get('win_rate', 0)
-                        _pf    = _f.get('profit_factor', 0)
-                        _exp   = _f.get('expectancy', 0)
-                        _sig   = _f.get('signals', 0)
-                        _combo = _f.get('combo_indicators', '—')
-                        _fid   = _f.get('id', '')
-                        _wc2   = '#26A69A' if _wr >= 55 else ('#FFC107' if _wr >= 45 else '#ef5350')
-                        _ec    = '#26A69A' if _exp > 0 else '#ef5350'
-                        _rkey  = f"cvr_{_sym[:6]}_{_rk[:2]}_{_pi}"
+                if not _strats_in_period:
+                    st.markdown("<div class='ss-period-empty'>—</div>", unsafe_allow_html=True)
+                    continue
 
+                for _f in _strats_in_period:
+                    _wr    = float(_f.get('win_rate', 0) or 0)
+                    _pf    = float(_f.get('profit_factor', 0) or 0)
+                    _exp   = float(_f.get('expectancy', 0) or 0)
+                    _sig   = int(_f.get('signals', 0) or 0)
+                    _combo = _f.get('combo_indicators', '—')
+                    _rk    = _f.get('best_regime', 'TREND')
+                    _fid   = _f.get('id', '')
+
+                    _rc, _ri, _rlbl = _REGIME_META.get(_rk, ('#a78bfa', '★', _rk.title()))
+                    _wc = '#26A69A' if _wr >= 55 else ('#FFC107' if _wr >= 45 else '#ef5350')
+                    _ec = '#26A69A' if _exp > 0 else '#ef5350'
+                    _rmkey = f"ssrm_{_fid.replace('.','_').replace(' ','_').replace('(','_').replace(')','_').replace('/','_')}"[:72]
+
+                    # compact card row: accent bar | regime pill + combo name | win% · sig | ✕
+                    _c_main, _c_del = st.columns([20, 1])
+                    with _c_main:
                         st.markdown(
-                            f"<div class='cv-card'>"
-                            f"<div class='cv-card-top' style='background:linear-gradient(90deg,{_rc},transparent)'></div>"
-                            f"<div class='cv-card-combo'>{_combo}</div>"
-                            f"<div class='cv-card-stats'>"
-                            f"<div class='cv-cs'><div class='cv-cl'>Win Rate</div>"
-                            f"<div class='cv-cv' style='color:{_wc2}'>{_wr:.1f}%</div></div>"
-                            f"<div class='cv-cs'><div class='cv-cl'>P.Factor</div>"
-                            f"<div class='cv-cv' style='color:#5a6878'>{_pf:.2f}</div></div>"
-                            f"<div class='cv-cs'><div class='cv-cl'>Edge</div>"
-                            f"<div class='cv-cv' style='color:{_ec}'>{_exp:+.2f}%</div></div>"
-                            f"<div class='cv-cs'><div class='cv-cl'>Signals</div>"
-                            f"<div class='cv-cv' style='color:#303c48'>{_sig}</div></div>"
+                            f"<div class='ss-sc'>"
+                            f"<div class='ss-sc-accent' style='background:{_rc}'></div>"
+                            f"<div class='ss-sc-body'>"
+                            f"<div class='ss-sc-row1'>"
+                            f"<span class='ss-sc-regime' style='color:{_rc};border-color:{_rc}44;background:{_rc}14;'>{_ri}&nbsp;{_rlbl}</span>"
+                            f"<span class='ss-sc-combo' title='{_combo}'>{_combo}</span>"
+                            f"</div>"
+                            f"<div class='ss-sc-row2'>"
+                            f"<span class='ss-sc-lbl'>Win</span><span class='ss-sc-stat' style='color:{_wc}'>{_wr:.1f}%</span>"
+                            f"<span style='color:#2a2a2a;font-size:0.55rem;'>|</span>"
+                            f"<span class='ss-sc-lbl'>Sig</span><span class='ss-sc-stat' style='color:#606060'>{_sig}</span>"
+                            f"</div>"
                             f"</div></div>",
                             unsafe_allow_html=True)
+                    with _c_del:
+                        with st.container(key=_rmkey):
+                            st.button(
+                                "✕",
+                                key=f"btn_{_rmkey}",
+                                use_container_width=True,
+                                on_click=_rc_toggle,
+                                args=(_fid, None),
+                            )
+                    _gidx += 1
 
-                        def _do_remove(_fid=_fid):
-                            delete_favorite(_user, _fid)
-                            st.session_state.favorites = [
-                                x for x in st.session_state.get('favorites', [])
-                                if x.get('id') != _fid
-                            ]
-                            st.toast("Removed from Champions Vault", icon="🗑️")
+                st.markdown("<div style='height:0.4rem'></div>", unsafe_allow_html=True)
 
-                        with st.container(key=f"cvr_{_rkey}"):
-                            st.button("✕ Remove", key=_rkey, on_click=_do_remove)
-                    else:
-                        st.markdown("<div class='cv-empty-cell'>—</div>", unsafe_allow_html=True)
-
-        st.markdown("<div style='height:2rem'></div>", unsafe_allow_html=True)
+        # close stock block
+        st.markdown("</div>", unsafe_allow_html=True)
 

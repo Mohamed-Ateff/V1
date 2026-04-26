@@ -3115,7 +3115,7 @@ def main():
                                         st.session_state.mkt_period = _pk
                                         st.rerun()
 
-                    # Action buttons — User + Champions Vault
+                    # Action buttons — User + Saved Strategies
                     fav_count = len(st.session_state.get('favorites', []))
                     _bu1, _bu2 = st.columns([1, 1], gap="small")
                     with _bu1:
@@ -3129,7 +3129,7 @@ def main():
                     with _bu2:
                         with st.container(key="btn_champions"):
                             _cv_is_active = st.session_state.get('show_champions_vault', False)
-                            _cv_lbl = "✕  Vault" if _cv_is_active else "⚡  Vault"
+                            _cv_lbl = "✕  Saved" if _cv_is_active else f"★  Saved ({fav_count})"
                             if st.button(_cv_lbl, key="toolbar_champions", use_container_width=True):
                                 st.session_state.show_champions_vault = not _cv_is_active
                                 if not _cv_is_active:
@@ -5863,70 +5863,46 @@ def main():
         ])
 
         with tab_dec:
-            @st.fragment
-            def _frag_decision():
-                render_decision_tab(df, symbol_input, stock_name, current_price)
-            _frag_decision()
+            render_decision_tab(df, symbol_input, stock_name, current_price)
 
         with tab0:
-            @st.fragment
-            def _frag_regime():
-                render_regime_analysis_tab(df, info_icon, create_regime_distribution_chart)
-            _frag_regime()
+            render_regime_analysis_tab(df, info_icon, create_regime_distribution_chart)
 
         with tab1:
-            @st.fragment
-            def _frag_signals():
-                signal_analysis_tab(df, info_icon)
-            _frag_signals()
+            signal_analysis_tab(df, info_icon)
 
         with tab2:
-            @st.fragment
-            def _frag_patterns():
-                render_patterns_price_action_workspace(df, info_icon)
-            _frag_patterns()
+            render_patterns_price_action_workspace(df, info_icon)
 
         with tab_vp:
-            @st.fragment
-            def _frag_vp():
-                volume_profile_tab(df, current_price)
-            _frag_vp()
+            volume_profile_tab(df, current_price)
 
         with tab_smc:
-            @st.fragment
-            def _frag_smc():
-                smc_tab(df, current_price)
-            _frag_smc()
+            smc_tab(df, current_price)
 
         with tab_ew:
-            @st.fragment
-            def _frag_ew():
-                elliott_wave_tab(df, current_price)
-            _frag_ew()
+            elliott_wave_tab(df, current_price)
 
         with tab_lab:
-            @st.fragment
-            def _frag_strategy_lab():
-                strategy_lab_tab(
-                    df,
-                    symbol_input,
-                    stock_name,
-                    latest,
-                    current_price,
-                    period_change,
-                    period_high,
-                    period_low,
-                    annual_vol,
-                    current_regime,
-                    adx_current,
-                    rsi_current,
-                    atr_pct,
-                    price_vs_ema20,
-                    price_vs_ema200,
-                    recent_5d_change,
-                    recent_20d_change,
-                )
-            _frag_strategy_lab()
+            strategy_lab_tab(
+                df,
+                symbol_input,
+                stock_name,
+                latest,
+                current_price,
+                period_change,
+                period_high,
+                period_low,
+                annual_vol,
+                current_regime,
+                adx_current,
+                rsi_current,
+                atr_pct,
+                price_vs_ema20,
+                price_vs_ema200,
+                recent_5d_change,
+                recent_20d_change,
+            )
 
 
 

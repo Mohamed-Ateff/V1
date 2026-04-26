@@ -28,6 +28,10 @@ def _hex_rgba(hex_color, alpha=0.12):
 
 
 def signal_analysis_tab(df, info_icon):
+    # flush any pending save/remove toast from last on_click
+    _pending_toast = st.session_state.pop('_rc_toast', None)
+    if _pending_toast:
+        st.toast(_pending_toast[0], icon=_pending_toast[1])
 
     from signal_engine import (
         detect_signals, evaluate_signal_success,
