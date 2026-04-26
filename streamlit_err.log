@@ -1,20 +1,90 @@
-2026-04-26 16:59:16.258 Please replace `use_container_width` with `width`.
-
-`use_container_width` will be removed after 2025-12-31.
-
-For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
-2026-04-26 16:59:16.720 Please replace `use_container_width` with `width`.
-
-`use_container_width` will be removed after 2025-12-31.
-
-For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
-2026-04-26 16:59:22.016 Please replace `use_container_width` with `width`.
-
-`use_container_width` will be removed after 2025-12-31.
-
-For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
-2026-04-26 16:59:22.298 Please replace `use_container_width` with `width`.
-
-`use_container_width` will be removed after 2025-12-31.
-
-For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-04-26 18:23:36.310 `label` got an empty value. This is discouraged for accessibility reasons and may be disallowed in the future by raising an exception. Please provide a non-empty label and hide it with label_visibility if needed.
+Stack (most recent call last):
+  File "C:\Users\moham\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 1014, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\moham\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 1043, in _bootstrap_inner
+    self.run()
+  File "C:\Users\moham\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 994, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Users\moham\OneDrive\Desktop\My app\.venv\Lib\site-packages\streamlit\runtime\scriptrunner\script_runner.py", line 379, in _run_script_thread
+    self._run_script(request.rerun_data)
+  File "C:\Users\moham\OneDrive\Desktop\My app\.venv\Lib\site-packages\streamlit\runtime\scriptrunner\script_runner.py", line 705, in _run_script
+    ) = exec_func_with_error_handling(code_to_exec, ctx)
+  File "C:\Users\moham\OneDrive\Desktop\My app\.venv\Lib\site-packages\streamlit\runtime\scriptrunner\exec_code.py", line 129, in exec_func_with_error_handling
+    result = func()
+  File "C:\Users\moham\OneDrive\Desktop\My app\.venv\Lib\site-packages\streamlit\runtime\scriptrunner\script_runner.py", line 689, in code_to_exec
+    exec(code, module.__dict__)  # noqa: S102
+  File "C:\Users\moham\OneDrive\Desktop\My app\app.py", line 5922, in <module>
+    main()
+  File "C:\Users\moham\OneDrive\Desktop\My app\app.py", line 3726, in main
+    render_champions_vault_page()
+  File "C:\Users\moham\OneDrive\Desktop\My app\favorites_tab.py", line 1388, in render_champions_vault_page
+    _search = st.text_input("", placeholder="Search symbol or indicator…",
+  File "C:\Users\moham\OneDrive\Desktop\My app\.venv\Lib\site-packages\streamlit\runtime\metrics_util.py", line 532, in wrapped_func
+    result = non_optional_func(*args, **kwargs)
+  File "C:\Users\moham\OneDrive\Desktop\My app\.venv\Lib\site-packages\streamlit\elements\widgets\text_widgets.py", line 278, in text_input
+    return self._text_input(
+  File "C:\Users\moham\OneDrive\Desktop\My app\.venv\Lib\site-packages\streamlit\elements\widgets\text_widgets.py", line 325, in _text_input
+    maybe_raise_label_warnings(label, label_visibility)
+  File "C:\Users\moham\OneDrive\Desktop\My app\.venv\Lib\site-packages\streamlit\elements\lib\policies.py", line 184, in maybe_raise_label_warnings
+    _LOGGER.warning(
+2026-04-26 18:23:36.319 `label` got an empty value. This is discouraged for accessibility reasons and may be disallowed in the future by raising an exception. Please provide a non-empty label and hide it with label_visibility if needed.
+Stack (most recent call last):
+  File "C:\Users\moham\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 1014, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\moham\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 1043, in _bootstrap_inner
+    self.run()
+  File "C:\Users\moham\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 994, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Users\moham\OneDrive\Desktop\My app\.venv\Lib\site-packages\streamlit\runtime\scriptrunner\script_runner.py", line 379, in _run_script_thread
+    self._run_script(request.rerun_data)
+  File "C:\Users\moham\OneDrive\Desktop\My app\.venv\Lib\site-packages\streamlit\runtime\scriptrunner\script_runner.py", line 705, in _run_script
+    ) = exec_func_with_error_handling(code_to_exec, ctx)
+  File "C:\Users\moham\OneDrive\Desktop\My app\.venv\Lib\site-packages\streamlit\runtime\scriptrunner\exec_code.py", line 129, in exec_func_with_error_handling
+    result = func()
+  File "C:\Users\moham\OneDrive\Desktop\My app\.venv\Lib\site-packages\streamlit\runtime\scriptrunner\script_runner.py", line 689, in code_to_exec
+    exec(code, module.__dict__)  # noqa: S102
+  File "C:\Users\moham\OneDrive\Desktop\My app\app.py", line 5922, in <module>
+    main()
+  File "C:\Users\moham\OneDrive\Desktop\My app\app.py", line 3726, in main
+    render_champions_vault_page()
+  File "C:\Users\moham\OneDrive\Desktop\My app\favorites_tab.py", line 1391, in render_champions_vault_page
+    _regime_filter = st.selectbox("", ["All Regimes", "Trend", "Range", "Volatile"],
+  File "C:\Users\moham\OneDrive\Desktop\My app\.venv\Lib\site-packages\streamlit\runtime\metrics_util.py", line 532, in wrapped_func
+    result = non_optional_func(*args, **kwargs)
+  File "C:\Users\moham\OneDrive\Desktop\My app\.venv\Lib\site-packages\streamlit\elements\widgets\selectbox.py", line 492, in selectbox
+    return self._selectbox(
+  File "C:\Users\moham\OneDrive\Desktop\My app\.venv\Lib\site-packages\streamlit\elements\widgets\selectbox.py", line 537, in _selectbox
+    maybe_raise_label_warnings(label, label_visibility)
+  File "C:\Users\moham\OneDrive\Desktop\My app\.venv\Lib\site-packages\streamlit\elements\lib\policies.py", line 184, in maybe_raise_label_warnings
+    _LOGGER.warning(
+2026-04-26 18:23:36.326 `label` got an empty value. This is discouraged for accessibility reasons and may be disallowed in the future by raising an exception. Please provide a non-empty label and hide it with label_visibility if needed.
+Stack (most recent call last):
+  File "C:\Users\moham\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 1014, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Users\moham\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 1043, in _bootstrap_inner
+    self.run()
+  File "C:\Users\moham\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 994, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Users\moham\OneDrive\Desktop\My app\.venv\Lib\site-packages\streamlit\runtime\scriptrunner\script_runner.py", line 379, in _run_script_thread
+    self._run_script(request.rerun_data)
+  File "C:\Users\moham\OneDrive\Desktop\My app\.venv\Lib\site-packages\streamlit\runtime\scriptrunner\script_runner.py", line 705, in _run_script
+    ) = exec_func_with_error_handling(code_to_exec, ctx)
+  File "C:\Users\moham\OneDrive\Desktop\My app\.venv\Lib\site-packages\streamlit\runtime\scriptrunner\exec_code.py", line 129, in exec_func_with_error_handling
+    result = func()
+  File "C:\Users\moham\OneDrive\Desktop\My app\.venv\Lib\site-packages\streamlit\runtime\scriptrunner\script_runner.py", line 689, in code_to_exec
+    exec(code, module.__dict__)  # noqa: S102
+  File "C:\Users\moham\OneDrive\Desktop\My app\app.py", line 5922, in <module>
+    main()
+  File "C:\Users\moham\OneDrive\Desktop\My app\app.py", line 3726, in main
+    render_champions_vault_page()
+  File "C:\Users\moham\OneDrive\Desktop\My app\favorites_tab.py", line 1394, in render_champions_vault_page
+    _period_filter = st.selectbox("", ["All Periods", "Short", "Medium", "Long"],
+  File "C:\Users\moham\OneDrive\Desktop\My app\.venv\Lib\site-packages\streamlit\runtime\metrics_util.py", line 532, in wrapped_func
+    result = non_optional_func(*args, **kwargs)
+  File "C:\Users\moham\OneDrive\Desktop\My app\.venv\Lib\site-packages\streamlit\elements\widgets\selectbox.py", line 492, in selectbox
+    return self._selectbox(
+  File "C:\Users\moham\OneDrive\Desktop\My app\.venv\Lib\site-packages\streamlit\elements\widgets\selectbox.py", line 537, in _selectbox
+    maybe_raise_label_warnings(label, label_visibility)
+  File "C:\Users\moham\OneDrive\Desktop\My app\.venv\Lib\site-packages\streamlit\elements\lib\policies.py", line 184, in maybe_raise_label_warnings
+    _LOGGER.warning(

@@ -1090,20 +1090,24 @@ def render_champions_vault_page():
        STOCK ROW  (full-width horizontal band)
     ════════════════════════════════════════ */
     .ss-stock-row {
-        border:1px solid #1e1e1e;
+        border:1px solid #b8860b55;
         border-radius:12px;
         margin-bottom:0.7rem;
         overflow:hidden;
         background:#141414;
+        box-shadow:0 0 0 1px #b8860b18;
     }
-    .ss-stock-row:hover { border-color:#282828; }
+    .ss-stock-row:hover {
+        border-color:#DAA52088;
+        box-shadow:0 0 0 1px #DAA52033;
+    }
 
     /* stock label strip */
     .ss-stock-label {
         display:flex; align-items:center; gap:0.65rem;
         padding:0.6rem 1rem 0.55rem;
         background:#191919;
-        border-bottom:1px solid #1e1e1e;
+        border-bottom:1px solid #b8860b33;
     }
     .ss-stock-sym {
         font-size:0.95rem; font-weight:900; color:#d0d0d0;
@@ -1159,13 +1163,17 @@ def render_champions_vault_page():
         border:none;
     }
     .ss-chip-name {
-        font-size:0.75rem; font-weight:700; color:#888;
+        font-size:0.72rem; font-weight:700; color:#888;
         white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
         flex:1; min-width:0; line-height:1.3;
     }
     .ss-chip-wr {
         font-size:0.72rem; font-weight:800;
         white-space:nowrap; flex-shrink:0; padding-right:0.1rem;
+    }
+    .ss-chip-sigs {
+        font-size:0.58rem; font-weight:700; color:#363636;
+        white-space:nowrap; flex-shrink:0;
     }
 
     /* ── empty column placeholder ── */
@@ -1374,38 +1382,65 @@ def render_champions_vault_page():
         for _pl2 in _sd['periods']:
             _sd['periods'][_pl2].sort(key=lambda f: -float(f.get('win_rate', 0) or 0))
 
+    # ── filter bar ───────────────────────────────────────────────────────────
+    _fcol1, _fcol2, _fcol3 = st.columns([2, 1, 1], gap="small")
+    with _fcol1:
+        _search = st.text_input("", placeholder="Search symbol or indicator…",
+                                key="cv_search", label_visibility="collapsed")
+    with _fcol2:
+        _regime_filter = st.selectbox("", ["All Regimes", "Trend", "Range", "Volatile"],
+                                      key="cv_regime_filter", label_visibility="collapsed")
+    with _fcol3:
+        _period_filter = st.selectbox("", ["All Periods", "Short", "Medium", "Long"],
+                                      key="cv_period_filter", label_visibility="collapsed")
+
+    _sq = _search.strip().lower() if _search else ""
+    _rf = _regime_filter if _regime_filter != "All Regimes" else ""
+    _pf_sel = _period_filter if _period_filter != "All Periods" else ""
+
     # ── render one row per stock ──────────────────────────────────────────────
     _gidx = 0
     for _sym, _sdata in sorted(_by_stock.items()):
         _sname   = _sdata['sname']
         _periods = _sdata['periods']
-        _strat_n = sum(len(v) for v in _periods.values())
         _sym_disp = _sym.replace('.SR', '')
 
-        # build the 3-column period grid as one HTML block + Streamlit buttons
-        # We render the outer chrome as HTML and inject Streamlit buttons per chip
+        # apply filters
+        if _sq and _sq not in _sym_disp.lower() and _sq not in _sname.lower() and \
+           not any(_sq in f.get('combo_indicators','').lower()
+                   for v in _periods.values() for f in v):
+            continue
+        if _rf:
+            if not any(f.get('best_regime','').title() == _rf
+                       for v in _periods.values() for f in v):
+                continue
+        if _pf_sel:
+            if not any(_pf_sel in p for p in _periods if _periods[p]):
+                continue
 
-        # stock label
+        _strat_n = sum(len(v) for v in _periods.values())
+
+        # ── stock card header ────────────────────────────────────────────────
         st.markdown(
             f"<div class='ss-stock-row'>"
             f"<div class='ss-stock-label'>"
             f"<span class='ss-stock-sym'>{_sym_disp}</span>"
             + (f"<span class='ss-stock-name'>{_sname}</span>" if _sname else "")
             + f"<span class='ss-stock-count'>{_strat_n} saved</span>"
-            f"</div>"
-            f"<div class='ss-period-grid'>",
+            f"</div>",
             unsafe_allow_html=True)
 
+        # ── 3 columns: Short | Medium | Long — always side by side ──────────
+        _PERIOD_ORDER = [('Short (5d)', 'Short', '5D'), ('Medium (63d)', 'Medium', '63D'), ('Long (252d)', 'Long', '252D')]
         _col_s, _col_m, _col_l = st.columns(3, gap="small")
-        _pcols = {'Short (5d)': _col_s, 'Medium (63d)': _col_m, 'Long (252d)': _col_l}
+        _period_cols = [_col_s, _col_m, _col_l]
 
-        for _pl3, _col in _pcols.items():
+        for (_pl3, _lbl3, _days3), _pcol in zip(_PERIOD_ORDER, _period_cols):
             _strats_p = _periods.get(_pl3, [])
-            _lbl3, _days3 = _PERIOD_SHORT[_pl3]
-            with _col:
-                # period label
+            with _pcol:
+                # period header
                 st.markdown(
-                    f"<div class='ss-period-title'>"
+                    f"<div class='ss-period-title' style='padding:0.4rem 0 0.3rem;'>"
                     f"<div class='ss-period-title-dot'></div>{_lbl3}"
                     f"<span style='color:#3a3a3a;margin-left:0.25rem;font-size:0.58rem;font-weight:700;'>{_days3}</span>"
                     f"<span style='color:#2a2a2a;margin-left:auto;font-size:0.58rem;'>({len(_strats_p)})</span>"
@@ -1427,7 +1462,7 @@ def render_champions_vault_page():
                     _wc = '#26A69A' if _wr >= 55 else ('#FFC107' if _wr >= 45 else '#ef5350')
                     _rmkey = f"ssrm_{_fid.replace('.','_').replace(' ','_').replace('(','_').replace(')','_').replace('/','_')}"[:72]
 
-                    _c_chip, _c_del = st.columns([18, 1])
+                    _c_chip, _c_del = st.columns([14, 1])
                     with _c_chip:
                         st.markdown(
                             f"<div class='ss-chip'>"
@@ -1436,6 +1471,7 @@ def render_champions_vault_page():
                             f"<span class='ss-chip-regime' style='background:{_rc};color:#0a0a0a;'>"
                             f"{_ri}&nbsp;{_rlbl}</span>"
                             f"<span class='ss-chip-name' title='{_combo}'>{_combo}</span>"
+                            f"<span class='ss-chip-sigs'>{_sig}×</span>"
                             f"<span class='ss-chip-wr' style='color:{_wc}'>{_wr:.0f}%</span>"
                             f"</div></div>",
                             unsafe_allow_html=True)
@@ -1446,8 +1482,8 @@ def render_champions_vault_page():
                                       on_click=_rc_toggle, args=(_fid, None))
                     _gidx += 1
 
-        # close the HTML wrappers opened above
-        st.markdown("</div></div>", unsafe_allow_html=True)
+        # close stock card
+        st.markdown("</div>", unsafe_allow_html=True)
 
     # ── LIVE SIGNALS SECTION ─────────────────────────────────────────────────
     _render_live_signals(rc_favs)
@@ -1616,20 +1652,33 @@ def _render_live_signals(rc_favs: list) -> None:
     if not rc_favs:
         return
 
-    # Live Signal Check section divider — same dark style as the rest of the page
+    # Live Signal Check section header — single tight box, darker bg
     st.markdown(
-        "<div class='ss-section-divider'>"
-        "<div class='ss-section-line'></div>"
-        "<div class='ss-section-lbl'>"
-        "<div class='ss-section-dot' style='background:#26A69A'></div>"
-        "⚡&nbsp;Live Signal Check"
+        "<div style='margin:2.4rem 0 1.0rem;'>"
+        "<div style='"
+        "border:1px solid #222;"
+        "border-left:3px solid #26A69A;"
+        "border-radius:8px;"
+        "background:#0d0d0d;"
+        "padding:0.75rem 1.1rem;"
+        "display:flex;align-items:center;gap:1rem;"
+        "'>"
+        "<div style='flex:1;min-width:0;'>"
+        "<div style='font-size:0.85rem;font-weight:900;color:#b0b0b0;letter-spacing:-0.2px;margin-bottom:0.2rem;'>"
+        "Live Signal Check"
         "</div>"
-        "<div class='ss-section-line'></div>"
-        "</div>"
-        "<div style='font-size:0.65rem;color:#3e3e3e;margin:-0.4rem 0 1.1rem;line-height:1.7;'>"
+        "<div style='font-size:0.62rem;color:#3e3e3e;line-height:1.6;'>"
         "Each saved strategy is checked against fresh market data. "
-        "A strategy <span style='color:#26A69A;font-weight:700;'>fires</span> "
+        "A strategy <span style='color:#26A69A88;font-weight:700;'>fires</span> "
         "when all its indicators show a buy signal within the last 3 bars."
+        "</div>"
+        "</div>"
+        "<div style='flex-shrink:0;font-size:0.58rem;font-weight:800;color:#1e3d30;"
+        "text-transform:uppercase;letter-spacing:0.8px;border:1px solid #1a2e28;"
+        "padding:0.28rem 0.65rem;border-radius:20px;background:#0a1a14;'>"
+        "5 min cache"
+        "</div>"
+        "</div>"
         "</div>",
         unsafe_allow_html=True)
 
@@ -1753,41 +1802,105 @@ def _render_live_signals(rc_favs: list) -> None:
                 f"</div></div>",
                 unsafe_allow_html=True)
 
-    # ── watching / not firing ────────────────────────────────────────────────
+    # ── watching / not firing — grouped by stock ─────────────────────────────
     if _quiet_cards:
         st.markdown(
-            f"<div style='font-size:0.65rem;font-weight:800;color:#555;text-transform:uppercase;"
-            f"letter-spacing:1px;margin:0.9rem 0 0.45rem;display:flex;align-items:center;gap:0.5rem;'>"
-            f"<span style='display:inline-block;width:5px;height:5px;border-radius:50%;background:#333;flex-shrink:0;'></span>"
-            f"Watching &nbsp;<span style='color:#383838;font-weight:600;'>({len(_quiet_cards)})</span>"
+            f"<div style='font-size:0.63rem;font-weight:800;color:#505050;text-transform:uppercase;"
+            f"letter-spacing:1.1px;margin:1.4rem 0 0.7rem;display:flex;align-items:center;gap:0.5rem;'>"
+            f"<span style='width:5px;height:5px;border-radius:50%;background:#383838;display:inline-block;flex-shrink:0;'></span>"
+            f"Watching"
+            f"<span style='font-size:0.6rem;font-weight:600;color:#383838;letter-spacing:0;'>({len(_quiet_cards)})</span>"
             f"</div>",
             unsafe_allow_html=True)
 
+        # group quiet cards by stock symbol
+        _quiet_by_sym: dict = {}
         for _c in _quiet_cards:
-            _rc  = _REGIME_COLORS.get(_c['regime'], '#a78bfa')
-            _ri  = _REGIME_ICONS.get(_c['regime'], '★')
-            _an  = len(_c['check']['active'])
-            _tn  = len(_c['keys'])
-            _prog = f"{_an}/{_tn}" if _tn else "—"
+            _quiet_by_sym.setdefault(_c['sym'], []).append(_c)
 
-            _pill_html = ''.join(
-                f"<span class='ls-pill' style='"
-                f"color:{'#4A9EFF' if k in _c['check']['active'] else '#1e1e1e'};"
-                f"border-color:{'#4A9EFF22' if k in _c['check']['active'] else '#181818'};"
-                f"background:transparent;'>"
-                f"{'✓' if k in _c['check']['active'] else '○'}&nbsp;{k}</span>"
-                for k in _c['keys']
-            )
+        for _qsym, _qcards in sorted(_quiet_by_sym.items()):
+            _qdisp = _qsym.replace('.SR', '')
 
+            # group this stock's cards by period
+            _q_by_period: dict = {'Short': [], 'Medium': [], 'Long': []}
+            for _c in _qcards:
+                _ps = _c['period'].split('(')[0].strip()  # 'Short', 'Medium', 'Long'
+                if _ps in _q_by_period:
+                    _q_by_period[_ps].append(_c)
+
+            # stock header
             st.markdown(
-                f"<div class='ls-quiet'>"
-                f"<span class='ls-quiet-sym'>{_c['sym'].replace('.SR','')}</span>"
-                f"<span class='ls-tag' style='background:{_rc}22;color:{_rc}88;font-size:0.58rem;font-weight:800;padding:0.12rem 0.42rem;border-radius:20px;text-transform:uppercase;letter-spacing:0.3px;white-space:nowrap;'>"
-                f"{_ri}&nbsp;{_c['regime'].title()}</span>"
-                f"<span style='font-size:0.58rem;color:#2e2e2e;white-space:nowrap;'>"
-                f"{_c['period'].split('(')[0].strip()}</span>"
-                f"<span class='ls-quiet-combo' title='{_c['combo']}'>{_c['combo']}</span>"
-                f"<div style='display:flex;gap:0.25rem;flex-wrap:wrap;'>{_pill_html}</div>"
-                f"<span class='ls-quiet-prog'>{_prog} active</span>"
-                f"</div>",
+                f"<div style='border:1px solid #1e1e1e;border-radius:10px;overflow:hidden;"
+                f"margin-bottom:0.6rem;background:#0d0d0d;'>"
+                f"<div style='display:flex;align-items:center;gap:0.6rem;"
+                f"padding:0.42rem 0.9rem;background:#131313;border-bottom:1px solid #1a1a1a;'>"
+                f"<span style='font-size:0.88rem;font-weight:900;color:#585858;'>{_qdisp}</span>"
+                f"<span style='font-size:0.58rem;color:#2e2e2e;font-weight:700;'>"
+                f"{len(_qcards)} {'strategy' if len(_qcards)==1 else 'strategies'}</span>"
+                f"</div></div>",
                 unsafe_allow_html=True)
+
+            # 3 columns: Short | Medium | Long
+            _qc_s, _qc_m, _qc_l = st.columns(3, gap="small")
+            for _qperiod, _qpcol, _qlbl, _qdays in [
+                ('Short',  _qc_s, 'Short',  '5D'),
+                ('Medium', _qc_m, 'Medium', '63D'),
+                ('Long',   _qc_l, 'Long',   '252D'),
+            ]:
+                _qstrats = _q_by_period[_qperiod]
+                with _qpcol:
+                    # period header
+                    st.markdown(
+                        f"<div class='ss-period-title' style='padding:0.4rem 0 0.3rem;'>"
+                        f"<div class='ss-period-title-dot'></div>{_qlbl}"
+                        f"<span style='color:#3a3a3a;margin-left:0.25rem;font-size:0.58rem;font-weight:700;'>{_qdays}</span>"
+                        f"<span style='color:#2a2a2a;margin-left:auto;font-size:0.58rem;'>({len(_qstrats)})</span>"
+                        f"</div>",
+                        unsafe_allow_html=True)
+
+                    if not _qstrats:
+                        st.markdown("<div class='ss-col-empty'>—</div>", unsafe_allow_html=True)
+                        continue
+
+                    for _c in _qstrats:
+                        _rc  = _REGIME_COLORS.get(_c['regime'], '#a78bfa')
+                        _ri  = _REGIME_ICONS.get(_c['regime'], '★')
+                        _an  = len(_c['check']['active'])
+                        _tn  = len(_c['keys'])
+                        _wc  = '#26A69A' if _c['win_rate'] >= 55 else ('#FFC107' if _c['win_rate'] >= 45 else '#ef5350')
+
+                        # each indicator as its own row: name left, status right
+                        _ind_rows = ''.join(
+                            f"<div style='display:flex;align-items:center;justify-content:space-between;"
+                            f"padding:0.18rem 0;border-bottom:1px solid #161616;'>"
+                            f"<span style='font-size:0.62rem;color:#484848;font-weight:600;'>{k}</span>"
+                            f"<span style='font-size:0.6rem;font-weight:800;"
+                            f"color:{'#4A9EFF' if k in _c['check']['active'] else '#2a2a2a'};'>"
+                            f"{'✓ Active' if k in _c['check']['active'] else '○ Waiting'}</span>"
+                            f"</div>"
+                            for k in _c['keys']
+                        )
+
+                        st.markdown(
+                            f"<div style='border:1px solid #1e1e1e;border-top:2px solid {_rc}66;"
+                            f"border-radius:8px;background:#111;padding:0.55rem 0.7rem;"
+                            f"margin-bottom:0.4rem;'>"
+                            # header: regime pill + win%
+                            f"<div style='display:flex;align-items:center;gap:0.4rem;margin-bottom:0.35rem;'>"
+                            f"<span style='background:{_rc};color:#0a0a0a;font-size:0.55rem;"
+                            f"font-weight:800;padding:0.1rem 0.42rem;border-radius:20px;"
+                            f"text-transform:uppercase;white-space:nowrap;'>{_ri}&nbsp;{_c['regime'].title()}</span>"
+                            f"<span style='font-size:0.62rem;font-weight:700;color:#606060;flex:1;"
+                            f"min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'>"
+                            f"{_c['combo']}</span>"
+                            f"<span style='font-size:0.68rem;font-weight:900;color:{_wc};"
+                            f"white-space:nowrap;flex-shrink:0;'>{_c['win_rate']:.0f}%</span>"
+                            f"</div>"
+                            # indicator rows
+                            f"<div style='margin-bottom:0.3rem;'>{_ind_rows}</div>"
+                            # footer: active count
+                            f"<div style='font-size:0.58rem;font-weight:700;color:#363636;"
+                            f"text-transform:uppercase;letter-spacing:0.5px;padding-top:0.2rem;'>"
+                            f"{_an}/{_tn} active</div>"
+                            f"</div>",
+                            unsafe_allow_html=True)
