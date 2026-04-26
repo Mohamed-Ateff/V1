@@ -5,3 +5,65 @@
   Network URL: http://192.168.1.10:8501
   External URL: http://156.195.237.93:8501
 
++------------------------- Traceback (most recent call last) --------------------------+
+| c:\Users\moham\OneDrive\Desktop\My                                                   |
+| app\.venv\Lib\site-packages\streamlit\runtime\scriptrunner\exec_code.py:129 in       |
+| exec_func_with_error_handling                                                        |
+|                                                                                      |
+| c:\Users\moham\OneDrive\Desktop\My                                                   |
+| app\.venv\Lib\site-packages\streamlit\runtime\scriptrunner\script_runner.py:689 in   |
+| code_to_exec                                                                         |
+|                                                                                      |
+| C:\Users\moham\OneDrive\Desktop\My app\app.py:5922 in <module>                       |
+|                                                                                      |
+|   5919                                                                               |
+|   5920     if auth_wall():                                                           |
+|   5921                                                                               |
+| > 5922         main()                                                                |
+|   5923                                                                               |
+|   5924                                                                               |
+|                                                                                      |
+| C:\Users\moham\OneDrive\Desktop\My app\app.py:5872 in main                           |
+|                                                                                      |
+|   5869             render_regime_analysis_tab(df, info_icon, create_regime_distribut |
+|   5870                                                                               |
+|   5871         with tab1:                                                            |
+| > 5872             signal_analysis_tab(df, info_icon)                                |
+|   5873                                                                               |
+|   5874         with tab2:                                                            |
+|   5875             render_patterns_price_action_workspace(df, info_icon)             |
+|                                                                                      |
+| C:\Users\moham\OneDrive\Desktop\My app\signal_analysis_tab.py:182 in                 |
+| signal_analysis_tab                                                                  |
+|                                                                                      |
+|    179                 df, signals_df, profit_target, holding_period, stop_loss      |
+|    180             )                                                                 |
+|    181             consensus_signals   = find_consensus_signals(signals_df)          |
+| >  182             combo_results       = analyze_indicator_combinations(             |
+|    183                 signals_df, df, profit_target, holding_period, stop_loss, max |
+|    184                 combo_signal_window,                                          |
+|    185             )                                                                 |
+|                                                                                      |
+| c:\Users\moham\OneDrive\Desktop\My                                                   |
+| app\.venv\Lib\site-packages\streamlit\runtime\caching\cache_utils.py:281 in __call__ |
+|                                                                                      |
+| c:\Users\moham\OneDrive\Desktop\My                                                   |
+| app\.venv\Lib\site-packages\streamlit\runtime\caching\cache_utils.py:326 in          |
+| _get_or_create_cached_value                                                          |
+|                                                                                      |
+| c:\Users\moham\OneDrive\Desktop\My                                                   |
+| app\.venv\Lib\site-packages\streamlit\runtime\caching\cache_utils.py:385 in          |
+| _handle_cache_miss                                                                   |
+|                                                                                      |
+| C:\Users\moham\OneDrive\Desktop\My app\signal_engine.py:836 in                       |
+| analyze_indicator_combinations                                                       |
+|                                                                                      |
+|    833                                                                               |
+|    834             for _ind in combo_inds[1:]:                                       |
+|    835                                                                               |
+| >  836                 combined = combined & aligned_buy_arrays[_ind]                |
+|    837                                                                               |
+|    838             active_bars = int(combined.sum())                                 |
+|    839                                                                               |
++--------------------------------------------------------------------------------------+
+ValueError: operands could not be broadcast together with shapes (499,) (250,) 

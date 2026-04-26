@@ -678,6 +678,13 @@ def analyze_indicator_combinations(_signals_df, _df, profit_target=0.05, holding
         if col not in skip_cols and df[col].dtype == object:
             df[col] = pd.to_numeric(df[col], errors='coerce')
 
+    # Align df to signals_df index to prevent shape mismatches when the user
+    # changes the date range while the signals cache is still warm.
+    if len(df) != len(signals_df):
+        shared_idx = signals_df.index.intersection(df.index)
+        signals_df = signals_df.loc[shared_idx]
+        df = df.loc[shared_idx]
+
     buy_indicators = [col.replace('_Buy', '') for col in signals_df.columns if col.endswith('_Buy')]
 
 

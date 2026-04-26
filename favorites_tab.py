@@ -1022,7 +1022,7 @@ def render_champions_vault_page():
         'VOLATILE': ('#FF6B6B', '⚡', 'Volatile'),
     }
     _PERIODS = ['Short (5d)', 'Medium (63d)', 'Long (252d)']
-    _PERIOD_SHORT = {'Short (5d)': 'Short', 'Medium (63d)': 'Medium', 'Long (252d)': 'Long'}
+    _PERIOD_SHORT = {'Short (5d)': ('Short', '5D'), 'Medium (63d)': ('Medium', '63D'), 'Long (252d)': ('Long', '252D')}
 
     st.markdown("""
     <style>
@@ -1034,207 +1034,313 @@ def render_champions_vault_page():
         max-width: 96% !important;
         padding-left: 2rem !important;
         padding-right: 2rem !important;
-        padding-top: 1.4rem !important;
-        padding-bottom: 4rem !important;
+        padding-top: 1.6rem !important;
+        padding-bottom: 5rem !important;
     }
 
-    /* ── hero header ── */
-    .ss-hero {
-        background:#1b1b1b; border:1px solid #272727; border-radius:14px;
-        overflow:hidden; margin-bottom:1.4rem;
-        box-shadow:0 4px 24px rgba(0,0,0,0.25);
+    /* ════════════════════════════════════════
+       TOP BAR  (title + KPIs inline)
+    ════════════════════════════════════════ */
+    .ss-topbar {
+        display:flex; align-items:center; gap:1.2rem;
+        margin-bottom:1.6rem; flex-wrap:wrap;
     }
-    .ss-hero-inner { padding:1.4rem 1.8rem 1.5rem; }
-    .ss-hero-top {
-        display:flex; justify-content:space-between; align-items:center;
-        flex-wrap:wrap; gap:0.6rem; margin-bottom:1rem;
+    .ss-topbar-title {
+        font-size:1.55rem; font-weight:900; color:#e8e8e8;
+        letter-spacing:-0.5px; white-space:nowrap;
     }
-    .ss-hero-left { display:flex; align-items:center; gap:0.9rem; }
-    .ss-icon {
-        display:inline-flex; align-items:center; justify-content:center;
-        width:44px; height:44px; border-radius:11px;
-        background:rgba(167,139,250,0.10); border:1px solid rgba(167,139,250,0.25);
-        font-size:1.35rem; flex-shrink:0;
+    .ss-topbar-sub {
+        font-size:0.74rem; color:#3a3a3a; font-weight:600;
+        white-space:nowrap;
     }
-    .ss-hero-name { font-size:1.35rem; font-weight:900; color:#e0e0e0; line-height:1.2; letter-spacing:-0.3px; }
-    .ss-hero-sub  { font-size:0.72rem; color:#505050; margin-top:0.2rem; font-weight:600; }
-    .ss-hero-pill {
-        font-size:0.68rem; font-weight:800; color:#a78bfa;
-        background:rgba(167,139,250,0.10); border:1px solid rgba(167,139,250,0.28);
-        border-radius:999px; padding:0.4rem 1rem;
-        text-transform:uppercase; letter-spacing:0.6px; white-space:nowrap;
+    .ss-topbar-divider {
+        width:1px; height:2rem; background:#222; flex-shrink:0;
     }
-    .ss-divider { border:none; border-top:1px solid #272727; margin:0 0 1rem 0; }
-
-    /* ── KPI tiles ── */
-    .ss-kpi-row {
-        display:grid; grid-template-columns:repeat(5,1fr); gap:0.65rem;
+    .ss-kpi-inline {
+        display:flex; align-items:center; gap:0.3rem;
     }
-    .ss-kpi {
-        background:#161616; border:1px solid #272727; border-radius:10px;
-        padding:0.85rem 1rem; position:relative; overflow:hidden;
+    .ss-kpi-inline-val {
+        font-size:1.15rem; font-weight:900; line-height:1;
     }
-    .ss-kpi-bar { position:absolute; top:0; left:0; right:0; height:2px; border-radius:10px 10px 0 0; }
-    .ss-kpi-lbl { font-size:0.58rem; color:#505050; text-transform:uppercase; letter-spacing:1px; font-weight:700; margin-bottom:0.4rem; }
-    .ss-kpi-val { font-size:1.55rem; font-weight:900; line-height:1; }
+    .ss-kpi-inline-lbl {
+        font-size:0.63rem; font-weight:700; color:#3a3a3a;
+        text-transform:uppercase; letter-spacing:0.8px;
+        margin-top:0.15rem;
+    }
+    .ss-kpi-dot {
+        width:6px; height:6px; border-radius:50%; flex-shrink:0;
+        margin-right:0.2rem; margin-bottom:0.05rem;
+    }
 
     /* ── back button ── */
     .st-key-cv_back_wrap .stButton > button {
-        background:#1e1e1e !important; border:1px solid #303030 !important;
-        border-radius:10px !important; color:#9e9e9e !important;
-        font-size:0.78rem !important; font-weight:700 !important;
-        padding:0.5rem 1rem !important; height:auto !important; min-height:auto !important;
-        transition:all 0.15s ease !important;
+        background:transparent !important;
+        border:1px solid #252525 !important;
+        border-radius:8px !important; color:#404040 !important;
+        font-size:0.72rem !important; font-weight:700 !important;
+        padding:0.45rem 0.9rem !important;
+        height:auto !important; min-height:auto !important;
+        transition:all 0.12s ease !important; letter-spacing:0.2px !important;
     }
     .st-key-cv_back_wrap .stButton > button:hover {
-        background:#272727 !important; border-color:#404040 !important; color:#e0e0e0 !important;
+        border-color:#404040 !important; color:#c0c0c0 !important;
     }
 
-    /* ── stock block ── */
-    .ss-stock-block {
-        background:#1b1b1b; border:1px solid #272727; border-radius:14px;
-        margin-bottom:1.2rem; overflow:hidden;
-        box-shadow:0 2px 16px rgba(0,0,0,0.2);
+    /* ════════════════════════════════════════
+       STOCK ROW  (full-width horizontal band)
+    ════════════════════════════════════════ */
+    .ss-stock-row {
+        border:1px solid #1e1e1e;
+        border-radius:12px;
+        margin-bottom:0.7rem;
+        overflow:hidden;
+        background:#141414;
     }
-    .ss-stock-hdr {
-        display:flex; align-items:center; gap:0.8rem;
-        padding:1rem 1.4rem; border-bottom:1px solid #272727;
-        background:#1e1e1e;
+    .ss-stock-row:hover { border-color:#282828; }
+
+    /* stock label strip */
+    .ss-stock-label {
+        display:flex; align-items:center; gap:0.65rem;
+        padding:0.6rem 1rem 0.55rem;
+        background:#191919;
+        border-bottom:1px solid #1e1e1e;
     }
-    .ss-stock-bar { width:4px; height:1.6rem; border-radius:3px; background:#a78bfa; flex-shrink:0; }
-    .ss-stock-sym  { font-size:1.1rem; font-weight:900; color:#e0e0e0; letter-spacing:-0.2px; }
-    .ss-stock-name { font-size:0.72rem; color:#505050; font-weight:600; margin-left:0.1rem; }
-    .ss-stock-badge {
-        margin-left:auto; font-size:0.6rem; font-weight:800; letter-spacing:0.5px;
-        color:#a78bfa; background:rgba(167,139,250,0.08);
-        border:1px solid rgba(167,139,250,0.22); border-radius:999px;
-        padding:0.28rem 0.75rem; text-transform:uppercase;
+    .ss-stock-sym {
+        font-size:0.95rem; font-weight:900; color:#d0d0d0;
+        letter-spacing:0.2px;
+    }
+    .ss-stock-name {
+        font-size:0.7rem; color:#383838; font-weight:600;
+    }
+    .ss-stock-count {
+        margin-left:auto;
+        font-size:0.62rem; font-weight:800; letter-spacing:0.6px;
+        color:#383838; text-transform:uppercase;
     }
 
-    /* ── period column headers ── */
-    .ss-period-hdr {
-        padding:0.5rem 0.7rem 0.45rem;
-        background:#181818; border-bottom:1px solid #1f1f1f;
+    /* inner 3-col grid */
+    .ss-period-grid {
+        display:grid; grid-template-columns:repeat(3,1fr);
+    }
+    .ss-period-col {
+        border-right:1px solid #1a1a1a; padding:0.5rem 0.65rem 0.55rem;
+    }
+    .ss-period-col:last-child { border-right:none; }
+
+    .ss-period-title {
+        font-size:0.65rem; font-weight:800; color:#5a5a5a;
+        text-transform:uppercase; letter-spacing:1px;
+        margin-bottom:0.4rem; display:flex; align-items:center; gap:0.3rem;
+    }
+    .ss-period-title-dot {
+        width:5px; height:5px; border-radius:50%; background:#a78bfa; flex-shrink:0;
+    }
+
+    /* ════════════════════════════════════════
+       STRATEGY CHIP  (single row, minimal)
+    ════════════════════════════════════════ */
+    .ss-chip {
+        display:flex; align-items:center; gap:0;
+        background:#0f0f0f; border:1px solid #1d1d1d;
+        border-radius:6px; overflow:hidden;
+        margin-bottom:0.3rem;
+        transition:border-color 0.1s;
+    }
+    .ss-chip:hover { border-color:#2a2a2a; }
+    .ss-chip-bar { width:2px; flex-shrink:0; align-self:stretch; }
+    .ss-chip-body {
+        flex:1; min-width:0; padding:0.32rem 0.5rem;
         display:flex; align-items:center; gap:0.4rem;
     }
-    .ss-period-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; background:#a78bfa; }
-    .ss-period-lbl { font-size:0.6rem; font-weight:800; color:#a78bfa; text-transform:uppercase; letter-spacing:0.8px; }
-    .ss-period-n   { font-size:0.55rem; color:#383838; font-weight:600; }
-
-    /* ── strategy card — ultra compact row ── */
-    .ss-sc {
-        margin:0.35rem 0.5rem 0;
-        border-radius:7px; overflow:hidden;
-        border:1px solid #242424; background:#171717;
-        display:flex; align-items:stretch;
+    .ss-chip-regime {
+        font-size:0.6rem; font-weight:800; padding:0.18rem 0.52rem;
+        border-radius:20px; text-transform:uppercase; letter-spacing:0.3px;
+        white-space:nowrap; flex-shrink:0; line-height:1.4;
+        border:none;
     }
-    .ss-sc-accent { width:3px; flex-shrink:0; }
-    .ss-sc-body {
-        flex:1; min-width:0;
-        padding:0.45rem 0.55rem 0.42rem;
-        display:flex; flex-direction:column; gap:0.28rem;
-    }
-    .ss-sc-row1 { display:flex; align-items:center; gap:0.4rem; }
-    .ss-sc-regime {
-        font-size:0.55rem; font-weight:800;
-        padding:0.15rem 0.45rem; border-radius:999px;
-        text-transform:uppercase; letter-spacing:0.4px;
-        border:1px solid; white-space:nowrap; flex-shrink:0;
-    }
-    .ss-sc-combo {
-        font-size:0.72rem; font-weight:700; color:#c0c0c0;
+    .ss-chip-name {
+        font-size:0.75rem; font-weight:700; color:#888;
         white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-        flex:1; min-width:0;
+        flex:1; min-width:0; line-height:1.3;
     }
-    .ss-sc-row2 { display:flex; align-items:center; gap:0.5rem; }
-    .ss-sc-stat { font-size:0.62rem; font-weight:800; white-space:nowrap; }
-    .ss-sc-lbl  { font-size:0.52rem; font-weight:600; color:#444; margin-right:0.18rem; }
-    .ss-sc-del {
-        flex-shrink:0; display:flex; align-items:center;
-        padding:0 0.45rem; cursor:pointer;
-        border-left:1px solid #242424;
+    .ss-chip-wr {
+        font-size:0.72rem; font-weight:800;
+        white-space:nowrap; flex-shrink:0; padding-right:0.1rem;
     }
 
-    /* ── period column empty ── */
-    .ss-period-empty {
-        margin:0.4rem 0.5rem 0.5rem; border-radius:6px;
-        border:1px dashed #222; padding:0.7rem 0.5rem;
-        text-align:center; font-size:0.58rem; color:#2e2e2e; font-weight:600;
+    /* ── empty column placeholder ── */
+    .ss-col-empty {
+        font-size:0.68rem; color:#1e1e1e; font-weight:600;
+        padding:0.25rem 0; letter-spacing:0.3px;
     }
 
-    /* ── remove button (tiny, right-aligned inside card) ── */
+    /* ── remove button ── */
     [class*="st-key-ssrm_"] .stButton > button {
         background:transparent !important; border:none !important;
-        color:rgba(239,83,80,0.28) !important;
-        font-size:0.7rem !important; font-weight:700 !important;
-        padding:0.2rem 0.4rem !important;
+        color:#242424 !important;
+        font-size:0.62rem !important; font-weight:700 !important;
+        padding:0.25rem 0.35rem !important;
         height:auto !important; min-height:auto !important;
-        transition:color 0.12s ease !important;
-        line-height:1 !important;
+        transition:color 0.1s ease !important; line-height:1 !important;
     }
     [class*="st-key-ssrm_"] .stButton > button:hover {
-        color:#ef5350 !important; background:transparent !important;
+        color:#ef5350 !important;
     }
 
-    /* ── empty state ── */
+    /* ════════════════════════════════════════
+       SECTION DIVIDER
+    ════════════════════════════════════════ */
+    .ss-section-divider {
+        display:flex; align-items:center; gap:0.8rem;
+        margin:2.2rem 0 1.1rem;
+    }
+    .ss-section-line { flex:1; height:1px; background:#1a1a1a; }
+    .ss-section-lbl {
+        font-size:0.82rem; font-weight:800; color:#383838;
+        text-transform:uppercase; letter-spacing:1.2px; white-space:nowrap;
+        display:flex; align-items:center; gap:0.45rem;
+    }
+    .ss-section-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+
+    /* ════════════════════════════════════════
+       LIVE SIGNAL CARDS
+    ════════════════════════════════════════ */
+    .ls-card {
+        background:#111; border:1px solid #1e1e1e;
+        border-radius:12px; overflow:hidden;
+        margin-bottom:0.6rem;
+        transition:border-color 0.15s;
+    }
+    .ls-card:hover { border-color:#2a2a2a; }
+    .ls-card-fire { border-color:#26A69A22 !important; }
+    .ls-card-fire:hover { border-color:#26A69A55 !important; }
+
+    .ls-top {
+        display:flex; align-items:center; gap:0.65rem;
+        padding:0.65rem 1rem; border-bottom:1px solid #181818;
+        flex-wrap:wrap;
+    }
+    .ls-sym {
+        font-size:0.9rem; font-weight:900; color:#c8c8c8;
+        letter-spacing:0.2px; white-space:nowrap;
+    }
+    .ls-tag {
+        font-size:0.6rem; font-weight:800; padding:0.14rem 0.48rem;
+        border-radius:20px; border:none; text-transform:uppercase;
+        letter-spacing:0.4px; white-space:nowrap;
+    }
+    .ls-combo-name {
+        font-size:0.76rem; font-weight:600; color:#3a3a3a;
+        flex:1; min-width:0; white-space:nowrap;
+        overflow:hidden; text-overflow:ellipsis;
+    }
+    .ls-badge-fire {
+        font-size:0.62rem; font-weight:800; padding:0.18rem 0.6rem;
+        border-radius:4px; white-space:nowrap; flex-shrink:0;
+        background:rgba(38,166,154,0.1); border:1px solid rgba(38,166,154,0.3);
+        color:#26A69A; letter-spacing:0.4px; text-transform:uppercase;
+    }
+
+    /* indicator pills row */
+    .ls-pills { display:flex; flex-wrap:wrap; gap:0.28rem; padding:0.45rem 1rem; }
+    .ls-pill {
+        font-size:0.7rem; font-weight:700; padding:0.16rem 0.5rem;
+        border-radius:4px; border:1px solid; line-height:1.4;
+    }
+
+    /* price ladder — 4 cells */
+    .ls-ladder {
+        display:grid; grid-template-columns:repeat(4,1fr);
+        border-top:1px solid #181818;
+    }
+    .ls-cell {
+        padding:0.65rem 0.9rem; border-right:1px solid #181818;
+        position:relative;
+    }
+    .ls-cell:last-child { border-right:none; }
+    .ls-cell-top { position:absolute; top:0; left:0; right:0; height:1px; }
+    .ls-cell-lbl {
+        font-size:0.68rem; font-weight:700; text-transform:uppercase;
+        letter-spacing:0.8px; color:#363636; margin-bottom:0.28rem;
+    }
+    .ls-cell-val {
+        font-size:1.2rem; font-weight:900; line-height:1; letter-spacing:-0.2px;
+    }
+    .ls-cell-sub {
+        font-size:0.72rem; font-weight:600; margin-top:0.18rem; color:#363636;
+    }
+
+    /* quiet/watching row */
+    .ls-quiet {
+        display:flex; align-items:center; gap:0.55rem;
+        background:#0d0d0d; border:1px solid #181818;
+        border-radius:8px; padding:0.45rem 0.8rem;
+        margin-bottom:0.3rem; flex-wrap:wrap;
+    }
+    .ls-quiet-sym { font-size:0.82rem; font-weight:800; color:#545454; white-space:nowrap; }
+    .ls-quiet-combo { font-size:0.72rem; color:#3a3a3a; flex:1; min-width:0;
+                      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .ls-quiet-prog { font-size:0.62rem; color:#444; font-weight:700;
+                     white-space:nowrap; text-transform:uppercase; letter-spacing:0.5px; }
+
+    /* ════════════════════════════════════════
+       EMPTY STATE
+    ════════════════════════════════════════ */
     .ss-empty {
-        background:#1b1b1b; border:1px solid #272727; border-radius:14px;
-        padding:5rem 2rem; text-align:center; box-shadow:0 4px 24px rgba(0,0,0,0.3);
+        background:#111; border:1px solid #1e1e1e; border-radius:14px;
+        padding:5rem 2rem; text-align:center;
     }
-    .ss-empty-ring {
-        width:80px; height:80px; border-radius:50%;
-        background:rgba(167,139,250,0.08); border:2px solid rgba(167,139,250,0.25);
-        display:inline-flex; align-items:center; justify-content:center;
-        font-size:2rem; margin-bottom:1.1rem; color:#a78bfa;
-    }
-    .ss-empty-title { font-size:1.1rem; font-weight:800; color:#e0e0e0; margin-bottom:0.5rem; }
-    .ss-empty-body  { font-size:0.8rem; color:#505050; max-width:500px; margin:0 auto; line-height:1.7; }
+    .ss-empty-icon { font-size:2rem; color:#252525; margin-bottom:1rem; }
+    .ss-empty-title { font-size:1.2rem; font-weight:800; color:#383838; margin-bottom:0.5rem; }
+    .ss-empty-body  { font-size:0.9rem; color:#2a2a2a; max-width:480px; margin:0 auto; line-height:1.8; }
     </style>
     """, unsafe_allow_html=True)
 
-    # ── KPI counts ────────────────────────────────────────────────────────────
+    # ── counts ────────────────────────────────────────────────────────────────
     _n       = len(rc_favs)
     _stocks  = len(set(f.get('symbol', '') for f in rc_favs))
     _trend_n = sum(1 for f in rc_favs if f.get('best_regime') == 'TREND')
     _range_n = sum(1 for f in rc_favs if f.get('best_regime') == 'RANGE')
     _vol_n   = sum(1 for f in rc_favs if f.get('best_regime') == 'VOLATILE')
 
-    # ── header row: hero block + back button ─────────────────────────────────
-    _hl, _hr = st.columns([11, 1.1])
-    with _hl:
+    # ── top bar ───────────────────────────────────────────────────────────────
+    _tl, _tr = st.columns([1, 0.13])
+    with _tl:
         st.markdown(
-            "<div class='ss-hero'><div class='ss-hero-inner'>"
-            "<div class='ss-hero-top'>"
-            "<div class='ss-hero-left'>"
-            "<div class='ss-icon'>★</div>"
+            "<div class='ss-topbar'>"
             "<div>"
-            "<div class='ss-hero-name'>Saved Strategies</div>"
-            "<div class='ss-hero-sub'>All saved champions — grouped by stock &amp; period</div>"
-            "</div></div>"
-            f"<span class='ss-hero-pill'>{_n} saved &nbsp;·&nbsp; {_stocks} stock{'s' if _stocks != 1 else ''}</span>"
+            "<div class='ss-topbar-title'>Saved Strategies</div>"
+            "<div class='ss-topbar-sub'>Regime champions · grouped by stock &amp; period</div>"
             "</div>"
-            "<hr class='ss-divider'>"
-            "<div class='ss-kpi-row'>"
-            f"<div class='ss-kpi'><div class='ss-kpi-bar' style='background:#606060'></div>"
-            f"<div class='ss-kpi-lbl'>Total Stocks</div>"
-            f"<div class='ss-kpi-val' style='color:#9e9e9e'>{_stocks}</div></div>"
-            f"<div class='ss-kpi'><div class='ss-kpi-bar' style='background:#a78bfa'></div>"
-            f"<div class='ss-kpi-lbl'>Total Saved</div>"
-            f"<div class='ss-kpi-val' style='color:#a78bfa'>{_n}</div></div>"
-            f"<div class='ss-kpi'><div class='ss-kpi-bar' style='background:#26A69A'></div>"
-            f"<div class='ss-kpi-lbl'>Trend</div>"
-            f"<div class='ss-kpi-val' style='color:#26A69A'>{_trend_n}</div></div>"
-            f"<div class='ss-kpi'><div class='ss-kpi-bar' style='background:#4A9EFF'></div>"
-            f"<div class='ss-kpi-lbl'>Range</div>"
-            f"<div class='ss-kpi-val' style='color:#4A9EFF'>{_range_n}</div></div>"
-            f"<div class='ss-kpi'><div class='ss-kpi-bar' style='background:#FF6B6B'></div>"
-            f"<div class='ss-kpi-lbl'>Volatile</div>"
-            f"<div class='ss-kpi-val' style='color:#FF6B6B'>{_vol_n}</div></div>"
-            "</div>"
-            "</div></div>",
+            "<div class='ss-topbar-divider'></div>"
+            # stocks
+            f"<div class='ss-kpi-inline'>"
+            f"<div><div class='ss-kpi-inline-val' style='color:#707070'>{_stocks}</div>"
+            f"<div class='ss-kpi-inline-lbl'>Stocks</div></div></div>"
+            "<div class='ss-topbar-divider'></div>"
+            # saved
+            f"<div class='ss-kpi-inline'>"
+            f"<div><div class='ss-kpi-inline-val' style='color:#a78bfa'>{_n}</div>"
+            f"<div class='ss-kpi-inline-lbl'>Saved</div></div></div>"
+            "<div class='ss-topbar-divider'></div>"
+            # trend
+            f"<div class='ss-kpi-inline'>"
+            f"<div class='ss-kpi-dot' style='background:#26A69A'></div>"
+            f"<div><div class='ss-kpi-inline-val' style='color:#26A69A'>{_trend_n}</div>"
+            f"<div class='ss-kpi-inline-lbl'>Trend</div></div></div>"
+            # range
+            f"<div class='ss-kpi-inline'>"
+            f"<div class='ss-kpi-dot' style='background:#4A9EFF'></div>"
+            f"<div><div class='ss-kpi-inline-val' style='color:#4A9EFF'>{_range_n}</div>"
+            f"<div class='ss-kpi-inline-lbl'>Range</div></div></div>"
+            # volatile
+            f"<div class='ss-kpi-inline'>"
+            f"<div class='ss-kpi-dot' style='background:#FF6B6B'></div>"
+            f"<div><div class='ss-kpi-inline-val' style='color:#FF6B6B'>{_vol_n}</div>"
+            f"<div class='ss-kpi-inline-lbl'>Volatile</div></div></div>"
+            "</div>",
             unsafe_allow_html=True)
-    with _hr:
-        st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
+    with _tr:
         with st.container(key="cv_back_wrap"):
             if st.button("← Back", key="cv_back_btn", use_container_width=True):
                 st.session_state.show_champions_vault = False
@@ -1244,17 +1350,16 @@ def render_champions_vault_page():
     if not rc_favs:
         st.markdown(
             "<div class='ss-empty'>"
-            "<div class='ss-empty-ring'>★</div>"
+            "<div class='ss-empty-icon'>★</div>"
             "<div class='ss-empty-title'>No saved strategies yet</div>"
             "<div class='ss-empty-body'>Run analysis on any stock, go to "
-            "<b style='color:#e0e0e0'>Signal Analysis → Indicator Combinations → Regime Champions</b>, "
+            "<b style='color:#555'>Signal Analysis → Indicator Combinations → Regime Champions</b>, "
             "then tap <b style='color:#a78bfa'>☆ Save Strategy</b>.</div>"
             "</div>",
             unsafe_allow_html=True)
         return
 
     # ── build per-stock, per-period lookup ────────────────────────────────────
-    # Structure: { symbol: { 'sname': str, 'periods': { period_label: [fav, ...] } } }
     _by_stock: dict = {}
     for _f in rc_favs:
         _s  = _f.get('symbol', '—')
@@ -1262,62 +1367,57 @@ def render_champions_vault_page():
         _pl = _f.get('period_label', 'Medium (63d)')
         if _s not in _by_stock:
             _by_stock[_s] = {'sname': _sn, 'periods': {p: [] for p in _PERIODS}}
-        # normalize period labels that don't exactly match known keys
         _matched = next((p for p in _PERIODS if p.lower().startswith(_pl.split()[0].lower())), _pl)
         _by_stock[_s]['periods'].setdefault(_matched, []).append(_f)
 
-    # sort strategies within each period by win_rate desc
     for _sd in _by_stock.values():
-        for _pl in _sd['periods']:
-            _sd['periods'][_pl].sort(key=lambda f: -float(f.get('win_rate', 0) or 0))
+        for _pl2 in _sd['periods']:
+            _sd['periods'][_pl2].sort(key=lambda f: -float(f.get('win_rate', 0) or 0))
 
-    # ── render one block per stock ────────────────────────────────────────────
+    # ── render one row per stock ──────────────────────────────────────────────
     _gidx = 0
     for _sym, _sdata in sorted(_by_stock.items()):
         _sname   = _sdata['sname']
         _periods = _sdata['periods']
         _strat_n = sum(len(v) for v in _periods.values())
+        _sym_disp = _sym.replace('.SR', '')
 
-        # stock block header (pure HTML — no Streamlit columns for the header)
+        # build the 3-column period grid as one HTML block + Streamlit buttons
+        # We render the outer chrome as HTML and inject Streamlit buttons per chip
+
+        # stock label
         st.markdown(
-            "<div class='ss-stock-block'>"
-            "<div class='ss-stock-hdr'>"
-            "<div class='ss-stock-bar'></div>"
-            f"<span class='ss-stock-sym'>{_sym.replace('.SR','')}</span>"
+            f"<div class='ss-stock-row'>"
+            f"<div class='ss-stock-label'>"
+            f"<span class='ss-stock-sym'>{_sym_disp}</span>"
             + (f"<span class='ss-stock-name'>{_sname}</span>" if _sname else "")
-            + f"<span class='ss-stock-badge'>{_strat_n} saved</span>"
-            "</div>",
+            + f"<span class='ss-stock-count'>{_strat_n} saved</span>"
+            f"</div>"
+            f"<div class='ss-period-grid'>",
             unsafe_allow_html=True)
 
-        # 3 equal columns: Short | Medium | Long
-        _col_short, _col_med, _col_long = st.columns(3, gap="small")
-        _period_cols = {
-            'Short (5d)':   _col_short,
-            'Medium (63d)': _col_med,
-            'Long (252d)':  _col_long,
-        }
+        _col_s, _col_m, _col_l = st.columns(3, gap="small")
+        _pcols = {'Short (5d)': _col_s, 'Medium (63d)': _col_m, 'Long (252d)': _col_l}
 
-        for _pl, _col in _period_cols.items():
-            _strats_in_period = _periods.get(_pl, [])
-            _short_lbl = _PERIOD_SHORT[_pl]
+        for _pl3, _col in _pcols.items():
+            _strats_p = _periods.get(_pl3, [])
+            _lbl3, _days3 = _PERIOD_SHORT[_pl3]
             with _col:
-                # period column header
+                # period label
                 st.markdown(
-                    f"<div class='ss-period-hdr'>"
-                    f"<div class='ss-period-dot'></div>"
-                    f"<span class='ss-period-lbl'>{_short_lbl}</span>"
-                    f"<span class='ss-period-n'>({len(_strats_in_period)})</span>"
+                    f"<div class='ss-period-title'>"
+                    f"<div class='ss-period-title-dot'></div>{_lbl3}"
+                    f"<span style='color:#3a3a3a;margin-left:0.25rem;font-size:0.58rem;font-weight:700;'>{_days3}</span>"
+                    f"<span style='color:#2a2a2a;margin-left:auto;font-size:0.58rem;'>({len(_strats_p)})</span>"
                     f"</div>",
                     unsafe_allow_html=True)
 
-                if not _strats_in_period:
-                    st.markdown("<div class='ss-period-empty'>—</div>", unsafe_allow_html=True)
+                if not _strats_p:
+                    st.markdown("<div class='ss-col-empty'>—</div>", unsafe_allow_html=True)
                     continue
 
-                for _f in _strats_in_period:
+                for _f in _strats_p:
                     _wr    = float(_f.get('win_rate', 0) or 0)
-                    _pf    = float(_f.get('profit_factor', 0) or 0)
-                    _exp   = float(_f.get('expectancy', 0) or 0)
                     _sig   = int(_f.get('signals', 0) or 0)
                     _combo = _f.get('combo_indicators', '—')
                     _rk    = _f.get('best_regime', 'TREND')
@@ -1325,40 +1425,369 @@ def render_champions_vault_page():
 
                     _rc, _ri, _rlbl = _REGIME_META.get(_rk, ('#a78bfa', '★', _rk.title()))
                     _wc = '#26A69A' if _wr >= 55 else ('#FFC107' if _wr >= 45 else '#ef5350')
-                    _ec = '#26A69A' if _exp > 0 else '#ef5350'
                     _rmkey = f"ssrm_{_fid.replace('.','_').replace(' ','_').replace('(','_').replace(')','_').replace('/','_')}"[:72]
 
-                    # compact card row: accent bar | regime pill + combo name | win% · sig | ✕
-                    _c_main, _c_del = st.columns([20, 1])
-                    with _c_main:
+                    _c_chip, _c_del = st.columns([18, 1])
+                    with _c_chip:
                         st.markdown(
-                            f"<div class='ss-sc'>"
-                            f"<div class='ss-sc-accent' style='background:{_rc}'></div>"
-                            f"<div class='ss-sc-body'>"
-                            f"<div class='ss-sc-row1'>"
-                            f"<span class='ss-sc-regime' style='color:{_rc};border-color:{_rc}44;background:{_rc}14;'>{_ri}&nbsp;{_rlbl}</span>"
-                            f"<span class='ss-sc-combo' title='{_combo}'>{_combo}</span>"
-                            f"</div>"
-                            f"<div class='ss-sc-row2'>"
-                            f"<span class='ss-sc-lbl'>Win</span><span class='ss-sc-stat' style='color:{_wc}'>{_wr:.1f}%</span>"
-                            f"<span style='color:#2a2a2a;font-size:0.55rem;'>|</span>"
-                            f"<span class='ss-sc-lbl'>Sig</span><span class='ss-sc-stat' style='color:#606060'>{_sig}</span>"
-                            f"</div>"
+                            f"<div class='ss-chip'>"
+                            f"<div class='ss-chip-bar' style='background:{_rc}'></div>"
+                            f"<div class='ss-chip-body'>"
+                            f"<span class='ss-chip-regime' style='background:{_rc};color:#0a0a0a;'>"
+                            f"{_ri}&nbsp;{_rlbl}</span>"
+                            f"<span class='ss-chip-name' title='{_combo}'>{_combo}</span>"
+                            f"<span class='ss-chip-wr' style='color:{_wc}'>{_wr:.0f}%</span>"
                             f"</div></div>",
                             unsafe_allow_html=True)
                     with _c_del:
                         with st.container(key=_rmkey):
-                            st.button(
-                                "✕",
-                                key=f"btn_{_rmkey}",
-                                use_container_width=True,
-                                on_click=_rc_toggle,
-                                args=(_fid, None),
-                            )
+                            st.button("✕", key=f"btn_{_rmkey}",
+                                      use_container_width=True,
+                                      on_click=_rc_toggle, args=(_fid, None))
                     _gidx += 1
 
-                st.markdown("<div style='height:0.4rem'></div>", unsafe_allow_html=True)
+        # close the HTML wrappers opened above
+        st.markdown("</div></div>", unsafe_allow_html=True)
 
-        # close stock block
-        st.markdown("</div>", unsafe_allow_html=True)
+    # ── LIVE SIGNALS SECTION ─────────────────────────────────────────────────
+    _render_live_signals(rc_favs)
 
+
+# ── Live signal checker ───────────────────────────────────────────────────────
+
+# Maps display name fragments → signal column key in signals_df
+_IND_KEY_MAP = {
+    'EMA':        'EMA',
+    'SMA':        'SMA',
+    'Parabolic':  'PSAR',
+    'Ichimoku':   'ICHI',
+    'WMA':        'WMA',
+    'RSI':        'RSI',
+    'MACD':       'MACD',
+    'Stochastic': 'STOCH',
+    'ROC':        'ROC',
+    'CCI':        'CCI',
+    'Williams':   'WILLR',
+    'Bollinger':  'BB',
+    'Keltner':    'KC',
+    'Donchian':   'DC',
+    'MFI':        'MFI',
+    'CMF':        'CMF',
+    'VWAP':       'VWAP',
+    'OBV':        'OBV',
+    'ADX':        'ADX',
+}
+
+_PERIOD_DAYS = {'Short (5d)': '3mo', 'Medium (63d)': '6mo', 'Long (252d)': '2y'}
+
+_REGIME_COLORS = {'TREND': '#26A69A', 'RANGE': '#4A9EFF', 'VOLATILE': '#FF6B6B'}
+_REGIME_ICONS  = {'TREND': '↗', 'RANGE': '↔', 'VOLATILE': '⚡'}
+
+
+def _combo_display_to_keys(combo_str: str) -> list[str]:
+    """Convert 'EMA (20/50/200) + RSI (14)' → ['EMA', 'RSI']"""
+    keys = []
+    for part in combo_str.split('+'):
+        part = part.strip()
+        for fragment, key in _IND_KEY_MAP.items():
+            if fragment.lower() in part.lower():
+                keys.append(key)
+                break
+    return list(dict.fromkeys(keys))  # dedupe, preserve order
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _fetch_signals_cached(symbol: str, yf_period: str):
+    """Fetch OHLCV + compute indicators + detect signals. Cached 5 min."""
+    try:
+        import yfinance as yf
+        import pandas as pd
+        import pandas_ta as ta
+        from signal_engine import detect_signals
+
+        _df = yf.download(symbol, period=yf_period, interval='1d', progress=False, auto_adjust=True)
+        if _df is None or len(_df) < 20:
+            return None, None
+        _df.columns = [c[0] if isinstance(c, tuple) else c for c in _df.columns]
+        _df = _df.reset_index()
+        if 'Date' not in _df.columns and 'Datetime' in _df.columns:
+            _df = _df.rename(columns={'Datetime': 'Date'})
+        _df['Date'] = pd.to_datetime(_df['Date'])
+
+        # compute indicators that signal_engine needs
+        _c = _df['Close']
+        _df['EMA_20']  = ta.ema(_c, length=20)
+        _df['EMA_50']  = ta.ema(_c, length=50)
+        _df['EMA_200'] = ta.ema(_c, length=200)
+        _df['SMA_50']  = ta.sma(_c, length=50)
+        _df['SMA_200'] = ta.sma(_c, length=200)
+        _df['RSI_14']  = ta.rsi(_c, length=14)
+
+        macd = ta.macd(_c)
+        if macd is not None:
+            for col in macd.columns:
+                _df[col] = macd[col]
+
+        bb = ta.bbands(_c, length=20)
+        if bb is not None:
+            for col in bb.columns:
+                _df[col] = bb[col]
+
+        stoch = ta.stoch(_df['High'], _df['Low'], _c)
+        if stoch is not None:
+            for col in stoch.columns:
+                _df[col] = stoch[col]
+
+        adx = ta.adx(_df['High'], _df['Low'], _c)
+        if adx is not None:
+            for col in adx.columns:
+                _df[col] = adx[col]
+
+        roc  = ta.roc(_c, length=12);  _df['ROC_12'] = roc if roc is not None else 0
+        cci  = ta.cci(_df['High'], _df['Low'], _c, length=20); _df['CCI_20'] = cci if cci is not None else 0
+        willr = ta.willr(_df['High'], _df['Low'], _c, length=14); _df['WILLR_14'] = willr if willr is not None else 0
+        mfi  = ta.mfi(_df['High'], _df['Low'], _c, _df['Volume'], length=14); _df['MFI_14'] = mfi if mfi is not None else 0
+        cmf  = ta.cmf(_df['High'], _df['Low'], _c, _df['Volume'], length=20); _df['CMF_20'] = cmf if cmf is not None else 0
+        obv  = ta.obv(_c, _df['Volume']); _df['OBV'] = obv if obv is not None else 0
+        wma  = ta.wma(_c, length=20); _df['WMA_20'] = wma if wma is not None else _c
+
+        psar = ta.psar(_df['High'], _df['Low'], _c)
+        if psar is not None:
+            for col in psar.columns:
+                _df[col] = psar[col]
+
+        ichi = ta.ichimoku(_df['High'], _df['Low'], _c)
+        if ichi is not None and isinstance(ichi, tuple):
+            for part in ichi:
+                if hasattr(part, 'columns'):
+                    for col in part.columns:
+                        _df[col] = part[col]
+
+        _df['REGIME'] = 'TREND'
+
+        # vwap approximation (daily: just use typical price ratio trend)
+        _df['VWAP'] = ((_df['High'] + _df['Low'] + _df['Close']) / 3 * _df['Volume']).cumsum() / _df['Volume'].cumsum()
+
+        kc = ta.kc(_df['High'], _df['Low'], _c)
+        if kc is not None:
+            for col in kc.columns:
+                _df[col] = kc[col]
+
+        dc = ta.donchian(_df['High'], _df['Low'])
+        if dc is not None:
+            for col in dc.columns:
+                _df[col] = dc[col]
+
+        sigs = detect_signals(_df)
+        price = float(_df['Close'].iloc[-1])
+        return sigs, price
+    except Exception:
+        return None, None
+
+
+def _check_strategy_firing(sig_df, ind_keys: list[str], window: int = 3) -> dict:
+    """
+    Check if a combo strategy is currently firing.
+    Returns dict with firing status and which indicators are active.
+    """
+    if sig_df is None or len(sig_df) == 0:
+        return {'firing': False, 'active': [], 'missing': ind_keys}
+
+    last_n = sig_df.tail(window)
+    active, missing = [], []
+
+    for key in ind_keys:
+        buy_col = f"{key}_Buy"
+        if buy_col not in last_n.columns:
+            missing.append(key)
+            continue
+        fired = int(last_n[buy_col].sum()) > 0
+        if fired:
+            active.append(key)
+        else:
+            missing.append(key)
+
+    firing = len(active) == len(ind_keys) and len(ind_keys) > 0
+    return {'firing': firing, 'active': active, 'missing': missing}
+
+
+def _render_live_signals(rc_favs: list) -> None:
+    """Render the Live Signals section below the saved strategies grid."""
+    if not rc_favs:
+        return
+
+    # Live Signal Check section divider — same dark style as the rest of the page
+    st.markdown(
+        "<div class='ss-section-divider'>"
+        "<div class='ss-section-line'></div>"
+        "<div class='ss-section-lbl'>"
+        "<div class='ss-section-dot' style='background:#26A69A'></div>"
+        "⚡&nbsp;Live Signal Check"
+        "</div>"
+        "<div class='ss-section-line'></div>"
+        "</div>"
+        "<div style='font-size:0.65rem;color:#3e3e3e;margin:-0.4rem 0 1.1rem;line-height:1.7;'>"
+        "Each saved strategy is checked against fresh market data. "
+        "A strategy <span style='color:#26A69A;font-weight:700;'>fires</span> "
+        "when all its indicators show a buy signal within the last 3 bars."
+        "</div>",
+        unsafe_allow_html=True)
+
+    # group by symbol so we only fetch price once per symbol
+    _sym_groups: dict = {}
+    for _f in rc_favs:
+        _s = _f.get('symbol', '')
+        _sym_groups.setdefault(_s, []).append(_f)
+
+    _firing_cards = []
+    _quiet_cards  = []
+
+    for _sym, _strats in sorted(_sym_groups.items()):
+        # pick the longest period saved for this stock (more data = better signal detection)
+        _yf_period = '1y'
+        with st.spinner(f"Checking {_sym}…"):
+            _sig_df, _price = _fetch_signals_cached(_sym, _yf_period)
+
+        for _f in _strats:
+            _combo   = _f.get('combo_indicators', '')
+            _keys    = _combo_display_to_keys(_combo)
+            _sw      = int(_f.get('signal_window', 3) or 3)
+            _check   = _check_strategy_firing(_sig_df, _keys, window=max(_sw, 3))
+            _rv      = float(_f.get('risk_val', 1)   or 1)
+            _rw      = float(_f.get('reward_val', 2) or 2)
+            _rk      = _f.get('best_regime', 'TREND')
+            _pl      = _f.get('period_label', '')
+            _wr      = float(_f.get('win_rate', 0) or 0)
+            _pf      = float(_f.get('profit_factor', 0) or 0)
+
+            _entry  = _price or 0
+            _sl_pct = 0.02 * _rv
+            _tp_pct = _sl_pct * (_rw / _rv)
+            _stop   = round(_entry * (1 - _sl_pct), 2)  if _entry else 0
+            _target = round(_entry * (1 + _tp_pct), 2)  if _entry else 0
+            _risk_sar    = round(_entry - _stop,  2) if _entry else 0
+            _reward_sar  = round(_target - _entry, 2) if _entry else 0
+
+            _card = {
+                'sym': _sym, 'combo': _combo, 'keys': _keys,
+                'check': _check, 'price': _entry,
+                'stop': _stop, 'target': _target,
+                'risk_sar': _risk_sar, 'reward_sar': _reward_sar,
+                'sl_pct': _sl_pct * 100, 'tp_pct': _tp_pct * 100,
+                'regime': _rk, 'period': _pl, 'win_rate': _wr, 'pf': _pf,
+                'rv': int(_rv), 'rw': int(_rw),
+            }
+            if _check['firing']:
+                _firing_cards.append(_card)
+            else:
+                _quiet_cards.append(_card)
+
+    # ── firing signals ───────────────────────────────────────────────────────
+    if _firing_cards:
+        st.markdown(
+            f"<div style='font-size:0.6rem;font-weight:800;color:#26A69A;text-transform:uppercase;"
+            f"letter-spacing:1px;margin-bottom:0.55rem;'>"
+            f"⚡&nbsp; Firing Now &nbsp;<span style='color:#1e3d30;'>({len(_firing_cards)})</span>"
+            f"</div>",
+            unsafe_allow_html=True)
+
+        for _c in _firing_cards:
+            _rc = _REGIME_COLORS.get(_c['regime'], '#a78bfa')
+            _ri = _REGIME_ICONS.get(_c['regime'], '★')
+            _wc = '#26A69A' if _c['win_rate'] >= 55 else ('#FFC107' if _c['win_rate'] >= 45 else '#ef5350')
+
+            _pill_html = ''.join(
+                f"<span class='ls-pill' style='"
+                f"color:{'#26A69A' if k in _c['check']['active'] else '#252525'};"
+                f"border-color:{'#26A69A33' if k in _c['check']['active'] else '#1a1a1a'};"
+                f"background:{'#26A69A0D' if k in _c['check']['active'] else '#0a0a0a'};'>"
+                f"{'✓' if k in _c['check']['active'] else '○'}&nbsp;{k}</span>"
+                for k in _c['keys']
+            )
+
+            st.markdown(
+                f"<div class='ls-card ls-card-fire'>"
+                f"<div class='ls-top'>"
+                f"<span class='ls-sym'>{_c['sym'].replace('.SR','')}</span>"
+                f"<span class='ls-tag' style='background:{_rc};color:#0a0a0a;'>"
+                f"{_ri}&nbsp;{_c['regime'].title()}</span>"
+                f"<span class='ls-tag' style='background:#252525;color:#888;'>"
+                f"{_c['period'].split('(')[0].strip()}</span>"
+                f"<span class='ls-combo-name' title='{_c['combo']}'>{_c['combo']}</span>"
+                f"<span class='ls-badge-fire'>⚡ Firing</span>"
+                f"</div>"
+                f"<div class='ls-pills'>{_pill_html}</div>"
+                f"<div class='ls-ladder'>"
+                # entry
+                f"<div class='ls-cell'>"
+                f"<div class='ls-cell-top' style='background:#4A9EFF'></div>"
+                f"<div class='ls-cell-lbl'>Entry Price</div>"
+                f"<div class='ls-cell-val' style='color:#c0c0c0'>{_c['price']:.2f}</div>"
+                f"<div class='ls-cell-sub'>Current market price</div>"
+                f"</div>"
+                # target
+                f"<div class='ls-cell'>"
+                f"<div class='ls-cell-top' style='background:#26A69A'></div>"
+                f"<div class='ls-cell-lbl'>Take Profit</div>"
+                f"<div class='ls-cell-val' style='color:#26A69A'>{_c['target']:.2f}</div>"
+                f"<div class='ls-cell-sub' style='color:#1e4a3a'>+{_c['tp_pct']:.1f}% &nbsp;·&nbsp; "
+                f"+{_c['reward_sar']:.2f}</div>"
+                f"</div>"
+                # stop
+                f"<div class='ls-cell'>"
+                f"<div class='ls-cell-top' style='background:#ef5350'></div>"
+                f"<div class='ls-cell-lbl'>Stop Loss</div>"
+                f"<div class='ls-cell-val' style='color:#ef5350'>{_c['stop']:.2f}</div>"
+                f"<div class='ls-cell-sub' style='color:#4a1e1e'>-{_c['sl_pct']:.1f}% &nbsp;·&nbsp; "
+                f"-{_c['risk_sar']:.2f}</div>"
+                f"</div>"
+                # r:r + stats
+                f"<div class='ls-cell'>"
+                f"<div class='ls-cell-top' style='background:{_wc}'></div>"
+                f"<div class='ls-cell-lbl'>R:R &nbsp;·&nbsp; Win Rate</div>"
+                f"<div class='ls-cell-val' style='color:{_wc}'>"
+                f"{_c['rv']}:{_c['rw']} &nbsp;<span style='font-size:0.82rem;color:{_wc};opacity:0.7;'>"
+                f"{_c['win_rate']:.0f}%</span></div>"
+                f"<div class='ls-cell-sub'>PF &nbsp;{_c['pf']:.2f}</div>"
+                f"</div>"
+                f"</div></div>",
+                unsafe_allow_html=True)
+
+    # ── watching / not firing ────────────────────────────────────────────────
+    if _quiet_cards:
+        st.markdown(
+            f"<div style='font-size:0.65rem;font-weight:800;color:#555;text-transform:uppercase;"
+            f"letter-spacing:1px;margin:0.9rem 0 0.45rem;display:flex;align-items:center;gap:0.5rem;'>"
+            f"<span style='display:inline-block;width:5px;height:5px;border-radius:50%;background:#333;flex-shrink:0;'></span>"
+            f"Watching &nbsp;<span style='color:#383838;font-weight:600;'>({len(_quiet_cards)})</span>"
+            f"</div>",
+            unsafe_allow_html=True)
+
+        for _c in _quiet_cards:
+            _rc  = _REGIME_COLORS.get(_c['regime'], '#a78bfa')
+            _ri  = _REGIME_ICONS.get(_c['regime'], '★')
+            _an  = len(_c['check']['active'])
+            _tn  = len(_c['keys'])
+            _prog = f"{_an}/{_tn}" if _tn else "—"
+
+            _pill_html = ''.join(
+                f"<span class='ls-pill' style='"
+                f"color:{'#4A9EFF' if k in _c['check']['active'] else '#1e1e1e'};"
+                f"border-color:{'#4A9EFF22' if k in _c['check']['active'] else '#181818'};"
+                f"background:transparent;'>"
+                f"{'✓' if k in _c['check']['active'] else '○'}&nbsp;{k}</span>"
+                for k in _c['keys']
+            )
+
+            st.markdown(
+                f"<div class='ls-quiet'>"
+                f"<span class='ls-quiet-sym'>{_c['sym'].replace('.SR','')}</span>"
+                f"<span class='ls-tag' style='background:{_rc}22;color:{_rc}88;font-size:0.58rem;font-weight:800;padding:0.12rem 0.42rem;border-radius:20px;text-transform:uppercase;letter-spacing:0.3px;white-space:nowrap;'>"
+                f"{_ri}&nbsp;{_c['regime'].title()}</span>"
+                f"<span style='font-size:0.58rem;color:#2e2e2e;white-space:nowrap;'>"
+                f"{_c['period'].split('(')[0].strip()}</span>"
+                f"<span class='ls-quiet-combo' title='{_c['combo']}'>{_c['combo']}</span>"
+                f"<div style='display:flex;gap:0.25rem;flex-wrap:wrap;'>{_pill_html}</div>"
+                f"<span class='ls-quiet-prog'>{_prog} active</span>"
+                f"</div>",
+                unsafe_allow_html=True)
