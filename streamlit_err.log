@@ -1,4 +1,34 @@
-2026-04-26 18:23:36.310 `label` got an empty value. This is discouraged for accessibility reasons and may be disallowed in the future by raising an exception. Please provide a non-empty label and hide it with label_visibility if needed.
+2026-04-26 19:24:07.728 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-04-26 19:24:07.956 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-04-26 19:24:29.805 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-04-26 19:24:30.646 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-04-26 19:24:32.622 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-04-26 19:24:32.881 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-04-26 19:36:20.625 `label` got an empty value. This is discouraged for accessibility reasons and may be disallowed in the future by raising an exception. Please provide a non-empty label and hide it with label_visibility if needed.
 Stack (most recent call last):
   File "C:\Users\moham\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 1014, in _bootstrap
     self._bootstrap_inner()
@@ -14,9 +44,9 @@ Stack (most recent call last):
     result = func()
   File "C:\Users\moham\OneDrive\Desktop\My app\.venv\Lib\site-packages\streamlit\runtime\scriptrunner\script_runner.py", line 689, in code_to_exec
     exec(code, module.__dict__)  # noqa: S102
-  File "C:\Users\moham\OneDrive\Desktop\My app\app.py", line 5922, in <module>
+  File "C:\Users\moham\OneDrive\Desktop\My app\app.py", line 5939, in <module>
     main()
-  File "C:\Users\moham\OneDrive\Desktop\My app\app.py", line 3726, in main
+  File "C:\Users\moham\OneDrive\Desktop\My app\app.py", line 3743, in main
     render_champions_vault_page()
   File "C:\Users\moham\OneDrive\Desktop\My app\favorites_tab.py", line 1388, in render_champions_vault_page
     _search = st.text_input("", placeholder="Search symbol or indicator…",
@@ -28,7 +58,7 @@ Stack (most recent call last):
     maybe_raise_label_warnings(label, label_visibility)
   File "C:\Users\moham\OneDrive\Desktop\My app\.venv\Lib\site-packages\streamlit\elements\lib\policies.py", line 184, in maybe_raise_label_warnings
     _LOGGER.warning(
-2026-04-26 18:23:36.319 `label` got an empty value. This is discouraged for accessibility reasons and may be disallowed in the future by raising an exception. Please provide a non-empty label and hide it with label_visibility if needed.
+2026-04-26 19:36:20.633 `label` got an empty value. This is discouraged for accessibility reasons and may be disallowed in the future by raising an exception. Please provide a non-empty label and hide it with label_visibility if needed.
 Stack (most recent call last):
   File "C:\Users\moham\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 1014, in _bootstrap
     self._bootstrap_inner()
@@ -44,9 +74,9 @@ Stack (most recent call last):
     result = func()
   File "C:\Users\moham\OneDrive\Desktop\My app\.venv\Lib\site-packages\streamlit\runtime\scriptrunner\script_runner.py", line 689, in code_to_exec
     exec(code, module.__dict__)  # noqa: S102
-  File "C:\Users\moham\OneDrive\Desktop\My app\app.py", line 5922, in <module>
+  File "C:\Users\moham\OneDrive\Desktop\My app\app.py", line 5939, in <module>
     main()
-  File "C:\Users\moham\OneDrive\Desktop\My app\app.py", line 3726, in main
+  File "C:\Users\moham\OneDrive\Desktop\My app\app.py", line 3743, in main
     render_champions_vault_page()
   File "C:\Users\moham\OneDrive\Desktop\My app\favorites_tab.py", line 1391, in render_champions_vault_page
     _regime_filter = st.selectbox("", ["All Regimes", "Trend", "Range", "Volatile"],
@@ -58,7 +88,7 @@ Stack (most recent call last):
     maybe_raise_label_warnings(label, label_visibility)
   File "C:\Users\moham\OneDrive\Desktop\My app\.venv\Lib\site-packages\streamlit\elements\lib\policies.py", line 184, in maybe_raise_label_warnings
     _LOGGER.warning(
-2026-04-26 18:23:36.326 `label` got an empty value. This is discouraged for accessibility reasons and may be disallowed in the future by raising an exception. Please provide a non-empty label and hide it with label_visibility if needed.
+2026-04-26 19:36:20.639 `label` got an empty value. This is discouraged for accessibility reasons and may be disallowed in the future by raising an exception. Please provide a non-empty label and hide it with label_visibility if needed.
 Stack (most recent call last):
   File "C:\Users\moham\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 1014, in _bootstrap
     self._bootstrap_inner()
@@ -74,9 +104,9 @@ Stack (most recent call last):
     result = func()
   File "C:\Users\moham\OneDrive\Desktop\My app\.venv\Lib\site-packages\streamlit\runtime\scriptrunner\script_runner.py", line 689, in code_to_exec
     exec(code, module.__dict__)  # noqa: S102
-  File "C:\Users\moham\OneDrive\Desktop\My app\app.py", line 5922, in <module>
+  File "C:\Users\moham\OneDrive\Desktop\My app\app.py", line 5939, in <module>
     main()
-  File "C:\Users\moham\OneDrive\Desktop\My app\app.py", line 3726, in main
+  File "C:\Users\moham\OneDrive\Desktop\My app\app.py", line 3743, in main
     render_champions_vault_page()
   File "C:\Users\moham\OneDrive\Desktop\My app\favorites_tab.py", line 1394, in render_champions_vault_page
     _period_filter = st.selectbox("", ["All Periods", "Short", "Medium", "Long"],

@@ -2522,6 +2522,10 @@ def main():
         if _ss_mkt_key not in st.session_state:
             st.session_state[_ss_stat_key] = get_saudi_market_status()
             st.session_state[_ss_mkt_key]  = get_saudi_market_data(period=_mkt_p)
+
+        # Cache forecast in session so it never blocks reruns (only fetches once per session)
+        if '_tf_data_cache' not in st.session_state:
+            st.session_state['_tf_data_cache'] = get_tomorrow_stock_forecast(limit=3)
         market_status = st.session_state[_ss_stat_key]
         market_data   = st.session_state[_ss_mkt_key]
 
@@ -2951,7 +2955,25 @@ def main():
             background: rgba(239,83,80,0.15) !important;
             border-color: rgba(239,83,80,0.4) !important;
         }}
-        
+        .st-key-disconnect_btn .stButton > button {{
+            background: transparent !important;
+            border: 1px solid #2a2a2a !important;
+            border-radius: 10px !important;
+            color: #4a4a4a !important;
+            font-size: 0.75rem !important;
+            font-weight: 700 !important;
+            width: 100% !important;
+            padding: 0.55rem !important;
+            margin-top: 0.5rem !important;
+            letter-spacing: 0.3px !important;
+            transition: all 0.15s ease !important;
+        }}
+        .st-key-disconnect_btn .stButton > button:hover {{
+            background: rgba(239,83,80,0.06) !important;
+            border-color: rgba(239,83,80,0.3) !important;
+            color: #ef5350 !important;
+        }}
+
         /* ═══════════════════════════════════════════════════════════════════
            MARKET CARDS - Matching app panel style (#212121, #303030)
            ═══════════════════════════════════════════════════════════════════ */
@@ -3150,11 +3172,6 @@ def main():
                                 f'<div class="user-stat"><div class="user-stat-value">Pro</div>'
                                 f'<div class="user-stat-label">Plan</div></div></div>',
                                 unsafe_allow_html=True)
-                            with st.container(key="logout_btn"):
-                                if st.button("Sign Out", key="user_logout"):
-                                    logout()
-                                    st.rerun()
-
                     # Market Status card
                     open_badge = (
                         f'<span class="mstat-badge-open"><span class="mstat-dot"></span>OPEN</span>'
@@ -3261,7 +3278,7 @@ def main():
                         _mom_score -= 30
 
                     _mom_score = max(-100, min(100, _mom_score))
-                    _tf_data = get_tomorrow_stock_forecast(limit=3)
+                    _tf_data = st.session_state['_tf_data_cache']
 
                     if _mom_score >= 50:
                         _fc_label, _tf_tone_color, _fc_icon = 'LIKELY UP', '#26A69A', '▲'
