@@ -596,6 +596,9 @@ def main():
     if 'show_champions_vault' not in st.session_state:
         st.session_state.show_champions_vault = False
 
+    if 'show_trade_journal' not in st.session_state:
+        st.session_state.show_trade_journal = False
+
 
 
     apply_ui_theme()
@@ -936,7 +939,7 @@ def main():
     </script>
     """, height=0)
 
-    if not st.session_state.show_results and not st.session_state.show_market_results and not st.session_state.show_market_pulse and not st.session_state.show_macro and not st.session_state.show_champions_vault:
+    if not st.session_state.show_results and not st.session_state.show_market_results and not st.session_state.show_market_pulse and not st.session_state.show_macro and not st.session_state.show_champions_vault and not st.session_state.show_trade_journal:
 
         # CONTROLS PAGE
 
@@ -3138,9 +3141,9 @@ def main():
                                         st.session_state.mkt_period = _pk
                                         st.rerun()
 
-                    # Action buttons — User + Saved Strategies
+                    # Action buttons — User + Saved Strategies + Journal
                     fav_count = len(st.session_state.get('favorites', []))
-                    _bu1, _bu2 = st.columns([1, 1], gap="small")
+                    _bu1, _bu2, _bu3 = st.columns([1, 1, 1], gap="small")
                     with _bu1:
                         with st.container(key="btn_user"):
                             _usr_lbl = f"◉  {username[:10]}"
@@ -3148,6 +3151,7 @@ def main():
                                 st.session_state.show_user_panel = not st.session_state.show_user_panel
                                 if st.session_state.show_user_panel:
                                     st.session_state.show_champions_vault = False
+                                    st.session_state.show_trade_journal = False
                                 st.rerun()
                     with _bu2:
                         with st.container(key="btn_champions"):
@@ -3157,6 +3161,17 @@ def main():
                                 st.session_state.show_champions_vault = not _cv_is_active
                                 if not _cv_is_active:
                                     st.session_state.show_user_panel = False
+                                    st.session_state.show_trade_journal = False
+                                st.rerun()
+                    with _bu3:
+                        with st.container(key="btn_journal"):
+                            _tj_active = st.session_state.get('show_trade_journal', False)
+                            _tj_lbl = "✕  Journal" if _tj_active else "📒  Journal"
+                            if st.button(_tj_lbl, key="toolbar_journal", use_container_width=True):
+                                st.session_state.show_trade_journal = not _tj_active
+                                if not _tj_active:
+                                    st.session_state.show_user_panel = False
+                                    st.session_state.show_champions_vault = False
                                 st.rerun()
 
                     # User panel dropdown
@@ -3655,6 +3670,12 @@ def main():
         apply_ui_theme()
         from favorites_tab import render_champions_vault_page
         render_champions_vault_page()
+
+    elif st.session_state.show_trade_journal:
+
+        apply_ui_theme()
+        from trade_journal import render_trade_journal_page
+        render_trade_journal_page()
 
     elif st.session_state.show_market_results:
 

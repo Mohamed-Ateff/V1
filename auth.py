@@ -152,6 +152,130 @@ def delete_favorite(username: str, fav_id: str) -> None:
         conn.commit()
 
 
+# ── Trade Journal persistence ─────────────────────────────────────────────────
+
+def init_trade_journal():
+    """Create trade_journal table if it doesn't exist."""
+    with _get_conn() as conn:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS trade_journal (
+                id           TEXT    PRIMARY KEY,
+                username     TEXT    NOT NULL COLLATE NOCASE,
+                symbol       TEXT    NOT NULL,
+                stock_name   TEXT    DEFAULT '',
+                direction    TEXT    NOT NULL DEFAULT 'LONG',
+                entry_price  REAL    NOT NULL,
+                stop_loss    REAL    NOT NULL,
+                target1      REAL,
+                target2      REAL,
+                target3      REAL,
+                capital      REAL    NOT NULL,
+                shares       REAL,
+                entry_date   TEXT    NOT NULL,
+                status       TEXT    NOT NULL DEFAULT 'OPEN',
+                exit_price   REAL,
+                exit_date    TEXT,
+                days_held    INTEGER,
+                pnl_pct      REAL,
+                pnl_amount   REAL,
+                r_multiple   REAL,
+                hit_target   INTEGER DEFAULT 0,
+                hit_stop     INTEGER DEFAULT 0,
+                setup_type   TEXT    DEFAULT '',
+                conviction   INTEGER DEFAULT 3,
+                notes_before TEXT    DEFAULT '',
+                notes_after  TEXT    DEFAULT '',
+                grade        TEXT    DEFAULT '',
+                emotion      TEXT    DEFAULT '',
+                created_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+            )
+        """)
+        # migration: add columns to old DBs
+        for _ddl in [
+            "ALTER TABLE trade_journal ADD COLUMN target2 REAL",
+            "ALTER TABLE trade_journal ADD COLUMN target3 REAL",
+            "ALTER TABLE trade_journal ADD COLUMN shares REAL",
+            "ALTER TABLE trade_journal ADD COLUMN r_multiple REAL",
+            "ALTER TABLE trade_journal ADD COLUMN hit_target INTEGER DEFAULT 0",
+            "ALTER TABLE trade_journal ADD COLUMN hit_stop INTEGER DEFAULT 0",
+            "ALTER TABLE trade_journal ADD COLUMN setup_type TEXT DEFAULT ''",
+            "ALTER TABLE trade_journal ADD COLUMN conviction INTEGER DEFAULT 3",
+            "ALTER TABLE trade_journal ADD COLUMN notes_before TEXT DEFAULT ''",
+            "ALTER TABLE trade_journal ADD COLUMN notes_after TEXT DEFAULT ''",
+            "ALTER TABLE trade_journal ADD COLUMN grade TEXT DEFAULT ''",
+            "ALTER TABLE trade_journal ADD COLUMN emotion TEXT DEFAULT ''",
+            "ALTER TABLE trade_journal ADD COLUMN stock_name TEXT DEFAULT ''",
+            "ALTER TABLE trade_journal ADD COLUMN direction TEXT DEFAULT 'LONG'",
+        ]:
+            try:
+                conn.execute(_ddl)
+            except Exception:
+                pass
+        conn.commit()
+
+
+def load_trades(username: str) -> list:
+    with _get_conn() as conn:
+        rows = conn.execute(
+            "SELECT * FROM trade_journal WHERE username=? ORDER BY entry_date DESC",
+            (username,)
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def upsert_trade(username: str, trade: dict) -> None:
+    with _get_conn() as conn:
+        conn.execute("""
+            INSERT INTO trade_journal
+              (id, username, symbol, stock_name, direction, entry_price, stop_loss,
+               target1, target2, target3, capital, shares, entry_date, status,
+               exit_price, exit_date, days_held, pnl_pct, pnl_amount, r_multiple,
+               hit_target, hit_stop, setup_type, conviction,
+               notes_before, notes_after, grade, emotion, created_at)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            ON CONFLICT(id) DO UPDATE SET
+              symbol=excluded.symbol, stock_name=excluded.stock_name,
+              direction=excluded.direction,
+              entry_price=excluded.entry_price, stop_loss=excluded.stop_loss,
+              target1=excluded.target1, target2=excluded.target2, target3=excluded.target3,
+              capital=excluded.capital, shares=excluded.shares,
+              status=excluded.status, exit_price=excluded.exit_price,
+              exit_date=excluded.exit_date, days_held=excluded.days_held,
+              pnl_pct=excluded.pnl_pct, pnl_amount=excluded.pnl_amount,
+              r_multiple=excluded.r_multiple,
+              hit_target=excluded.hit_target, hit_stop=excluded.hit_stop,
+              setup_type=excluded.setup_type, conviction=excluded.conviction,
+              notes_before=excluded.notes_before, notes_after=excluded.notes_after,
+              grade=excluded.grade, emotion=excluded.emotion
+        """, (
+            trade['id'], username,
+            trade.get('symbol', ''), trade.get('stock_name', ''),
+            trade.get('direction', 'LONG'),
+            trade.get('entry_price', 0), trade.get('stop_loss', 0),
+            trade.get('target1'), trade.get('target2'), trade.get('target3'),
+            trade.get('capital', 0), trade.get('shares'),
+            trade.get('entry_date', ''), trade.get('status', 'OPEN'),
+            trade.get('exit_price'), trade.get('exit_date'),
+            trade.get('days_held'), trade.get('pnl_pct'), trade.get('pnl_amount'),
+            trade.get('r_multiple'),
+            trade.get('hit_target', 0), trade.get('hit_stop', 0),
+            trade.get('setup_type', ''), trade.get('conviction', 3),
+            trade.get('notes_before', ''), trade.get('notes_after', ''),
+            trade.get('grade', ''), trade.get('emotion', ''),
+            trade.get('created_at', datetime.now().isoformat()),
+        ))
+        conn.commit()
+
+
+def delete_trade(username: str, trade_id: str) -> None:
+    with _get_conn() as conn:
+        conn.execute(
+            "DELETE FROM trade_journal WHERE username=? AND id=?",
+            (username, trade_id)
+        )
+        conn.commit()
+
+
 # ── Password helpers ──────────────────────────────────────────────────────────
 
 def _hash_password(password: str, salt: str) -> str:
