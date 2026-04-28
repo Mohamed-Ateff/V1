@@ -1533,13 +1533,12 @@ def _combo_display_to_keys(combo_str: str) -> list[str]:
 
 
 @st.cache_data(ttl=300, show_spinner=False)
-def _fetch_signals_cached(symbol: str, yf_period: str):
-    """Fetch OHLCV + compute indicators + detect signals. Cached 5 min."""
+def _fetch_df_cached(symbol: str, yf_period: str):
+    """Fetch OHLCV + compute all indicators. Returns (df, price) or (None, None)."""
     try:
         import yfinance as yf
         import pandas as pd
         import pandas_ta as ta
-        from signal_engine import detect_signals
 
         _df = yf.download(symbol, period=yf_period, interval='1d', progress=False, auto_adjust=True)
         if _df is None or len(_df) < 20:
@@ -1550,7 +1549,6 @@ def _fetch_signals_cached(symbol: str, yf_period: str):
             _df = _df.rename(columns={'Datetime': 'Date'})
         _df['Date'] = pd.to_datetime(_df['Date'])
 
-        # compute indicators that signal_engine needs
         _c = _df['Close']
         _df['EMA_20']  = ta.ema(_c, length=20)
         _df['EMA_50']  = ta.ema(_c, length=50)
@@ -1561,61 +1559,64 @@ def _fetch_signals_cached(symbol: str, yf_period: str):
 
         macd = ta.macd(_c)
         if macd is not None:
-            for col in macd.columns:
-                _df[col] = macd[col]
+            for col in macd.columns: _df[col] = macd[col]
 
         bb = ta.bbands(_c, length=20)
         if bb is not None:
-            for col in bb.columns:
-                _df[col] = bb[col]
+            for col in bb.columns: _df[col] = bb[col]
 
         stoch = ta.stoch(_df['High'], _df['Low'], _c)
         if stoch is not None:
-            for col in stoch.columns:
-                _df[col] = stoch[col]
+            for col in stoch.columns: _df[col] = stoch[col]
 
         adx = ta.adx(_df['High'], _df['Low'], _c)
         if adx is not None:
-            for col in adx.columns:
-                _df[col] = adx[col]
+            for col in adx.columns: _df[col] = adx[col]
 
-        roc  = ta.roc(_c, length=12);  _df['ROC_12'] = roc if roc is not None else 0
-        cci  = ta.cci(_df['High'], _df['Low'], _c, length=20); _df['CCI_20'] = cci if cci is not None else 0
-        willr = ta.willr(_df['High'], _df['Low'], _c, length=14); _df['WILLR_14'] = willr if willr is not None else 0
-        mfi  = ta.mfi(_df['High'], _df['Low'], _c, _df['Volume'], length=14); _df['MFI_14'] = mfi if mfi is not None else 0
-        cmf  = ta.cmf(_df['High'], _df['Low'], _c, _df['Volume'], length=20); _df['CMF_20'] = cmf if cmf is not None else 0
-        obv  = ta.obv(_c, _df['Volume']); _df['OBV'] = obv if obv is not None else 0
-        wma  = ta.wma(_c, length=20); _df['WMA_20'] = wma if wma is not None else _c
+        roc   = ta.roc(_c, length=12);                                    _df['ROC_12']   = roc   if roc   is not None else 0
+        cci   = ta.cci(_df['High'], _df['Low'], _c, length=20);           _df['CCI_20']   = cci   if cci   is not None else 0
+        willr = ta.willr(_df['High'], _df['Low'], _c, length=14);         _df['WILLR_14'] = willr if willr is not None else 0
+        mfi   = ta.mfi(_df['High'], _df['Low'], _c, _df['Volume'], length=14); _df['MFI_14'] = mfi if mfi is not None else 0
+        cmf   = ta.cmf(_df['High'], _df['Low'], _c, _df['Volume'], length=20); _df['CMF_20'] = cmf if cmf is not None else 0
+        obv   = ta.obv(_c, _df['Volume']);                                 _df['OBV']      = obv   if obv   is not None else 0
+        wma   = ta.wma(_c, length=20);                                     _df['WMA_20']   = wma   if wma   is not None else _c
 
         psar = ta.psar(_df['High'], _df['Low'], _c)
         if psar is not None:
-            for col in psar.columns:
-                _df[col] = psar[col]
+            for col in psar.columns: _df[col] = psar[col]
 
         ichi = ta.ichimoku(_df['High'], _df['Low'], _c)
         if ichi is not None and isinstance(ichi, tuple):
             for part in ichi:
                 if hasattr(part, 'columns'):
-                    for col in part.columns:
-                        _df[col] = part[col]
+                    for col in part.columns: _df[col] = part[col]
 
         _df['REGIME'] = 'TREND'
-
-        # vwap approximation (daily: just use typical price ratio trend)
-        _df['VWAP'] = ((_df['High'] + _df['Low'] + _df['Close']) / 3 * _df['Volume']).cumsum() / _df['Volume'].cumsum()
+        _df['VWAP']   = ((_df['High'] + _df['Low'] + _df['Close']) / 3 * _df['Volume']).cumsum() / _df['Volume'].cumsum()
 
         kc = ta.kc(_df['High'], _df['Low'], _c)
         if kc is not None:
-            for col in kc.columns:
-                _df[col] = kc[col]
+            for col in kc.columns: _df[col] = kc[col]
 
         dc = ta.donchian(_df['High'], _df['Low'])
         if dc is not None:
-            for col in dc.columns:
-                _df[col] = dc[col]
+            for col in dc.columns: _df[col] = dc[col]
 
-        sigs = detect_signals(_df)
         price = float(_df['Close'].iloc[-1])
+        return _df, price
+    except Exception:
+        return None, None
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _fetch_signals_cached(symbol: str, yf_period: str):
+    """Fetch OHLCV + compute indicators + detect signals. Cached 5 min."""
+    try:
+        from signal_engine import detect_signals
+        _df, price = _fetch_df_cached(symbol, yf_period)
+        if _df is None:
+            return None, None
+        sigs = detect_signals(_df)
         return sigs, price
     except Exception:
         return None, None
@@ -1647,260 +1648,185 @@ def _check_strategy_firing(sig_df, ind_keys: list[str], window: int = 3) -> dict
     return {'firing': firing, 'active': active, 'missing': missing}
 
 
+def _run_full_strategy(_df, current_price):
+    """Run all strategy engines and return BUY/NO TRADE verdict + price ladder."""
+    try:
+        from decision_tab import _get_pa_signal, _get_vp_signal, _get_pattern_signal
+        from _levels import compute_structural_levels, price_ladder_html
+        import pandas as pd
+
+        df = _df.copy()
+        if 'Date' in df.columns:
+            df['Date'] = pd.to_datetime(df['Date'])
+
+        pa  = _get_pa_signal(df, current_price)
+        vp  = _get_vp_signal(df, current_price)
+        pat = _get_pattern_signal(df)
+
+        signals = [s for s in [pa, vp, pat] if s is not None]
+        buy_count  = sum(1 for s in signals if s.get('signal') == 'BUY')
+        wait_count = len(signals) - buy_count
+
+        if buy_count >= 2:
+            verdict = 'BUY'; verdict_color = '#26A69A'
+        elif buy_count == 1 and wait_count == 0:
+            verdict = 'BUY'; verdict_color = '#26A69A'
+        else:
+            verdict = 'NO TRADE'
+            verdict_color = '#ef5350' if wait_count > buy_count else '#FFC107'
+
+        ladder_html = None
+        if verdict == 'BUY':
+            try:
+                lv = compute_structural_levels(df, current_price, True)
+                ladder_html = price_ladder_html(
+                    lv['entry'], lv['stop'], lv['t1'], lv['t2'], lv['t3'], True,
+                    lv.get('entry_quality', ''), lv.get('eq_col', '')
+                )
+            except Exception:
+                pass
+
+        return {
+            'verdict': verdict,
+            'verdict_color': verdict_color,
+            'buy_count': buy_count,
+            'total': len(signals),
+            'signals': signals,
+            'ladder_html': ladder_html,
+        }
+    except Exception:
+        return None
+
+
 def _render_live_signals(rc_favs: list) -> None:
-    """Render the Live Signals section below the saved strategies grid."""
+    """Render Live Signal Check — one block per stock, no repeated info."""
     if not rc_favs:
         return
 
-    # Live Signal Check section header — single tight box, darker bg
     st.markdown(
-        "<div style='margin:2.4rem 0 1.0rem;'>"
-        "<div style='"
-        "border:1px solid #222;"
-        "border-left:3px solid #26A69A;"
-        "border-radius:8px;"
-        "background:#0d0d0d;"
-        "padding:0.75rem 1.1rem;"
-        "display:flex;align-items:center;gap:1rem;"
-        "'>"
-        "<div style='flex:1;min-width:0;'>"
-        "<div style='font-size:0.85rem;font-weight:900;color:#b0b0b0;letter-spacing:-0.2px;margin-bottom:0.2rem;'>"
-        "Live Signal Check"
-        "</div>"
-        "<div style='font-size:0.62rem;color:#3e3e3e;line-height:1.6;'>"
-        "Each saved strategy is checked against fresh market data. "
-        "A strategy <span style='color:#26A69A88;font-weight:700;'>fires</span> "
-        "when all its indicators show a buy signal within the last 3 bars."
-        "</div>"
-        "</div>"
-        "<div style='flex-shrink:0;font-size:0.58rem;font-weight:800;color:#1e3d30;"
-        "text-transform:uppercase;letter-spacing:0.8px;border:1px solid #1a2e28;"
-        "padding:0.28rem 0.65rem;border-radius:20px;background:#0a1a14;'>"
-        "5 min cache"
-        "</div>"
-        "</div>"
+        "<div style='margin:2.4rem 0 1.0rem;display:flex;align-items:center;gap:0.6rem;'>"
+        "<div style='width:3px;height:18px;border-radius:2px;background:#26A69A;"
+        "box-shadow:0 0 8px #26A69A44;'></div>"
+        "<span style='font-size:0.92rem;font-weight:700;color:#e0e0e0;"
+        "text-transform:uppercase;letter-spacing:0.8px;'>Live Signal Check</span>"
         "</div>",
         unsafe_allow_html=True)
 
-    # group by symbol so we only fetch price once per symbol
+    # group saved strategies by symbol
     _sym_groups: dict = {}
     for _f in rc_favs:
-        _s = _f.get('symbol', '')
-        _sym_groups.setdefault(_s, []).append(_f)
+        _sym = _f.get('symbol', '')
+        if _sym not in _sym_groups:
+            _sym_groups[_sym] = {'sname': _f.get('stock_name', ''), 'strats': []}
+        _sym_groups[_sym]['strats'].append(_f)
 
-    _firing_cards = []
-    _quiet_cards  = []
+    _buy_blocks  = []
+    _wait_blocks = []
 
-    for _sym, _strats in sorted(_sym_groups.items()):
-        # pick the longest period saved for this stock (more data = better signal detection)
-        _yf_period = '1y'
-        with st.spinner(f"Checking {_sym}…"):
-            _sig_df, _price = _fetch_signals_cached(_sym, _yf_period)
+    for _sym, _sdata in sorted(_sym_groups.items()):
+        with st.spinner(f"Analysing {_sym.replace('.SR','')}…"):
+            _df, _price = _fetch_df_cached(_sym, '1y')
 
-        for _f in _strats:
-            _combo   = _f.get('combo_indicators', '')
-            _keys    = _combo_display_to_keys(_combo)
-            _sw      = int(_f.get('signal_window', 3) or 3)
-            _check   = _check_strategy_firing(_sig_df, _keys, window=max(_sw, 3))
-            _rv      = float(_f.get('risk_val', 1)   or 1)
-            _rw      = float(_f.get('reward_val', 2) or 2)
-            _rk      = _f.get('best_regime', 'TREND')
-            _pl      = _f.get('period_label', '')
-            _wr      = float(_f.get('win_rate', 0) or 0)
-            _pf      = float(_f.get('profit_factor', 0) or 0)
+        if _df is None or _price is None:
+            continue
 
-            _entry  = _price or 0
-            _sl_pct = 0.02 * _rv
-            _tp_pct = _sl_pct * (_rw / _rv)
-            _stop   = round(_entry * (1 - _sl_pct), 2)  if _entry else 0
-            _target = round(_entry * (1 + _tp_pct), 2)  if _entry else 0
-            _risk_sar    = round(_entry - _stop,  2) if _entry else 0
-            _reward_sar  = round(_target - _entry, 2) if _entry else 0
+        _result = _run_full_strategy(_df, _price)
+        _block = {
+            'sym':    _sym,
+            'sname':  _sdata['sname'],
+            'price':  _price,
+            'strats': _sdata['strats'],
+            'result': _result,
+        }
+        if _result and _result['verdict'] == 'BUY':
+            _buy_blocks.append(_block)
+        else:
+            _wait_blocks.append(_block)
 
-            _card = {
-                'sym': _sym, 'combo': _combo, 'keys': _keys,
-                'check': _check, 'price': _entry,
-                'stop': _stop, 'target': _target,
-                'risk_sar': _risk_sar, 'reward_sar': _reward_sar,
-                'sl_pct': _sl_pct * 100, 'tp_pct': _tp_pct * 100,
-                'regime': _rk, 'period': _pl, 'win_rate': _wr, 'pf': _pf,
-                'rv': int(_rv), 'rw': int(_rw),
-            }
-            if _check['firing']:
-                _firing_cards.append(_card)
-            else:
-                _quiet_cards.append(_card)
+    def _render_stock_block(b):
+        _res      = b['result']
+        _vc       = _res['verdict_color'] if _res else '#555'
+        _vt       = _res['verdict']       if _res else 'NO DATA'
+        _sym_disp = b['sym'].replace('.SR', '')
 
-    # ── firing signals ───────────────────────────────────────────────────────
-    if _firing_cards:
-        st.markdown(
-            f"<div style='font-size:0.6rem;font-weight:800;color:#26A69A;text-transform:uppercase;"
-            f"letter-spacing:1px;margin-bottom:0.55rem;'>"
-            f"⚡&nbsp; Firing Now &nbsp;<span style='color:#1e3d30;'>({len(_firing_cards)})</span>"
-            f"</div>",
-            unsafe_allow_html=True)
-
-        for _c in _firing_cards:
-            _rc = _REGIME_COLORS.get(_c['regime'], '#a78bfa')
-            _ri = _REGIME_ICONS.get(_c['regime'], '★')
-            _wc = '#26A69A' if _c['win_rate'] >= 55 else ('#FFC107' if _c['win_rate'] >= 45 else '#ef5350')
-
-            _pill_html = ''.join(
-                f"<span class='ls-pill' style='"
-                f"color:{'#26A69A' if k in _c['check']['active'] else '#252525'};"
-                f"border-color:{'#26A69A33' if k in _c['check']['active'] else '#1a1a1a'};"
-                f"background:{'#26A69A0D' if k in _c['check']['active'] else '#0a0a0a'};'>"
-                f"{'✓' if k in _c['check']['active'] else '○'}&nbsp;{k}</span>"
-                for k in _c['keys']
+        # each saved strategy row
+        _rows_html = ''
+        for _f in b['strats']:
+            _rk    = _f.get('best_regime', 'TREND')
+            _rc_   = _REGIME_COLORS.get(_rk, '#a78bfa')
+            _ri_   = _REGIME_ICONS.get(_rk, '★')
+            _wr    = float(_f.get('win_rate', 0) or 0)
+            _pf    = float(_f.get('profit_factor', 0) or 0)
+            _ea    = float(_f.get('expectancy', 0) or 0)
+            _sig   = int(_f.get('signals', 0) or 0)
+            _combo = _f.get('combo_indicators', '—')
+            _pl    = (_f.get('period_label', '') or '').split('(')[0].strip()
+            _wc_   = '#26A69A' if _wr >= 55 else ('#FFC107' if _wr >= 45 else '#ef5350')
+            _ec_   = '#26A69A' if _ea > 0 else '#ef5350'
+            _rows_html += (
+                f"<div style='padding:0.65rem 1rem;border-bottom:1px solid #181818;'>"
+                # first line: regime pill + period + combo name
+                f"<div style='display:flex;align-items:center;gap:0.5rem;margin-bottom:0.45rem;flex-wrap:wrap;'>"
+                f"<span style='font-size:0.65rem;font-weight:800;padding:0.15rem 0.55rem;"
+                f"border-radius:20px;background:{_rc_};color:#0a0a0a;white-space:nowrap;'>"
+                f"{_ri_}&nbsp;{_rk.title()}</span>"
+                f"<span style='font-size:0.72rem;color:#505050;white-space:nowrap;'>{_pl}</span>"
+                f"<span style='font-size:0.78rem;font-weight:600;color:#888;"
+                f"overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;'"
+                f" title='{_combo}'>{_combo}</span>"
+                f"</div>"
+                # second line: stats
+                f"<div style='display:flex;gap:1.4rem;flex-wrap:wrap;'>"
+                f"<div><span style='font-size:0.62rem;color:#404040;'>Win Rate&nbsp;</span>"
+                f"<span style='font-size:0.85rem;font-weight:900;color:{_wc_};'>{_wr:.0f}%</span></div>"
+                f"<div><span style='font-size:0.62rem;color:#404040;'>Profit Factor&nbsp;</span>"
+                f"<span style='font-size:0.85rem;font-weight:900;color:#aaa;'>{_pf:.2f}</span></div>"
+                f"<div><span style='font-size:0.62rem;color:#404040;'>Expectancy&nbsp;</span>"
+                f"<span style='font-size:0.85rem;font-weight:900;color:{_ec_};'>{_ea:+.2f}%</span></div>"
+                f"<div><span style='font-size:0.62rem;color:#404040;'>Signals&nbsp;</span>"
+                f"<span style='font-size:0.85rem;font-weight:900;color:#666;'>{_sig}</span></div>"
+                f"</div>"
+                f"</div>"
             )
 
-            st.markdown(
-                f"<div class='ls-card ls-card-fire'>"
-                f"<div class='ls-top'>"
-                f"<span class='ls-sym'>{_c['sym'].replace('.SR','')}</span>"
-                f"<span class='ls-tag' style='background:{_rc};color:#0a0a0a;'>"
-                f"{_ri}&nbsp;{_c['regime'].title()}</span>"
-                f"<span class='ls-tag' style='background:#252525;color:#888;'>"
-                f"{_c['period'].split('(')[0].strip()}</span>"
-                f"<span class='ls-combo-name' title='{_c['combo']}'>{_c['combo']}</span>"
-                f"<span class='ls-badge-fire'>⚡ Firing</span>"
-                f"</div>"
-                f"<div class='ls-pills'>{_pill_html}</div>"
-                f"<div class='ls-ladder'>"
-                # entry
-                f"<div class='ls-cell'>"
-                f"<div class='ls-cell-top' style='background:#4A9EFF'></div>"
-                f"<div class='ls-cell-lbl'>Entry Price</div>"
-                f"<div class='ls-cell-val' style='color:#c0c0c0'>{_c['price']:.2f}</div>"
-                f"<div class='ls-cell-sub'>Current market price</div>"
-                f"</div>"
-                # target
-                f"<div class='ls-cell'>"
-                f"<div class='ls-cell-top' style='background:#26A69A'></div>"
-                f"<div class='ls-cell-lbl'>Take Profit</div>"
-                f"<div class='ls-cell-val' style='color:#26A69A'>{_c['target']:.2f}</div>"
-                f"<div class='ls-cell-sub' style='color:#1e4a3a'>+{_c['tp_pct']:.1f}% &nbsp;·&nbsp; "
-                f"+{_c['reward_sar']:.2f}</div>"
-                f"</div>"
-                # stop
-                f"<div class='ls-cell'>"
-                f"<div class='ls-cell-top' style='background:#ef5350'></div>"
-                f"<div class='ls-cell-lbl'>Stop Loss</div>"
-                f"<div class='ls-cell-val' style='color:#ef5350'>{_c['stop']:.2f}</div>"
-                f"<div class='ls-cell-sub' style='color:#4a1e1e'>-{_c['sl_pct']:.1f}% &nbsp;·&nbsp; "
-                f"-{_c['risk_sar']:.2f}</div>"
-                f"</div>"
-                # r:r + stats
-                f"<div class='ls-cell'>"
-                f"<div class='ls-cell-top' style='background:{_wc}'></div>"
-                f"<div class='ls-cell-lbl'>R:R &nbsp;·&nbsp; Win Rate</div>"
-                f"<div class='ls-cell-val' style='color:{_wc}'>"
-                f"{_c['rv']}:{_c['rw']} &nbsp;<span style='font-size:0.82rem;color:{_wc};opacity:0.7;'>"
-                f"{_c['win_rate']:.0f}%</span></div>"
-                f"<div class='ls-cell-sub'>PF &nbsp;{_c['pf']:.2f}</div>"
-                f"</div>"
-                f"</div></div>",
-                unsafe_allow_html=True)
+        _sname_span = (f"<span style='font-size:0.7rem;color:#383838;font-weight:600;'>{b['sname']}</span>"
+                       if b['sname'] else '')
+        _html = (
+            f"<div style='background:#111;border:1px solid #1e1e1e;"
+            f"border-left:3px solid {_vc};border-radius:12px;overflow:hidden;"
+            f"margin-bottom:0.8rem;'>"
+            # header: stock name + verdict
+            f"<div style='display:flex;align-items:center;justify-content:space-between;"
+            f"padding:0.8rem 1rem;border-bottom:1px solid #1a1a1a;'>"
+            f"<div style='display:flex;align-items:baseline;gap:0.5rem;'>"
+            f"<span style='font-size:1.1rem;font-weight:900;color:#d0d0d0;'>{_sym_disp}</span>"
+            f"{_sname_span}</div>"
+            f"<span style='font-size:1.3rem;font-weight:900;color:{_vc};'>{_vt}</span>"
+            f"</div>"
+            # strategy rows
+            f"{_rows_html}"
+            f"</div>"
+        )
+        st.markdown(_html, unsafe_allow_html=True)
+        if _res and _res['verdict'] == 'BUY' and _res.get('ladder_html'):
+            st.markdown(_res['ladder_html'], unsafe_allow_html=True)
 
-    # ── watching / not firing — grouped by stock ─────────────────────────────
-    if _quiet_cards:
+    # ── BUY signals ──────────────────────────────────────────────────────────
+    if _buy_blocks:
         st.markdown(
-            f"<div style='font-size:0.63rem;font-weight:800;color:#505050;text-transform:uppercase;"
-            f"letter-spacing:1.1px;margin:1.4rem 0 0.7rem;display:flex;align-items:center;gap:0.5rem;'>"
-            f"<span style='width:5px;height:5px;border-radius:50%;background:#383838;display:inline-block;flex-shrink:0;'></span>"
-            f"Watching"
-            f"<span style='font-size:0.6rem;font-weight:600;color:#383838;letter-spacing:0;'>({len(_quiet_cards)})</span>"
-            f"</div>",
+            f"<div style='font-size:0.7rem;font-weight:800;color:#26A69A;"
+            f"text-transform:uppercase;letter-spacing:0.8px;margin-bottom:0.5rem;'>"
+            f"BUY Signal &nbsp;({len(_buy_blocks)})</div>",
             unsafe_allow_html=True)
+        for _b in _buy_blocks:
+            _render_stock_block(_b)
 
-        # group quiet cards by stock symbol
-        _quiet_by_sym: dict = {}
-        for _c in _quiet_cards:
-            _quiet_by_sym.setdefault(_c['sym'], []).append(_c)
-
-        for _qsym, _qcards in sorted(_quiet_by_sym.items()):
-            _qdisp = _qsym.replace('.SR', '')
-
-            # group this stock's cards by period
-            _q_by_period: dict = {'Short': [], 'Medium': [], 'Long': []}
-            for _c in _qcards:
-                _ps = _c['period'].split('(')[0].strip()  # 'Short', 'Medium', 'Long'
-                if _ps in _q_by_period:
-                    _q_by_period[_ps].append(_c)
-
-            # stock header
-            st.markdown(
-                f"<div style='border:1px solid #1e1e1e;border-radius:10px;overflow:hidden;"
-                f"margin-bottom:0.6rem;background:#0d0d0d;'>"
-                f"<div style='display:flex;align-items:center;gap:0.6rem;"
-                f"padding:0.42rem 0.9rem;background:#131313;border-bottom:1px solid #1a1a1a;'>"
-                f"<span style='font-size:0.88rem;font-weight:900;color:#585858;'>{_qdisp}</span>"
-                f"<span style='font-size:0.58rem;color:#2e2e2e;font-weight:700;'>"
-                f"{len(_qcards)} {'strategy' if len(_qcards)==1 else 'strategies'}</span>"
-                f"</div></div>",
-                unsafe_allow_html=True)
-
-            # 3 columns: Short | Medium | Long
-            _qc_s, _qc_m, _qc_l = st.columns(3, gap="small")
-            for _qperiod, _qpcol, _qlbl, _qdays in [
-                ('Short',  _qc_s, 'Short',  '5D'),
-                ('Medium', _qc_m, 'Medium', '63D'),
-                ('Long',   _qc_l, 'Long',   '252D'),
-            ]:
-                _qstrats = _q_by_period[_qperiod]
-                with _qpcol:
-                    # period header
-                    st.markdown(
-                        f"<div class='ss-period-title' style='padding:0.4rem 0 0.3rem;'>"
-                        f"<div class='ss-period-title-dot'></div>{_qlbl}"
-                        f"<span style='color:#3a3a3a;margin-left:0.25rem;font-size:0.58rem;font-weight:700;'>{_qdays}</span>"
-                        f"<span style='color:#2a2a2a;margin-left:auto;font-size:0.58rem;'>({len(_qstrats)})</span>"
-                        f"</div>",
-                        unsafe_allow_html=True)
-
-                    if not _qstrats:
-                        st.markdown("<div class='ss-col-empty'>—</div>", unsafe_allow_html=True)
-                        continue
-
-                    for _c in _qstrats:
-                        _rc  = _REGIME_COLORS.get(_c['regime'], '#a78bfa')
-                        _ri  = _REGIME_ICONS.get(_c['regime'], '★')
-                        _an  = len(_c['check']['active'])
-                        _tn  = len(_c['keys'])
-                        _wc  = '#26A69A' if _c['win_rate'] >= 55 else ('#FFC107' if _c['win_rate'] >= 45 else '#ef5350')
-
-                        # each indicator as its own row: name left, status right
-                        _ind_rows = ''.join(
-                            f"<div style='display:flex;align-items:center;justify-content:space-between;"
-                            f"padding:0.18rem 0;border-bottom:1px solid #161616;'>"
-                            f"<span style='font-size:0.62rem;color:#484848;font-weight:600;'>{k}</span>"
-                            f"<span style='font-size:0.6rem;font-weight:800;"
-                            f"color:{'#4A9EFF' if k in _c['check']['active'] else '#2a2a2a'};'>"
-                            f"{'✓ Active' if k in _c['check']['active'] else '○ Waiting'}</span>"
-                            f"</div>"
-                            for k in _c['keys']
-                        )
-
-                        st.markdown(
-                            f"<div style='border:1px solid #1e1e1e;border-top:2px solid {_rc}66;"
-                            f"border-radius:8px;background:#111;padding:0.55rem 0.7rem;"
-                            f"margin-bottom:0.4rem;'>"
-                            # header: regime pill + win%
-                            f"<div style='display:flex;align-items:center;gap:0.4rem;margin-bottom:0.35rem;'>"
-                            f"<span style='background:{_rc};color:#0a0a0a;font-size:0.55rem;"
-                            f"font-weight:800;padding:0.1rem 0.42rem;border-radius:20px;"
-                            f"text-transform:uppercase;white-space:nowrap;'>{_ri}&nbsp;{_c['regime'].title()}</span>"
-                            f"<span style='font-size:0.62rem;font-weight:700;color:#606060;flex:1;"
-                            f"min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'>"
-                            f"{_c['combo']}</span>"
-                            f"<span style='font-size:0.68rem;font-weight:900;color:{_wc};"
-                            f"white-space:nowrap;flex-shrink:0;'>{_c['win_rate']:.0f}%</span>"
-                            f"</div>"
-                            # indicator rows
-                            f"<div style='margin-bottom:0.3rem;'>{_ind_rows}</div>"
-                            # footer: active count
-                            f"<div style='font-size:0.58rem;font-weight:700;color:#363636;"
-                            f"text-transform:uppercase;letter-spacing:0.5px;padding-top:0.2rem;'>"
-                            f"{_an}/{_tn} active</div>"
-                            f"</div>",
-                            unsafe_allow_html=True)
+    # ── No Trade ─────────────────────────────────────────────────────────────
+    if _wait_blocks:
+        st.markdown(
+            f"<div style='font-size:0.7rem;font-weight:800;color:#444;"
+            f"text-transform:uppercase;letter-spacing:0.8px;margin:1.2rem 0 0.5rem;'>"
+            f"Watching &nbsp;({len(_wait_blocks)})</div>",
+            unsafe_allow_html=True)
+        for _b in _wait_blocks:
+            _render_stock_block(_b)
