@@ -40,7 +40,20 @@ def _glowbar(pct, color=BULL, height="8px"):
 #  VOLUME PROFILE COMPUTATION
 # ══════════════════════════════════════════════════════════════════════════════
 
+def _df_key(df):
+    return (len(df), str(df["Close"].iloc[-1]) if len(df) else "0", str(df.index[-1]) if len(df) else "0")
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _compute_volume_profile_cached(df_key, _df, bins=40):
+    return _compute_volume_profile_inner(_df, bins)
+
+
 def _compute_volume_profile(df, bins=40):
+    return _compute_volume_profile_cached(_df_key(df), df, bins)
+
+
+def _compute_volume_profile_inner(df, bins=40):
     hi_all = float(df["High"].max())
     lo_all = float(df["Low"].min())
     if hi_all <= lo_all:
@@ -237,6 +250,11 @@ def _vp_signal(vp, current_price, df):
 # ══════════════════════════════════════════════════════════════════════════════
 #  CHART
 # ══════════════════════════════════════════════════════════════════════════════
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _build_vp_chart_cached(df_key, _df, _vp, _sig, current_price, tail=90):
+    return _build_vp_chart(_df, _vp, _sig, current_price, tail)
+
 
 def _build_vp_chart(df, vp, sig, current_price, tail=90):
     sub = df.tail(tail).copy()
@@ -592,7 +610,7 @@ def volume_profile_tab(df, current_price):
         "Price above the POC tends to be bullish; below is bearish. "
         "Breakouts from the Value Area with volume confirmation are the highest-conviction setups.</p>"
     )
-    fig = _build_vp_chart(df, vp, sig, current_price, tail=90)
+    fig = _build_vp_chart_cached(_df_key(df), df, vp, sig, current_price, tail=90)
     st.plotly_chart(fig, width='stretch', config={"displayModeBar": False})
 
     st.markdown(

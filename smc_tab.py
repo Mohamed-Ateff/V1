@@ -590,6 +590,34 @@ def _build_chart(df, swing_highs, swing_lows, buy_side, sell_side,
 
 # ── Main render ───────────────────────────────────────────────────────────────
 
+def _df_key(df):
+    return (len(df), str(df["Close"].iloc[-1]) if len(df) else "0", str(df.index[-1]) if len(df) else "0")
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _smc_compute(df_key, _df, cp):
+    swing_highs, swing_lows = _find_swing_points(_df, left=3, right=3)
+    if len(swing_highs) < 2:
+        swing_highs = list(range(0, len(_df) - 1, max(1, len(_df) // 8)))
+    if len(swing_lows) < 2:
+        swing_lows  = list(range(0, len(_df) - 1, max(1, len(_df) // 8)))
+    trend, sh_prices, sl_prices = _market_structure(_df, swing_highs, swing_lows)
+    buy_side, sell_side, major_high, major_low = _liquidity_zones(_df, swing_highs, swing_lows)
+    sweep  = _detect_sweeps(_df, buy_side, sell_side, major_high, major_low)
+    choch  = _detect_choch_bos(_df, swing_highs, swing_lows, trend)
+    ob     = _find_order_block(_df, swing_highs, swing_lows, trend, choch)
+    fvg    = _find_fvgs(_df)
+    plan   = _build_trade_plan(_df, cp, trend, sweep, choch, ob, fvg, buy_side, sell_side, major_high, major_low)
+    fig    = _build_chart(_df, swing_highs, swing_lows, buy_side, sell_side, ob, fvg, sweep, choch, plan, cp)
+    return dict(
+        swing_highs=swing_highs, swing_lows=swing_lows,
+        trend=trend, sh_prices=sh_prices, sl_prices=sl_prices,
+        buy_side=buy_side, sell_side=sell_side,
+        major_high=major_high, major_low=major_low,
+        sweep=sweep, choch=choch, ob=ob, fvg=fvg, plan=plan, fig=fig,
+    )
+
+
 def smc_tab(df, current_price):
     """Entry point called from app.py"""
 
@@ -606,25 +634,15 @@ def smc_tab(df, current_price):
 
     cp = float(current_price)
 
-    # ── Run all engines ───────────────────────────────────────────────────────
-    swing_highs, swing_lows = _find_swing_points(df, left=3, right=3)
-
-    # Fallback if too few swings
-    if len(swing_highs) < 2:
-        swing_highs = list(range(0, len(df) - 1, max(1, len(df) // 8)))
-    if len(swing_lows) < 2:
-        swing_lows  = list(range(0, len(df) - 1, max(1, len(df) // 8)))
-
-    trend, sh_prices, sl_prices = _market_structure(df, swing_highs, swing_lows)
-    buy_side, sell_side, major_high, major_low = _liquidity_zones(df, swing_highs, swing_lows)
-    sweep  = _detect_sweeps(df, buy_side, sell_side, major_high, major_low)
-    choch  = _detect_choch_bos(df, swing_highs, swing_lows, trend)
-    ob     = _find_order_block(df, swing_highs, swing_lows, trend, choch)
-    fvg    = _find_fvgs(df)
-    plan   = _build_trade_plan(
-        df, cp, trend, sweep, choch, ob, fvg,
-        buy_side, sell_side, major_high, major_low
-    )
+    # ── Run all engines (cached) ──────────────────────────────────────────────
+    _c = _smc_compute(_df_key(df), df, cp)
+    swing_highs = _c["swing_highs"]; swing_lows = _c["swing_lows"]
+    trend       = _c["trend"];       sh_prices  = _c["sh_prices"];  sl_prices = _c["sl_prices"]
+    buy_side    = _c["buy_side"];    sell_side  = _c["sell_side"]
+    major_high  = _c["major_high"]; major_low  = _c["major_low"]
+    sweep       = _c["sweep"];       choch      = _c["choch"]
+    ob          = _c["ob"];          fvg        = _c["fvg"]
+    plan        = _c["plan"]
 
     bias        = plan["bias"]
     bias_color  = plan["bias_color"]
@@ -823,11 +841,7 @@ def smc_tab(df, current_price):
 
     # ── CHART ─────────────────────────────────────────────────────────────────
     st.markdown(_sec("SMC Chart", INFO), unsafe_allow_html=True)
-    fig = _build_chart(
-        df, swing_highs, swing_lows, buy_side, sell_side,
-        ob, fvg, sweep, choch, plan, current_price
-    )
-    st.plotly_chart(fig, width='stretch')
+    st.plotly_chart(_c["fig"], width='stretch')
 
 
 # ══════════════════════════════════════════════════════════════════════════════

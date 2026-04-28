@@ -769,6 +769,36 @@ def _build_wave_chart(df, wave_result, fib_levels=None, show_channel=True, show_
 # MAIN TAB RENDERER
 # ═══════════════════════════════════════════════════════════════════════════════
 
+@st.cache_data(ttl=300, show_spinner=False)
+def _ew_compute(cache_key, _df_slice, pct_threshold, current_price, show_fib):
+    pivots = _find_zigzag_pivots(_df_slice, pct_threshold)
+    if len(pivots) < 3:
+        return None
+    wave_result = _detect_wave_pattern(pivots)
+    if not wave_result:
+        return None
+    waves = wave_result["waves"]
+    fib_retrace = _compute_fib_retracements(waves[0]["price"], waves[1]["price"]) if len(waves) >= 3 else None
+    fib_extend  = _compute_fib_extensions(waves[0]["price"], waves[1]["price"], waves[2]["price"]) if len(waves) >= 3 else None
+    divergences  = _compute_momentum_divergence(_df_slice, wave_result)
+    vol_profiles = _volume_profile_waves(_df_slice, wave_result)
+    alt_result, alternates = _alternation_check(waves)
+    projection = _next_wave_projection(waves, current_price)
+    fib_to_show = {}
+    if show_fib in ("Retracements", "Both") and fib_retrace:
+        fib_to_show.update(fib_retrace)
+    if show_fib in ("Extensions", "Both") and fib_extend:
+        fib_to_show.update(fib_extend)
+    fig = _build_wave_chart(_df_slice, wave_result, fib_to_show if fib_to_show else None)
+    return dict(
+        wave_result=wave_result, pivots=pivots,
+        fib_retrace=fib_retrace, fib_extend=fib_extend,
+        divergences=divergences, vol_profiles=vol_profiles,
+        alt_result=alt_result, alternates=alternates,
+        projection=projection, fig=fig,
+    )
+
+
 def elliott_wave_tab(df, current_price):
     """Render the Elliott Wave analysis tab."""
 
@@ -1004,41 +1034,23 @@ def elliott_wave_tab(df, current_price):
         st.warning("Not enough data for Elliott Wave analysis. Need at least 20 bars.")
         return
 
-    # ── Run Analysis ──
-    with st.spinner("Detecting wave structure..."):
-        pivots = _find_zigzag_pivots(df_slice, pct_threshold)
+    # ── Run Analysis (cached by df content + settings) ──
+    _ew_key = (len(df_slice), str(df_slice["Close"].iloc[-1]) if len(df_slice) else "0",
+               pct_threshold, n_bars, show_fib)
+    _ew = _ew_compute(_ew_key, df_slice, pct_threshold, float(current_price), show_fib)
+    if _ew is None:
+        return
 
-        if len(pivots) < 3:
-            st.warning("Not enough significant pivots detected. Try lowering sensitivity or increasing lookback period.")
-            return
-
-        wave_result = _detect_wave_pattern(pivots)
-
-        if not wave_result:
-            st.warning("Could not identify a valid wave pattern. Try adjusting parameters.")
-            return
-
-        # Compute Fibonacci levels
-        waves = wave_result["waves"]
-        fib_retrace = None
-        fib_extend = None
-
-        if len(waves) >= 3:
-            fib_retrace = _compute_fib_retracements(waves[0]["price"], waves[1]["price"])
-        if len(waves) >= 3:
-            fib_extend = _compute_fib_extensions(waves[0]["price"], waves[1]["price"], waves[2]["price"])
-
-        # Divergence analysis
-        divergences = _compute_momentum_divergence(df_slice, wave_result)
-
-        # Volume analysis
-        vol_profiles = _volume_profile_waves(df_slice, wave_result)
-
-        # Alternation check
-        alt_result, alternates = _alternation_check(waves)
-
-        # Next wave projection
-        projection = _next_wave_projection(waves, current_price)
+    wave_result  = _ew["wave_result"]
+    pivots       = _ew["pivots"]
+    waves        = wave_result["waves"]
+    fib_retrace  = _ew["fib_retrace"]
+    fib_extend   = _ew["fib_extend"]
+    divergences  = _ew["divergences"]
+    vol_profiles = _ew["vol_profiles"]
+    alt_result   = _ew["alt_result"]
+    alternates   = _ew["alternates"]
+    projection   = _ew["projection"]
 
     # ══════════════════════════════════════════════════════════════════════════
     # HERO CARD — Wave Status
@@ -1274,14 +1286,7 @@ def elliott_wave_tab(df, current_price):
     # ══════════════════════════════════════════════════════════════════════════
     st.markdown(_sec("Wave Chart with Fibonacci"), unsafe_allow_html=True)
 
-    fib_to_show = None
-    if show_fib in ["Retracements", "Both"] and fib_retrace:
-        fib_to_show = fib_retrace
-    if show_fib in ["Extensions", "Both"] and fib_extend:
-        fib_to_show = {**(fib_to_show or {}), **fib_extend}
-
-    fig = _build_wave_chart(df_slice, wave_result, fib_to_show)
-    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+    st.plotly_chart(_ew["fig"], use_container_width=True, config={"displayModeBar": False})
 
     # ══════════════════════════════════════════════════════════════════════════
     # FULL WAVE MAP — optional detail

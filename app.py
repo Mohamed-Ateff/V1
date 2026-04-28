@@ -588,10 +588,6 @@ def main():
 
         st.session_state.show_macro = False
 
-    if 'show_acpts' not in st.session_state:
-
-        st.session_state.show_acpts = False
-
     if 'show_champions_vault' not in st.session_state:
         st.session_state.show_champions_vault = False
 
@@ -935,7 +931,7 @@ def main():
     </script>
     """, height=0)
 
-    if not st.session_state.show_results and not st.session_state.show_market_results and not st.session_state.show_market_pulse and not st.session_state.show_macro and not st.session_state.show_acpts and not st.session_state.show_champions_vault:
+    if not st.session_state.show_results and not st.session_state.show_market_results and not st.session_state.show_market_pulse and not st.session_state.show_macro and not st.session_state.show_champions_vault:
 
         # CONTROLS PAGE
 
@@ -3235,133 +3231,129 @@ def main():
                         unsafe_allow_html=True)
 
                     # ── Tomorrow Forecast ──────────────────────────────────
-                    _breadth_ratio = gainers / max(losers, 1)
-                    _adv_pct = gainers / max(gainers + losers + unchanged, 1) * 100
-                    _dec_pct = losers / max(gainers + losers + unchanged, 1) * 100
-
-                    # Momentum score (−100 to +100)
-                    _mom_score = 0
-                    # Breadth component (max ±35)
-                    if _breadth_ratio > 2.0:
-                        _mom_score += 35
-                    elif _breadth_ratio > 1.3:
-                        _mom_score += 20
-                    elif _breadth_ratio > 0.9:
-                        _mom_score += 5
-                    elif _breadth_ratio > 0.5:
-                        _mom_score -= 20
-                    else:
-                        _mom_score -= 35
-
-                    # TASI change component (max ±35)
-                    if tasi_change > 1.0:
-                        _mom_score += 35
-                    elif tasi_change > 0.3:
-                        _mom_score += 20
-                    elif tasi_change > -0.3:
-                        _mom_score += 0
-                    elif tasi_change > -1.0:
-                        _mom_score -= 20
-                    else:
-                        _mom_score -= 35
-
-                    # Avg change component (max ±30)
-                    if avg_change > 1.0:
-                        _mom_score += 30
-                    elif avg_change > 0.3:
-                        _mom_score += 15
-                    elif avg_change > -0.3:
-                        _mom_score += 0
-                    elif avg_change > -1.0:
-                        _mom_score -= 15
-                    else:
-                        _mom_score -= 30
-
-                    _mom_score = max(-100, min(100, _mom_score))
                     _tf_data = st.session_state['_tf_data_cache']
+                    _breadth_ratio = gainers / max(losers, 1)
+                    _total_stocks = max(gainers + losers + unchanged, 1)
+                    _adv_pct = gainers / _total_stocks * 100
+                    _tf_records = _tf_data.get('top_up', []) + _tf_data.get('top_down', [])
+
+                    # ── Factor 1: Breadth conviction (±20)
+                    # How wide the move was — many stocks participating vs just a few
+                    _adv_ratio = _adv_pct / 100
+                    _f_breadth = (_adv_ratio - 0.5) * 2 * 20  # -20 to +20
+
+                    # ── Factor 2: Close location pressure (±18)
+                    # If most stocks closed near their day highs = smart money held long
+                    # Derived from avg_change relative to the intraday range proxy
+                    _abs_avg = abs(avg_change)
+                    _close_loc_signal = avg_change / max(_abs_avg, 0.1)  # direction: +1 or -1
+                    if _abs_avg >= 1.5:
+                        _f_close_loc = _close_loc_signal * 18
+                    elif _abs_avg >= 0.5:
+                        _f_close_loc = _close_loc_signal * 10
+                    else:
+                        _f_close_loc = _close_loc_signal * 3
+
+                    # ── Factor 3: Volume conviction (±15)
+                    # Stocks with high vol_ratio moving up = real buying, not noise
+                    _bull_vol = sum(1 for r in _tf_records if r.get('vol_ratio', 1.0) >= 1.4 and r.get('day_ret', 0) > 0)
+                    _bear_vol = sum(1 for r in _tf_records if r.get('vol_ratio', 1.0) >= 1.4 and r.get('day_ret', 0) < 0)
+                    _vol_net = _bull_vol - _bear_vol
+                    _f_vol = max(-15, min(15, _vol_net * 5))
+
+                    # ── Factor 4: Momentum persistence (±15)
+                    # Stocks that were already in 5d uptrends continuing = follow-through likely
+                    _bull_5d = sum(1 for r in _tf_records if r.get('perf_5d', 0) >= 2 and r.get('day_ret', 0) > 0)
+                    _bear_5d = sum(1 for r in _tf_records if r.get('perf_5d', 0) <= -2 and r.get('day_ret', 0) < 0)
+                    _f_mom = max(-15, min(15, (_bull_5d - _bear_5d) * 5))
+
+                    # ── Factor 5: Trend alignment (±12)
+                    # Stocks above EMA20 and EMA50 — means the market structure is healthy
+                    _bull_trend = sum(1 for r in _tf_records if r.get('score', 0) >= 14)
+                    _bear_trend = sum(1 for r in _tf_records if r.get('score', 0) <= -14)
+                    _f_trend = max(-12, min(12, (_bull_trend - _bear_trend) * 4))
+
+                    # ── Factor 6: TASI directional conviction (±12)
+                    # Index magnitude + direction — large moves tend to have follow-through next session
+                    if tasi_change > 1.5:
+                        _f_tasi = 12
+                    elif tasi_change > 0.6:
+                        _f_tasi = 7
+                    elif tasi_change > 0.15:
+                        _f_tasi = 3
+                    elif tasi_change > -0.15:
+                        _f_tasi = 0
+                    elif tasi_change > -0.6:
+                        _f_tasi = -3
+                    elif tasi_change > -1.5:
+                        _f_tasi = -7
+                    else:
+                        _f_tasi = -12
+
+                    # ── Factor 7: Reversal risk (±8)
+                    # Extreme RSI or overbought setups = mean-reversion risk for next session
+                    _overbought = sum(1 for r in _tf_records if r.get('day_ret', 0) >= 5)
+                    _oversold = sum(1 for r in _tf_records if r.get('day_ret', 0) <= -5)
+                    _extreme_net = _oversold - _overbought  # oversold = potential bounce = bullish
+                    _f_reversal = max(-8, min(8, _extreme_net * 2))
+
+                    # ── Composite score
+                    _raw_score = _f_breadth + _f_close_loc + _f_vol + _f_mom + _f_trend + _f_tasi + _f_reversal
+                    _mom_score = int(max(-100, min(100, round(_raw_score))))
+
+                    # ── Signals breakdown for display
+                    _signals = [
+                        ("Breadth", _f_breadth, f"{_adv_pct:.0f}% adv", info_icon("% of stocks that advanced today. High breadth = broad participation, not just a few large caps moving the index.")),
+                        ("Close Pressure", _f_close_loc, f"avg {avg_change:+.2f}%", info_icon("How strong the close was relative to the day's range. Stocks closing near their highs signal that buyers held — not just a bounce that faded.")),
+                        ("Vol Conviction", _f_vol, f"{_bull_vol}↑ {_bear_vol}↓ vol", info_icon("Count of stocks with above-average volume on advancing vs declining days. High-volume up moves are real demand; high-volume down moves are real distribution.")),
+                        ("Momentum", _f_mom, f"{_bull_5d}↑ {_bear_5d}↓ 5d", info_icon("How many stocks were already in 5-day uptrends and continued today vs those in downtrends. Momentum tends to persist one more session.")),
+                        ("Trend Align", _f_trend, f"{_bull_trend}↑ {_bear_trend}↓ struct", info_icon("Stocks in strong structural uptrend (above EMA20 & EMA50) vs structural downtrend. Strong market structure supports follow-through.")),
+                        ("TASI Signal", _f_tasi, f"{tasi_change:+.2f}%", info_icon("TASI index directional conviction. Larger index moves tend to have next-session follow-through due to institutional momentum and index-tracking flows.")),
+                        ("Reversal Risk", _f_reversal, f"{_overbought} ob / {_oversold} os", info_icon("Oversold stocks = potential bounce support. Overbought stocks = mean-reversion risk. Net oversold tilt adds a bullish buffer for tomorrow.")),
+                    ]
 
                     if _mom_score >= 50:
-                        _fc_label, _tf_tone_color, _fc_icon = 'LIKELY UP', '#26A69A', '▲'
-                    elif _mom_score >= 15:
+                        _fc_label, _tf_tone_color, _fc_icon = 'STRONG BIAS UP', '#26A69A', '▲'
+                    elif _mom_score >= 20:
                         _fc_label, _tf_tone_color, _fc_icon = 'LEAN BULLISH', '#66bb6a', '↗'
-                    elif _mom_score >= -15:
-                        _fc_label, _tf_tone_color, _fc_icon = 'NEUTRAL', '#d9b44a', '→'
+                    elif _mom_score >= -20:
+                        _fc_label, _tf_tone_color, _fc_icon = 'NEUTRAL / MIXED', '#d9b44a', '→'
+                    elif _mom_score >= -50:
+                        _fc_label, _tf_tone_color, _fc_icon = 'LEAN DEFENSIVE', '#ff8a65', '↘'
                     else:
-                        _fc_label, _tf_tone_color, _fc_icon = 'DEFENSIVE', '#ff8a65', '↘'
+                        _fc_label, _tf_tone_color, _fc_icon = 'STRONG BIAS DOWN', '#ef5350', '▼'
 
-                    _breadth_accent = '#26A69A' if _breadth_ratio >= 1 else '#ef5350'
-                    _tasi_accent = '#26A69A' if tasi_change >= 0 else '#ef5350'
-                    _avg_accent = '#26A69A' if avg_change >= 0 else '#ef5350'
                     _fc_bar_w = abs(_mom_score)
                     _fc_bar_side = 'right' if _mom_score >= 0 else 'left'
-                    _forecast_help = info_icon("Tomorrow Forecast is a market pressure score from -100 to +100. Negative values mean broad market pressure, positive values mean broader support for long setups, and 0 is mixed.")
-                    _top_picks_help = info_icon("Top Picks now use a staged model: market-relative trend, volume, support/resistance, price action setup quality, reward-to-risk, company fundamentals, and filtered news context. Targets are capped by nearby structure and are not guarantees.")
+                    _forecast_help = info_icon("7-factor next-session pressure model. Scores breadth conviction, close pressure, volume distribution, momentum persistence, trend alignment, TASI signal, and reversal risk. Range: -100 (broad distribution) to +100 (broad accumulation). This is an edge read, not a guarantee — the market does what it wants.")
 
-                    def _tf_pick_rows(_rows):
-                        if not _rows:
-                            return (
-                                '<div style="padding:0.85rem 0.9rem;border:1px solid rgba(255,255,255,0.06);'
-                                'border-radius:14px;background:rgba(255,255,255,0.02);font-size:0.74rem;color:#7d848a;">'
-                                'No clean high-conviction upside setup right now. Wait for stronger structure, cleaner reward-to-risk, and better confirmation.'
-                                '</div>'
-                            )
+                    def _signal_bar(_val, _max=20):
+                        _pct = min(abs(_val) / _max * 100, 100)
+                        _col = '#26A69A' if _val >= 0 else '#ef5350'
+                        _side = 'right' if _val >= 0 else 'left'
+                        return (
+                            f'<div style="position:relative;height:4px;background:rgba(255,255,255,0.06);border-radius:999px;margin-top:4px;overflow:hidden;">'
+                            f'<div style="position:absolute;top:0;{_side}:50%;height:100%;width:{_pct/2:.1f}%;background:{_col};border-radius:999px;"></div>'
+                            f'<div style="position:absolute;top:-1px;left:calc(50% - 1px);width:2px;height:6px;background:rgba(255,255,255,0.2);border-radius:1px;"></div>'
+                            f'</div>'
+                        )
 
-                        _parts = []
-                        for _rank, _row in enumerate(_rows[:3], start=1):
-                            _setup_html = ""
-                            if _row.get('setup_conf', 0):
-                                _setup_html = (
-                                    f'<span style="padding:3px 8px;border-radius:999px;background:rgba(33,150,243,0.12);'
-                                    f'border:1px solid rgba(33,150,243,0.22);font-size:0.58rem;color:#9fd2ff;">'
-                                    f'Setup {int(_row["setup_conf"]):d}%</span>'
-                                )
-                            _rr_html = ""
-                            if _row.get('rr1', 0):
-                                _rr_html = (
-                                    f'<span style="padding:3px 8px;border-radius:999px;background:rgba(255,193,7,0.12);'
-                                    f'border:1px solid rgba(255,193,7,0.2);font-size:0.58rem;color:#f6d77c;">'
-                                    f'R:R {_row["rr1"]:.2f}x</span>'
-                                )
-                            _reason_html = ''.join(
-                                f'<span style="padding:3px 8px;border-radius:999px;background:rgba(255,255,255,0.04);'
-                                f'border:1px solid rgba(255,255,255,0.06);font-size:0.58rem;color:#9ea5ab;">{_reason}</span>'
-                                for _reason in _row.get('reasons', [])[:3]
-                            )
-                            _parts.append(
-                                f'<div style="padding:0.82rem 0.86rem;border:1px solid rgba(255,255,255,0.08);'
-                                f'border-radius:14px;background:linear-gradient(180deg, rgba(38,166,154,0.09), rgba(255,255,255,0.02));'
-                                f'margin-top:8px;">'
-                                f'<div style="display:flex;gap:10px;align-items:flex-start;">'
-                                f'<div style="flex-shrink:0;width:28px;height:28px;border-radius:9px;background:rgba(38,166,154,0.14);'
-                                f'border:1px solid rgba(38,166,154,0.22);display:flex;align-items:center;justify-content:center;'
-                                f'font-size:0.76rem;font-weight:900;color:#7fd6ca;">{_rank}</div>'
-                                f'<div style="min-width:0;flex:1;">'
-                                f'<div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;">'
-                                f'<div style="min-width:0;">'
-                                f'<div style="font-size:0.84rem;font-weight:800;color:#eef2f3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'
-                                f'{_row["ticker_display"]} · {_row["name"]}</div>'
-                                f'<div style="font-size:0.62rem;color:#8d949a;margin-top:3px;">Upside score {_row["score"]:+.0f}</div>'
-                                f'</div>'
-                                f'<div style="flex-shrink:0;padding:3px 8px;border-radius:999px;background:rgba(38,166,154,0.14);'
-                                f'border:1px solid rgba(38,166,154,0.28);font-size:0.58rem;font-weight:800;color:#7fd6ca;'
-                                f'text-transform:uppercase;letter-spacing:0.4px;">{_row["confidence"]}</div>'
-                                f'</div>'
-                                f'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">'
-                                f'<span style="padding:3px 8px;border-radius:999px;background:rgba(38,166,154,0.12);border:1px solid rgba(38,166,154,0.22);font-size:0.58rem;color:#89ddd2;">Today {_row["day_ret"]:+.1f}%</span>'
-                                f'<span style="padding:3px 8px;border-radius:999px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);font-size:0.58rem;color:#c7ccd1;">5D {_row["perf_5d"]:+.1f}%</span>'
-                                f'{_setup_html}'
-                                f'{_rr_html}'
-                                f'<span style="padding:3px 8px;border-radius:999px;background:rgba(38,166,154,0.12);border:1px solid rgba(38,166,154,0.22);font-size:0.58rem;color:#89ddd2;">Target +{_row["expected_move_pct"]:.1f}%</span>'
-                                f'<span style="padding:3px 8px;border-radius:999px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);font-size:0.58rem;color:#c7ccd1;">To {_row["target_price"]:,.2f}</span>'
-                                f'{_reason_html}'
-                                f'</div>'
-                                f'</div>'
-                                f'</div>'
-                                f'</div>'
-                            )
-                        return ''.join(_parts)
+                    _signals_html = ''
+                    for _sname, _sval, _sdesc, _shelp in _signals:
+                        _sc = '#26A69A' if _sval > 0 else ('#ef5350' if _sval < 0 else '#7f878d')
+                        _signals_html += (
+                            f'<div style="display:flex;align-items:center;gap:8px;padding:0.32rem 0;">'
+                            f'<div style="flex:1;min-width:0;">'
+                            f'<div style="display:flex;align-items:center;justify-content:space-between;gap:4px;">'
+                            f'<span style="font-size:0.58rem;color:#9ea5ab;">{_sname} {_shelp}</span>'
+                            f'<span style="font-size:0.58rem;color:#7d848a;">{_sdesc}</span>'
+                            f'</div>'
+                            f'{_signal_bar(_sval)}'
+                            f'</div>'
+                            f'<div style="flex-shrink:0;font-size:0.7rem;font-weight:800;color:{_sc};min-width:28px;text-align:right;">{_sval:+.0f}</div>'
+                            f'</div>'
+                        )
 
-                    _tf_up_html = _tf_pick_rows(_tf_data.get('top_up', []))
                     st.markdown(
                         f'<div class="mstat-card">'
                         f'<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">'
@@ -3382,26 +3374,13 @@ def main():
                         f'<div style="position:absolute;top:0;{_fc_bar_side}:50%;height:100%;width:{_fc_bar_w/2:.1f}%;background:{_tf_tone_color};box-shadow:0 0 10px {_tf_tone_color}55;"></div>'
                         f'<div style="position:absolute;top:-2px;left:calc(50% - 1px);width:2px;height:10px;background:rgba(255,255,255,0.25);border-radius:1px;"></div>'
                         f'</div>'
-                        f'<div style="display:flex;justify-content:space-between;font-size:0.55rem;color:#7f878d;margin:-6px 0 10px 0;">'
-                        f'<span>-100</span><span>0</span><span>+100</span>'
+                        f'<div style="display:flex;justify-content:space-between;font-size:0.55rem;color:#7f878d;margin:-6px 0 12px 0;">'
+                        f'<span>-100 Distribute</span><span>0</span><span>+100 Accumulate</span>'
                         f'</div>'
-                        f'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px;">'
-                        f'<div style="padding:0.48rem 0.42rem;border-radius:10px;background:rgba(10,13,15,0.28);border:1px solid rgba(255,255,255,0.05);text-align:center;">'
-                        f'<div style="font-size:0.56rem;color:#8d949a;text-transform:uppercase;letter-spacing:0.5px;">Breadth</div>'
-                        f'<div style="font-size:0.84rem;font-weight:800;color:{_breadth_accent};margin-top:2px;">{_breadth_ratio:.2f}</div>'
-                        f'</div>'
-                        f'<div style="padding:0.48rem 0.42rem;border-radius:10px;background:rgba(10,13,15,0.28);border:1px solid rgba(255,255,255,0.05);text-align:center;">'
-                        f'<div style="font-size:0.56rem;color:#8d949a;text-transform:uppercase;letter-spacing:0.5px;">TASI {info_icon("TASI here is the index move used inside the forecast score.")}</div>'
-                        f'<div style="font-size:0.84rem;font-weight:800;color:{_tasi_accent};margin-top:2px;">{tasi_change:+.2f}%</div>'
-                        f'</div>'
-                        f'<div style="padding:0.48rem 0.42rem;border-radius:10px;background:rgba(10,13,15,0.28);border:1px solid rgba(255,255,255,0.05);text-align:center;">'
-                        f'<div style="font-size:0.56rem;color:#8d949a;text-transform:uppercase;letter-spacing:0.5px;">Avg Stock</div>'
-                        f'<div style="font-size:0.84rem;font-weight:800;color:{_avg_accent};margin-top:2px;">{avg_change:+.2f}%</div>'
+                        f'<div style="border-top:1px solid rgba(255,255,255,0.06);padding-top:10px;">'
+                        f'{_signals_html}'
                         f'</div>'
                         f'</div>'
-                        f'</div>'
-                        f'<div style="margin-top:12px;font-size:0.62rem;color:#7fd6ca;text-transform:uppercase;letter-spacing:0.6px;font-weight:800;">Top Picks {_top_picks_help}</div>'
-                        f'{_tf_up_html}'
                         f'</div>',
                         unsafe_allow_html=True)
 
@@ -3409,10 +3388,9 @@ def main():
             with right_col:
                 with st.container(key="right_panel"):
 
-                    cp_tab0, cp_tab1, cp_tab_acpts = st.tabs([
+                    cp_tab0, cp_tab1 = st.tabs([
                         "Stock Symbol",
                         "Scan Market",
-                        "🏛 ACPTS V15",
                     ])
 
                     # ── shared indicator block (reused in stock tab) ────────
@@ -3550,6 +3528,16 @@ def main():
                                             st.session_state.analyzed_symbol = symbol_input
                                             st.session_state.additional_charts = ['ADX','RSI','MACD']
 
+                                            # Pre-warm ML cache in background so Strategy Lab is instant
+                                            import threading as _threading
+                                            def _prewarm_ml(_df=df):
+                                                try:
+                                                    from gemini_tab import _ml_predict
+                                                    _ml_predict(_df, horizon=10)
+                                                except Exception:
+                                                    pass
+                                            _threading.Thread(target=_prewarm_ml, daemon=True).start()
+
                                             st.session_state.show_results = True
                                 except Exception as e:
                                     st.warning(f"Analysis could not complete: {str(e)}")
@@ -3657,116 +3645,11 @@ def main():
                                       on_click=run_market_analysis_callback_all, key="ma_run_btn_all")
                             st.markdown("</div>", unsafe_allow_html=True)
 
-                    # ── TAB 2: ACPTS V15 ────────────────────────────────────
-                    with cp_tab_acpts:
-                        st.markdown(
-                            "<div style='text-align:center;padding:0.8rem 0 0.3rem;'>"
-                            "<div style='font-size:1.1rem;font-weight:900;color:#FFD700;'>"
-                            "ACPTS V15</div>"
-                            "<div style='font-size:0.68rem;color:#666;line-height:1.5;margin-top:0.3rem;'>"
-                            "Conservative Institutional Quant System<br>"
-                            "Score ≥ 90/110 Required for Entry</div>"
-                            "</div>",
-                            unsafe_allow_html=True)
-
-                        st.markdown(
-                            "<div style='background:#181818;border:1px solid #262626;border-radius:8px;"
-                            "padding:0.7rem 0.9rem;margin:0.5rem 0;'>"
-                            "<div style='font-size:0.62rem;color:#FFD700;font-weight:700;"
-                            "text-transform:uppercase;letter-spacing:0.8px;margin-bottom:0.4rem;'>"
-                            "How it works</div>"
-                            "<div style='font-size:0.7rem;color:#888;line-height:1.6;'>"
-                            "1. Scans all stocks with a <b style=\"color:#ccc;\">110-point continuous scoring engine</b><br>"
-                            "2. Only <b style=\"color:#FFD700;\">Score ≥ 90</b> = Institutional Grade entry<br>"
-                            "3. Shows <b style=\"color:#10a37f;\">Win Probability</b> via logistic curve<br>"
-                            "4. Auto-detects market regime (Trend/Range/Volatile)<br>"
-                            "5. <b style=\"color:#ef4444;\">Volatile = 100% cash</b> · No exceptions"
-                            "</div></div>",
-                            unsafe_allow_html=True)
-
-                        _acpts_mode = st.radio(
-                            "Scan mode",
-                            ["Full Market", "Enter Symbols"],
-                            horizontal=True,
-                            key="acpts_scan_mode",
-                            label_visibility="collapsed",
-                        )
-
-                        if _acpts_mode == "Enter Symbols":
-                            st.markdown("<div class='cp-input-label'>Stock Symbols (comma separated)</div>",
-                                        unsafe_allow_html=True)
-                            _acpts_syms = st.text_input(
-                                "Symbols", key="acpts_symbols_input",
-                                label_visibility="collapsed",
-                                placeholder="e.g., 2222, 1120, 2350")
-                            _acpts_tickers = [s.strip() + ".SR" if s.strip().isdigit() else s.strip()
-                                              for s in _acpts_syms.split(",") if s.strip()] if _acpts_syms else []
-
-                            def _acpts_run_custom():
-                                if not _acpts_tickers:
-                                    return
-                                with st.spinner(f"ACPTS V15 scanning {len(_acpts_tickers)} stocks…"):
-                                    res = run_market_analysis(tuple(_acpts_tickers), min_score=1)
-                                    st.session_state.acpts_results = res
-                                    st.session_state.acpts_scanned = len(_acpts_tickers)
-                                    st.session_state.show_acpts = True
-
-                            st.markdown("<div class='cp-run-wrap'>", unsafe_allow_html=True)
-                            st.button("Run ACPTS V15 Scan", type="secondary", width="stretch",
-                                      on_click=_acpts_run_custom, key="acpts_run_custom")
-                            st.markdown("</div>", unsafe_allow_html=True)
-                        else:
-                            _acpts_all = get_all_tadawul_tickers()
-                            _acpts_all_tickers = list(_acpts_all.keys())
-                            st.markdown(
-                                f"<div style='color:#FFD700;font-size:0.78rem;font-weight:600;"
-                                f"margin-bottom:0.8rem;'>"
-                                f"{len(_acpts_all_tickers)} Tadawul stocks ready</div>",
-                                unsafe_allow_html=True)
-
-                            def _acpts_run_full():
-                                with st.spinner(f"ACPTS V15 scanning {len(_acpts_all_tickers)} stocks…"):
-                                    res = run_market_analysis(tuple(_acpts_all_tickers), min_score=1)
-                                    st.session_state.acpts_results = res
-                                    st.session_state.acpts_scanned = len(_acpts_all_tickers)
-                                    st.session_state.show_acpts = True
-
-                            st.markdown("<div class='cp-run-wrap'>", unsafe_allow_html=True)
-                            st.button("Run ACPTS V15 Full Scan", type="secondary", width="stretch",
-                                      on_click=_acpts_run_full, key="acpts_run_full")
-                            st.markdown("</div>", unsafe_allow_html=True)
-
     elif st.session_state.show_champions_vault:
 
         apply_ui_theme()
         from favorites_tab import render_champions_vault_page
         render_champions_vault_page()
-
-    elif st.session_state.show_acpts:
-
-        apply_ui_theme()
-        from acpts_tab_v2 import render_acpts_tab
-
-        st.markdown("""
-        <style>
-        header[data-testid="stHeader"] { display: none !important; }
-        [data-testid="stToolbar"]      { display: none !important; }
-        .block-container { padding-top: 0.4rem !important; margin-top: 0 !important; }
-        section[data-testid="stMainBlockContainer"] { padding-top: 0.4rem !important; }
-        </style>""", unsafe_allow_html=True)
-
-        if st.button("← Back", type="secondary", use_container_width=True, key="acpts_back_btn"):
-            st.session_state.show_acpts = False
-            st.rerun()
-
-        _acpts_res = st.session_state.get('acpts_results', {}) or {}
-        _acpts_buy  = _acpts_res.get('buy', [])
-        _acpts_sell = _acpts_res.get('sell', [])
-        _acpts_hold = _acpts_res.get('hold', [])
-        _acpts_all  = _acpts_buy + _acpts_sell + _acpts_hold
-        _acpts_n    = st.session_state.get('acpts_scanned', 0)
-
-        render_acpts_tab(_acpts_all, _acpts_n)
 
     elif st.session_state.show_market_results:
 
@@ -5257,9 +5140,24 @@ def main():
             'No major market alerts right now. Conditions appear neutral — normal position sizing applies.</div>'
         )
 
-        tab_best, tab_buy = st.tabs([
+        from acpts_tab_v2 import _score_stock, _detect_regime, score_to_probability, _tip as _acpts_tip, _msr as _acpts_msr
+        _acpts_scored = []
+        for _as in all_stocks:
+            if _as.get('score', 0) < 1:
+                continue
+            _at, _abd = _score_stock(_as)
+            _acpts_scored.append({**_as, 'v14_score': _at, 'v14_bd': _abd})
+        _acpts_scored.sort(key=lambda x: x['v14_score'], reverse=True)
+        _acpts_regime, _acpts_regime_score = _detect_regime(all_stocks)
+        _acpts_max_pos = 3 if _acpts_regime == "TREND" else (1 if _acpts_regime == "RANGE" else 0)
+        _acpts_inst = [s for s in _acpts_scored if s['v14_score'] >= 70][:_acpts_max_pos]
+        _acpts_watch = [s for s in _acpts_scored if 55 <= s['v14_score'] < 70]
+        _acpts_rej   = [s for s in _acpts_scored if s['v14_score'] < 55]
+
+        tab_best, tab_buy, tab_acpts = st.tabs([
             f"Perfect Setups  {len(_perfect_list)}",
             f"Buy Signals  {len(all_buy)}",
+            f"🏛 Institutional  {len(_acpts_inst)}",
         ])
 
         with tab_best:
@@ -5371,6 +5269,141 @@ def main():
                     for s in _t3:
                         _render_card(s, 'buy', tier_color='#fbbf24')
 
+        with tab_acpts:
+            from acpts_tab_v2 import _render_institutional_card, _render_watch_card, _render_reject_table, _render_rules_section, _render_portfolio_summary
+            _REG_CLR = {"TREND": "#26A69A", "RANGE": "#fbbf24", "VOLATILE": "#ef4444"}
+            _REG_LBL = {"TREND": "BULLISH TREND", "RANGE": "SIDEWAYS RANGE", "VOLATILE": "BEARISH / VOLATILE"}
+            _REG_ICON = {"TREND": "🟢", "RANGE": "🟡", "VOLATILE": "🔴"}
+            _REG_DESC = {
+                "TREND": "Active — full risk budget available",
+                "RANGE": "Limited — only 1 position allowed",
+                "VOLATILE": "Full stop — 100% cash, no entries",
+            }
+            _rc = _REG_CLR[_acpts_regime]
+            _regime_pct = round(_acpts_regime_score * 100)
+            _n_above200  = sum(1 for s in all_stocks if s.get('above_ema200', False))
+            _avg_adx_a   = round(sum(s.get('adx', 20) for s in all_stocks) / max(len(all_stocks), 1), 1)
+            _n_weekly    = sum(1 for s in all_stocks if s.get('weekly_bullish', False))
+            _pct_above   = round(_n_above200 / max(len(all_stocks), 1) * 100)
+            _pct_weekly  = round(_n_weekly  / max(len(all_stocks), 1) * 100)
+
+            st.markdown(
+                f'<div style="background:linear-gradient(135deg, {_rc}08 0%, #141414 100%);'
+                f'border:1px solid #222;border-left:4px solid {_rc};border-radius:12px;'
+                f'padding:1.3rem 1.5rem;margin-bottom:1rem;">'
+                f'<div style="font-size:0.58rem;color:#555;font-weight:700;text-transform:uppercase;'
+                f'letter-spacing:1.2px;margin-bottom:0.5rem;">MARKET REGIME'
+                f'{_acpts_tip("Weighted composite: Breadth(35%) + ADX Strength(25%) + Macro Return(25%) + Low Volatility(15%). Score > 55% = Trend, 30-55% = Range, < 30% = Volatile.")}'
+                f'</div>'
+                f'<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;">'
+                f'<div>'
+                f'<div style="font-size:1.4rem;font-weight:900;color:{_rc};line-height:1;">'
+                f'{_REG_ICON[_acpts_regime]} {_REG_LBL[_acpts_regime]}</div>'
+                f'<div style="font-size:0.75rem;color:#888;margin-top:0.2rem;">{_REG_DESC[_acpts_regime]}</div>'
+                f'</div>'
+                f'<div style="text-align:right;">'
+                f'<div style="font-size:0.55rem;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:1px;">REGIME SCORE</div>'
+                f'<div style="font-size:1.5rem;font-weight:900;color:{_rc};line-height:1;">'
+                f'{_regime_pct}<span style="font-size:0.7rem;color:{_rc}66;">%</span></div>'
+                f'</div></div>'
+                f'<div style="height:6px;background:#1c1c1c;border-radius:3px;overflow:hidden;margin:0.8rem 0 0.6rem;">'
+                f'<div style="width:{_regime_pct}%;height:100%;background:{_rc};border-radius:3px;"></div></div>'
+                f'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.6rem;">'
+                + _acpts_msr("Above EMA200", f"{_pct_above}%", "#10a37f" if _pct_above > 50 else "#ef4444",
+                             tip_text="% of scanned stocks above their 200-day EMA.")
+                + _acpts_msr("Avg ADX", f"{_avg_adx_a}", "#fff" if _avg_adx_a > 25 else "#666",
+                             tip_text="Average trend strength. Above 25 = strong trend.")
+                + _acpts_msr("Weekly Bullish", f"{_pct_weekly}%", "#10a37f" if _pct_weekly > 50 else "#fbbf24",
+                             tip_text="% of stocks with bullish weekly structure.")
+                + _acpts_msr("Max Positions", f"{_acpts_max_pos}", _rc,
+                             tip_text="Regime-adjusted max simultaneous positions. Bull=3, Range=1, Bear=0.")
+                + '</div></div>',
+                unsafe_allow_html=True)
+
+            if _acpts_regime == "VOLATILE":
+                st.markdown(
+                    '<div style="text-align:center;padding:1.5rem;background:#0e0e0e;border-radius:12px;'
+                    'border:1px dashed #ef444444;color:#ef4444;margin-bottom:1rem;">'
+                    '<div style="font-size:1.1rem;font-weight:900;margin-bottom:0.3rem;">⚠ FULL STOP — No Entries Allowed</div>'
+                    '<div style="font-size:0.8rem;color:#888;line-height:1.6;">'
+                    'Bear / Volatile regime detected. Cash is the best position. '
+                    'Stocks below are scored for reference only.</div></div>',
+                    unsafe_allow_html=True)
+
+            _acpts_cap_col, _acpts_risk_col = st.columns([2, 1])
+            with _acpts_cap_col:
+                _acpts_capital = st.number_input(
+                    "Available Capital (SAR)",
+                    min_value=10000, max_value=50000000,
+                    value=st.session_state.get('acpts_capital', 100000),
+                    step=10000, key='acpts_capital_input')
+                st.session_state['acpts_capital'] = _acpts_capital
+            with _acpts_risk_col:
+                _acpts_risk_sel = st.selectbox(
+                    "Risk per Trade",
+                    ["0.5% — Ultra Conservative", "1.0% — Conservative"],
+                    index=0, key='acpts_risk_level')
+            _acpts_risk_pct = 0.5 if "0.5%" in _acpts_risk_sel else 1.0
+
+            st.markdown(
+                f'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.6rem;margin:1rem 0;">'
+                + _acpts_msr("Scanned", str(scanned), "#888", tip_text="Total stocks analyzed.")
+                + _acpts_msr("Institutional", str(len(_acpts_inst)), "#FFD700", sub="Score ≥ 70",
+                             tip_text="Passed the 70/110 institutional threshold. Only these qualify for entry.")
+                + _acpts_msr("Watchlist", str(len(_acpts_watch)), "#4A9EFF", sub="Score 55-69",
+                             tip_text="Close but not there yet. Monitor for improvement.")
+                + _acpts_msr("Rejected", str(len(_acpts_rej)), "#555", sub="Score < 55",
+                             tip_text="Did not meet minimum criteria.")
+                + '</div>',
+                unsafe_allow_html=True)
+
+            _at_inst, _at_watch, _at_rej, _at_rules = st.tabs([
+                f"🏛 Institutional ({len(_acpts_inst)})",
+                f"👁 Watchlist ({len(_acpts_watch)})",
+                f"✗ Rejected ({len(_acpts_rej)})",
+                "📋 System Rules",
+            ])
+
+            with _at_inst:
+                if not _acpts_inst:
+                    st.markdown(
+                        '<div style="text-align:center;padding:2.5rem 1.5rem;color:#555;'
+                        'font-size:0.85rem;background:#0e0e0e;border-radius:12px;border:1px dashed #262626;">'
+                        '<div style="font-size:1rem;font-weight:800;color:#FFD700;margin-bottom:0.5rem;">'
+                        'Cash is the Default Decision</div>'
+                        '<div style="color:#666;">No stock meets the institutional entry threshold '
+                        '(Score ≥ 70/110).<br>When no opportunity qualifies, staying in cash '
+                        'protects your capital.</div></div>',
+                        unsafe_allow_html=True)
+                else:
+                    for _idx, _is in enumerate(_acpts_inst):
+                        _render_institutional_card(_is, _idx + 1, _acpts_capital, _acpts_risk_pct)
+                    _total_invested = 0
+                    for _is in _acpts_inst:
+                        _rv = _is.get('risk', 2) / 100 * _is.get('price', 0)
+                        if _rv > 0:
+                            _pv = (_acpts_capital * _acpts_risk_pct / 100) / _rv * _is.get('price', 0)
+                            _total_invested += min(_pv, _acpts_capital * 0.30)
+                    _inv_pct  = min(round(_total_invested / _acpts_capital * 100), 75) if _acpts_capital > 0 else 0
+                    _cash_pct = 100 - _inv_pct
+                    _tot_risk = len(_acpts_inst) * _acpts_risk_pct
+                    _render_portfolio_summary(_acpts_inst, _inv_pct, _cash_pct, _tot_risk, _acpts_max_pos)
+
+            with _at_watch:
+                if not _acpts_watch:
+                    st.markdown('<div style="text-align:center;padding:2rem;color:#555;">No stocks in watchlist range (55-69)</div>', unsafe_allow_html=True)
+                else:
+                    for _ws in _acpts_watch[:10]:
+                        _render_watch_card(_ws)
+
+            with _at_rej:
+                if not _acpts_rej:
+                    st.markdown('<div style="text-align:center;padding:2rem;color:#555;">No rejected stocks</div>', unsafe_allow_html=True)
+                else:
+                    _render_reject_table(_acpts_rej[:15])
+
+            with _at_rules:
+                _render_rules_section()
 
     elif st.session_state.show_macro:
 
@@ -5857,16 +5890,12 @@ def main():
 
         from regime_analysis_tab import render_regime_analysis_tab
         from decision_tab import render_decision_tab
-
         from signal_analysis_tab import signal_analysis_tab
         from patterns_tab import render_patterns_price_action_workspace
         from volume_profile_tab import volume_profile_tab
         from smc_tab import smc_tab
         from elliott_wave_tab import elliott_wave_tab
         from strategy_lab_tab import strategy_lab_tab
-
-        # Each tab wrapped in @st.fragment so interactions within one tab
-        # do NOT re-render ALL 9 tabs (huge performance win on reruns).
 
         tab_dec, tab0, tab1, tab2, tab_vp, tab_smc, tab_ew, tab_lab = st.tabs([
             "Decision",
@@ -5892,34 +5921,34 @@ def main():
             render_patterns_price_action_workspace(df, info_icon)
 
         with tab_vp:
-            volume_profile_tab(df, current_price)
+            @st.fragment
+            def _render_vp():
+                volume_profile_tab(df, current_price)
+            _render_vp()
 
         with tab_smc:
-            smc_tab(df, current_price)
+            @st.fragment
+            def _render_smc():
+                smc_tab(df, current_price)
+            _render_smc()
 
         with tab_ew:
-            elliott_wave_tab(df, current_price)
+            @st.fragment
+            def _render_ew():
+                elliott_wave_tab(df, current_price)
+            _render_ew()
 
         with tab_lab:
-            strategy_lab_tab(
-                df,
-                symbol_input,
-                stock_name,
-                latest,
-                current_price,
-                period_change,
-                period_high,
-                period_low,
-                annual_vol,
-                current_regime,
-                adx_current,
-                rsi_current,
-                atr_pct,
-                price_vs_ema20,
-                price_vs_ema200,
-                recent_5d_change,
-                recent_20d_change,
+            _lab_args = (
+                df, symbol_input, stock_name, latest, current_price,
+                period_change, period_high, period_low, annual_vol,
+                current_regime, adx_current, rsi_current, atr_pct,
+                price_vs_ema20, price_vs_ema200, recent_5d_change, recent_20d_change,
             )
+            @st.fragment
+            def _render_lab():
+                strategy_lab_tab(*_lab_args)
+            _render_lab()
 
 
 
