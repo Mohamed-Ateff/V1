@@ -1006,80 +1006,59 @@ def _build_pattern_chart(df, patterns, current_price):
 # ══════════════════════════════════════════════════════════════════════════════
 
 def _pattern_card(p, current_price):
-    bias_col = BULL if p["type"] == "Bullish" else BEAR if p["type"] == "Bearish" else NEUT
-    sig_col  = BULL if p["signal"] == "BUY"  else BEAR if p["signal"] == "SELL"  else NEUT
-    state = p.get("state", "Watch")
+    bias_col  = BULL if p["type"] == "Bullish" else BEAR if p["type"] == "Bearish" else NEUT
+    sig_col   = BULL if p["signal"] == "BUY"   else BEAR if p["signal"] == "SELL"  else NEUT
+    state     = p.get("state", "Watch")
     state_col = p.get("state_color", _STATE_COLORS.get(state, INFO))
-    dt_str   = pd.to_datetime(p["date"]).strftime("%d %b %Y")
-    bar_w    = p["strength"]
-    entry = p.get("entry_ref")
-    stop = p.get("stop_ref")
-    target = p.get("target_ref")
-    rr = p.get("rr")
-    headroom = p.get("target_gap_pct")
-    headroom_txt = f"{headroom:+.1f}%" if headroom is not None else "-"
-    rr_txt = f"{rr:.1f}x" if rr is not None else "-"
+    bar_w     = p["strength"]
+    entry     = p.get("entry_ref")
+    stop      = p.get("stop_ref")
+    target    = p.get("target_ref")
+    rr        = p.get("rr")
+    rr_txt    = f"{rr:.1f}x" if rr is not None else "—"
+    bc        = ','.join(str(int(bias_col[i:i+2], 16)) for i in (1, 3, 5))
+    sc        = ','.join(str(int(state_col[i:i+2], 16)) for i in (1, 3, 5))
 
+    e_str = f"${entry:.2f}" if entry is not None else "—"
+    s_str = f"${stop:.2f}"  if stop  is not None else "—"
+    t_str = f"${target:.2f}" if target is not None else "—"
     html = (
-        "<div style='background:#1b1b1b;border:1px solid #272727;"
-        "border-radius:12px;overflow:hidden;margin-bottom:0.7rem;"
-        "box-shadow:0 1px 8px rgba(0,0,0,0.15);'>"
-        "<div style='padding:0.85rem 1.3rem;"
-        "display:flex;align-items:center;justify-content:space-between;gap:1rem;"
-        "background:linear-gradient(135deg,rgba(" + ','.join(str(int(bias_col[i:i+2],16)) for i in (1,3,5)) + ",0.06),transparent);'>"
-        # left: name + signal badge
-        "<div style='display:flex;align-items:center;gap:0.7rem;min-width:0;'>"
-        "<div style='font-size:0.95rem;font-weight:800;color:" + bias_col + ";'>"
-        + p["pattern"] + "</div>"
-        "<div style='font-size:0.65rem;font-weight:700;color:" + sig_col + ";"
-        "background:rgba(" + ','.join(str(int(sig_col[i:i+2],16)) for i in (1,3,5)) + ",0.12);"
-        "border-radius:5px;padding:0.15rem 0.55rem;letter-spacing:0.5px;white-space:nowrap;'>"
-        + p["signal"] + "</div>"
-        "<div style='font-size:0.65rem;font-weight:700;color:" + state_col + ";"
-        "background:rgba(" + ','.join(str(int(state_col[i:i+2],16)) for i in (1,3,5)) + ",0.12);"
-        "border-radius:5px;padding:0.15rem 0.55rem;letter-spacing:0.5px;white-space:nowrap;'>"
-        + state + "</div>"
-        "</div>"
-        # right: strength bar + date
-        "<div style='display:flex;align-items:center;gap:1.2rem;flex-shrink:0;'>"
-        "<div style='display:flex;align-items:center;gap:0.5rem;'>"
-        "<div style='width:70px;background:#1a1a1a;border-radius:4px;height:4px;'>"
-        "<div style='background:" + bias_col + ";width:" + str(bar_w) + "%;"
-        "height:4px;border-radius:4px;box-shadow:0 0 6px " + bias_col + "44;'></div></div>"
-        "<div style='font-size:0.80rem;font-weight:700;color:" + bias_col + ";'>"
-        + str(bar_w) + "%</div>"
-        "</div>"
-        "<div style='font-size:0.75rem;color:#555;white-space:nowrap;'>" + dt_str + "</div>"
-        "</div>"
-        "</div>"
-        "<div style='padding:0.95rem 1.3rem;display:grid;grid-template-columns:1.65fr 1fr;gap:0.95rem;'>"
-        "<div>"
-        "<div style='font-size:0.78rem;color:#a0a0a0;line-height:1.6;margin-bottom:0.7rem;'>"
-        + p.get("description", "") + "</div>"
-        "<div style='font-size:0.74rem;color:" + state_col + ";font-weight:700;margin-bottom:0.25rem;'>"
-        + p.get("state_note", "") + "</div>"
-        "<div style='font-size:0.68rem;color:#666;letter-spacing:0.4px;text-transform:uppercase;'>"
-        + p.get("category", "Pattern") + " setup · Current " + f"${current_price:.2f}" + "</div>"
-        "</div>"
-        "<div style='display:grid;grid-template-columns:1fr 1fr;gap:0.45rem;'>"
-        "<div style='background:#161616;border:1px solid #272727;border-radius:9px;padding:0.55rem 0.7rem;'>"
-        "<div style='font-size:0.60rem;color:#606060;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;'>Entry</div>"
-        "<div style='font-size:0.88rem;color:#e0e0e0;font-weight:800;margin-top:0.15rem;'>$" + (f"{entry:.2f}" if entry is not None else "-") + "</div>"
-        "</div>"
-        "<div style='background:#161616;border:1px solid #272727;border-radius:9px;padding:0.55rem 0.7rem;'>"
-        "<div style='font-size:0.60rem;color:#606060;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;'>Stop</div>"
-        "<div style='font-size:0.88rem;color:" + BEAR + ";font-weight:800;margin-top:0.15rem;'>$" + (f"{stop:.2f}" if stop is not None else "-") + "</div>"
-        "</div>"
-        "<div style='background:#161616;border:1px solid #272727;border-radius:9px;padding:0.55rem 0.7rem;'>"
-        "<div style='font-size:0.60rem;color:#606060;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;'>Target</div>"
-        "<div style='font-size:0.88rem;color:" + BULL + ";font-weight:800;margin-top:0.15rem;'>$" + (f"{target:.2f}" if target is not None else "-") + "</div>"
-        "</div>"
-        "<div style='background:#161616;border:1px solid #272727;border-radius:9px;padding:0.55rem 0.7rem;'>"
-        "<div style='font-size:0.60rem;color:#606060;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;'>R:R / Headroom</div>"
-        "<div style='font-size:0.88rem;color:" + state_col + ";font-weight:800;margin-top:0.15rem;'>" + rr_txt + " · " + headroom_txt + "</div>"
-        "</div>"
-        "</div>"
-        "</div></div>"
+        f"<div style='background:#1b1b1b;border:1px solid #282828;border-radius:12px;"
+        f"overflow:hidden;margin-bottom:0.55rem;'>"
+        f"<div style='padding:0.75rem 1.2rem;"
+        f"background:linear-gradient(135deg,rgba({bc},0.06),transparent);"
+        f"display:flex;align-items:center;justify-content:space-between;'>"
+        f"<div style='display:flex;align-items:center;gap:0.6rem;'>"
+        f"<div style='font-size:0.9rem;font-weight:800;color:{bias_col};'>{p['pattern']}</div>"
+        f"<div style='font-size:0.6rem;font-weight:700;color:{sig_col};"
+        f"background:rgba({','.join(str(int(sig_col[i:i+2],16)) for i in (1,3,5))},0.12);"
+        f"border-radius:4px;padding:0.1rem 0.5rem;'>{p['signal']}</div>"
+        f"<div style='font-size:0.6rem;font-weight:700;color:{state_col};"
+        f"background:rgba({sc},0.12);border-radius:4px;padding:0.1rem 0.5rem;'>{state}</div>"
+        f"</div>"
+        f"<div style='display:flex;align-items:center;gap:0.5rem;'>"
+        f"<div style='width:60px;background:#1a1a1a;border-radius:3px;height:3px;'>"
+        f"<div style='background:{bias_col};width:{bar_w}%;height:3px;border-radius:3px;'></div></div>"
+        f"<div style='font-size:0.75rem;font-weight:700;color:{bias_col};'>{bar_w}%</div>"
+        f"</div></div>"
+        f"<div style='padding:0.6rem 1.2rem;display:flex;gap:0.6rem;align-items:center;"
+        f"border-top:1px solid #232323;'>"
+        f"<div style='flex:1;text-align:center;'>"
+        f"<div style='font-size:0.58rem;color:#555;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.15rem;'>Entry</div>"
+        f"<div style='font-size:0.82rem;font-weight:700;color:#e0e0e0;'>{e_str}</div></div>"
+        f"<div style='width:1px;background:#232323;height:28px;'></div>"
+        f"<div style='flex:1;text-align:center;'>"
+        f"<div style='font-size:0.58rem;color:#555;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.15rem;'>Stop</div>"
+        f"<div style='font-size:0.82rem;font-weight:700;color:{BEAR};'>{s_str}</div></div>"
+        f"<div style='width:1px;background:#232323;height:28px;'></div>"
+        f"<div style='flex:1;text-align:center;'>"
+        f"<div style='font-size:0.58rem;color:#555;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.15rem;'>Target</div>"
+        f"<div style='font-size:0.82rem;font-weight:700;color:{BULL};'>{t_str}</div></div>"
+        f"<div style='width:1px;background:#232323;height:28px;'></div>"
+        f"<div style='flex:1;text-align:center;'>"
+        f"<div style='font-size:0.58rem;color:#555;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.15rem;'>R:R</div>"
+        f"<div style='font-size:0.82rem;font-weight:700;color:{state_col};'>{rr_txt}</div></div>"
+        f"</div></div>"
     )
     st.markdown(html, unsafe_allow_html=True)
 
@@ -1197,10 +1176,6 @@ def patterns_tab(df, pattern_context=None):
             unsafe_allow_html=True,
         )
 
-    if hist:
-        st.markdown(_sec(f"Recent Historical Patterns ({min(len(hist), 6)})", INFO), unsafe_allow_html=True)
-        for p in hist[:6]:
-            _pattern_card(p, current_price)
 
 
 @st.cache_data(ttl=900, show_spinner=False)
@@ -1357,135 +1332,116 @@ def _scan_market_pattern_setups(limit=12):
     }
 
 
-def _scanner_card(setup):
-    accent = setup["bias_color"]
-    state_color = setup.get("state_color", accent)
-    rr_txt = f"{setup['rr']:.1f}x" if setup.get("rr") is not None else "-"
+def _scanner_row(setup):
+    accent     = setup["bias_color"]
+    state_col  = setup.get("state_color", accent)
+    rr_txt     = f"{setup['rr']:.1f}x" if setup.get("rr") is not None else "—"
+    entry_txt  = f"${setup['entry']:.2f}"  if setup.get("entry")  is not None else "—"
+    stop_txt   = f"${setup['stop']:.2f}"   if setup.get("stop")   is not None else "—"
+    target_txt = f"${setup['target']:.2f}" if setup.get("target") is not None else "—"
+    ac = ','.join(str(int(accent[i:i+2], 16)) for i in (1, 3, 5))
+    sc = ','.join(str(int(state_col[i:i+2], 16)) for i in (1, 3, 5))
     return (
-        "<div style='background:#1b1b1b;border:1px solid #272727;border-radius:13px;overflow:hidden;margin-bottom:0.8rem;'>"
-        "<div style='padding:0.9rem 1.05rem;background:linear-gradient(135deg,rgba(" + ','.join(str(int(accent[i:i+2],16)) for i in (1,3,5)) + ",0.08),transparent);border-bottom:1px solid #272727;'>"
-        "<div style='display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;'>"
-        "<div>"
-        "<div style='font-size:0.72rem;color:#7d7d7d;text-transform:uppercase;letter-spacing:0.7px;font-weight:700;'>"
-        + setup["ticker"] + " · " + setup["name"] + "</div>"
-        "<div style='font-size:1.02rem;font-weight:900;color:#f0f0f0;margin-top:0.18rem;'>" + setup["pattern"] + "</div>"
-        "</div>"
-        "<div style='text-align:right;'>"
-        "<div style='font-size:0.66rem;color:#606060;text-transform:uppercase;letter-spacing:0.6px;font-weight:700;'>Scan Score</div>"
-        "<div style='font-size:1.45rem;font-weight:900;color:" + accent + ";line-height:1;'>" + str(setup["score"]) + "</div>"
-        "</div>"
-        "</div>"
-        "<div style='display:flex;gap:0.45rem;flex-wrap:wrap;margin-top:0.65rem;'>"
-        "<span style='font-size:0.64rem;font-weight:700;color:" + accent + ";background:rgba(" + ','.join(str(int(accent[i:i+2],16)) for i in (1,3,5)) + ",0.12);border-radius:999px;padding:0.18rem 0.55rem;letter-spacing:0.4px;'>" + setup["bias"] + "</span>"
-        "<span style='font-size:0.64rem;font-weight:700;color:" + state_color + ";background:rgba(" + ','.join(str(int(state_color[i:i+2],16)) for i in (1,3,5)) + ",0.12);border-radius:999px;padding:0.18rem 0.55rem;letter-spacing:0.4px;'>" + setup["state"] + "</span>"
-        "<span style='font-size:0.64rem;font-weight:700;color:#bdbdbd;background:#161616;border-radius:999px;padding:0.18rem 0.55rem;letter-spacing:0.4px;'>Strength " + str(setup["strength"]) + "%</span>"
-        "</div>"
-        "</div>"
-        "<div style='padding:0.95rem 1.05rem;display:grid;grid-template-columns:repeat(4,1fr);gap:0.45rem;'>"
-        "<div style='background:#161616;border:1px solid #272727;border-radius:9px;padding:0.55rem 0.7rem;'><div style='font-size:0.60rem;color:#606060;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;'>Price</div><div style='font-size:0.86rem;color:#f0f0f0;font-weight:800;margin-top:0.15rem;'>$" + f"{setup['price']:.2f}" + "</div></div>"
-        "<div style='background:#161616;border:1px solid #272727;border-radius:9px;padding:0.55rem 0.7rem;'><div style='font-size:0.60rem;color:#606060;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;'>Entry</div><div style='font-size:0.86rem;color:#f0f0f0;font-weight:800;margin-top:0.15rem;'>$" + (f"{setup['entry']:.2f}" if setup.get('entry') is not None else "-") + "</div></div>"
-        "<div style='background:#161616;border:1px solid #272727;border-radius:9px;padding:0.55rem 0.7rem;'><div style='font-size:0.60rem;color:#606060;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;'>Stop</div><div style='font-size:0.86rem;color:" + BEAR + ";font-weight:800;margin-top:0.15rem;'>$" + (f"{setup['stop']:.2f}" if setup.get('stop') is not None else "-") + "</div></div>"
-        "<div style='background:#161616;border:1px solid #272727;border-radius:9px;padding:0.55rem 0.7rem;'><div style='font-size:0.60rem;color:#606060;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;'>Target / R:R</div><div style='font-size:0.86rem;color:" + BULL + ";font-weight:800;margin-top:0.15rem;'>$" + (f"{setup['target']:.2f}" if setup.get('target') is not None else "-") + " · " + rr_txt + "</div></div>"
-        "</div>"
-        "<div style='padding:0 1.05rem 1rem 1.05rem;font-size:0.75rem;color:#9a9a9a;line-height:1.55;'>" + setup["detail"] + "</div>"
-        "</div>"
+        f"<div style='background:#1b1b1b;border:1px solid #282828;border-radius:11px;"
+        f"overflow:hidden;margin-bottom:0.5rem;'>"
+        # top row: ticker · name | pattern | state | score
+        f"<div style='padding:0.7rem 1rem;display:flex;align-items:center;gap:0.7rem;"
+        f"background:linear-gradient(135deg,rgba({ac},0.07),transparent);border-bottom:1px solid #232323;'>"
+        f"<div style='font-size:0.92rem;font-weight:900;color:{accent};min-width:60px;'>{setup['ticker']}</div>"
+        f"<div style='flex:1;'>"
+        f"<div style='font-size:0.78rem;font-weight:700;color:#e0e0e0;'>{setup['pattern']}</div>"
+        f"<div style='font-size:0.62rem;color:#666;margin-top:0.1rem;'>{setup['name']}</div>"
+        f"</div>"
+        f"<div style='font-size:0.6rem;font-weight:700;color:{state_col};"
+        f"background:rgba({sc},0.12);border-radius:4px;padding:0.12rem 0.5rem;white-space:nowrap;'>{setup['state']}</div>"
+        f"<div style='font-size:1.3rem;font-weight:900;color:{accent};min-width:36px;text-align:right;line-height:1;'>{setup['score']}</div>"
+        f"</div>"
+        # bottom row: price · entry · stop · target · R:R
+        f"<div style='padding:0.5rem 1rem;display:flex;gap:1rem;align-items:center;'>"
+        f"<div style='flex:1;'><div style='font-size:0.55rem;color:#555;text-transform:uppercase;letter-spacing:0.4px;'>Price</div>"
+        f"<div style='font-size:0.78rem;font-weight:700;color:#e0e0e0;'>${setup['price']:.2f}</div></div>"
+        f"<div style='width:1px;background:#232323;height:24px;'></div>"
+        f"<div style='flex:1;'><div style='font-size:0.55rem;color:#555;text-transform:uppercase;letter-spacing:0.4px;'>Entry</div>"
+        f"<div style='font-size:0.78rem;font-weight:700;color:#e0e0e0;'>{entry_txt}</div></div>"
+        f"<div style='width:1px;background:#232323;height:24px;'></div>"
+        f"<div style='flex:1;'><div style='font-size:0.55rem;color:#555;text-transform:uppercase;letter-spacing:0.4px;'>Stop</div>"
+        f"<div style='font-size:0.78rem;font-weight:700;color:{BEAR};'>{stop_txt}</div></div>"
+        f"<div style='width:1px;background:#232323;height:24px;'></div>"
+        f"<div style='flex:1;'><div style='font-size:0.55rem;color:#555;text-transform:uppercase;letter-spacing:0.4px;'>Target</div>"
+        f"<div style='font-size:0.78rem;font-weight:700;color:{BULL};'>{target_txt}</div></div>"
+        f"<div style='width:1px;background:#232323;height:24px;'></div>"
+        f"<div style='flex:1;'><div style='font-size:0.55rem;color:#555;text-transform:uppercase;letter-spacing:0.4px;'>R:R</div>"
+        f"<div style='font-size:0.78rem;font-weight:700;color:{state_col};'>{rr_txt}</div></div>"
+        f"</div></div>"
     )
 
 
 def _render_market_pattern_scanner():
-    head_cols = st.columns([1, 3], gap="small")
-    with head_cols[0]:
-        if st.button("Refresh Scanner", key="ppa_refresh_scanner", width="stretch"):
-            _scan_market_pattern_setups.clear()
-    with head_cols[1]:
-        st.markdown(
-            "<div style='background:#1b1b1b;border:1px solid #272727;border-radius:12px;padding:0.9rem 1rem;'>"
-            "<div style='font-size:0.78rem;color:#bdbdbd;font-weight:700;'>Market-wide pattern scan</div>"
-            "<div style='font-size:0.74rem;color:#7d7d7d;margin-top:0.2rem;line-height:1.5;'>"
-            "This scan ranks current Tadawul setups by live pattern confirmation, confluence quality, and trap filtering."
-            "</div></div>",
-            unsafe_allow_html=True,
-        )
-
-    with st.spinner("Scanning live Tadawul patterns..."):
+    with st.spinner("Scanning Tadawul patterns..."):
         scan = _scan_market_pattern_setups(limit=12)
 
-    stats = [
-        ("Scanned", str(scan["scanned"]), INFO, "Symbols with enough history and at least one active pattern"),
-        ("Long-ready", str(len(scan["ready"])), BULL, "Triggered / retest / confirmed bullish setups that passed the filter"),
-        ("Trap Alerts", str(len(scan["alerts"])), BEAR, "Bearish confirmations or failed bullish patterns worth avoiding"),
-    ]
-    stat_cols = st.columns(len(stats), gap="small")
-    for col, (label, value, color, detail) in zip(stat_cols, stats):
+    hcols = st.columns([4, 1], gap="small")
+    with hcols[0]:
+        st.markdown(
+            f"<div style='padding:0.4rem 0;'>"
+            f"<div style='font-size:0.62rem;color:#555;text-transform:uppercase;letter-spacing:0.6px;'>Market Scanner · {scan['scanned']} symbols scanned</div>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+    with hcols[1]:
+        if st.button("Refresh", key="ppa_refresh_scanner"):
+            _scan_market_pattern_setups.clear()
+            st.rerun()
+
+    # Stats row
+    stat_cols = st.columns(3, gap="small")
+    for col, (label, val, color) in zip(stat_cols, [
+        ("Symbols Scanned", str(scan["scanned"]), INFO),
+        ("Long Setups",     str(len(scan["ready"])), BULL),
+        ("Trap Alerts",     str(len(scan["alerts"])), BEAR),
+    ]):
         with col:
             st.markdown(
-                "<div style='background:#1b1b1b;border:1px solid #272727;border-radius:12px;padding:0.85rem 1rem;'>"
-                "<div style='font-size:0.62rem;color:#606060;text-transform:uppercase;letter-spacing:0.7px;font-weight:700;'>" + label + "</div>"
-                "<div style='font-size:1.4rem;font-weight:900;color:" + color + ";margin-top:0.3rem;'>" + value + "</div>"
-                "<div style='font-size:0.72rem;color:#666;margin-top:0.28rem;line-height:1.45;'>" + detail + "</div>"
-                "</div>",
+                f"<div style='background:#1b1b1b;border:1px solid #282828;border-radius:10px;"
+                f"padding:0.7rem 1rem;text-align:center;'>"
+                f"<div style='font-size:0.6rem;color:#555;text-transform:uppercase;letter-spacing:0.6px;font-weight:700;margin-bottom:0.25rem;'>{label}</div>"
+                f"<div style='font-size:1.6rem;font-weight:900;color:{color};line-height:1;'>{val}</div>"
+                f"</div>",
                 unsafe_allow_html=True,
             )
 
-    st.markdown(_sec("Top Long Setups", BULL), unsafe_allow_html=True)
+    # Long setups
+    st.markdown(_sec("Long Setups", BULL), unsafe_allow_html=True)
     if scan["ready"]:
-        ready_cols = st.columns(2, gap="medium")
-        for idx, setup in enumerate(scan["ready"]):
-            with ready_cols[idx % 2]:
-                st.markdown(_scanner_card(setup), unsafe_allow_html=True)
+        for setup in scan["ready"]:
+            st.markdown(_scanner_row(setup), unsafe_allow_html=True)
     else:
         st.markdown(
-            "<div style='background:#1b1b1b;border:1px solid #272727;border-radius:12px;padding:1rem 1.1rem;color:#8a8a8a;'>"
-            "No clean long-ready pattern setups passed the confirmation and trap filters right now."
-            "</div>",
+            "<div style='background:#1b1b1b;border:1px solid #282828;border-radius:10px;"
+            "padding:1rem 1.2rem;color:#555;font-size:0.82rem;text-align:center;'>"
+            "No confirmed long setups right now.</div>",
             unsafe_allow_html=True,
         )
 
+    # Trap alerts
     st.markdown(_sec("Trap Alerts", BEAR), unsafe_allow_html=True)
     if scan["alerts"]:
-        alert_cols = st.columns(2, gap="medium")
-        for idx, setup in enumerate(scan["alerts"]):
-            with alert_cols[idx % 2]:
-                st.markdown(_scanner_card(setup), unsafe_allow_html=True)
+        for setup in scan["alerts"]:
+            st.markdown(_scanner_row(setup), unsafe_allow_html=True)
     else:
         st.markdown(
-            "<div style='background:#1b1b1b;border:1px solid #272727;border-radius:12px;padding:1rem 1.1rem;color:#8a8a8a;'>"
-            "No broad bearish trap signatures are dominating the scanner at the moment."
-            "</div>",
+            "<div style='background:#1b1b1b;border:1px solid #282828;border-radius:10px;"
+            "padding:1rem 1.2rem;color:#555;font-size:0.82rem;text-align:center;'>"
+            "No trap alerts detected.</div>",
             unsafe_allow_html=True,
         )
 
 
 def render_patterns_price_action_workspace(df, info_icon):
+    from price_action_tab import price_action_analysis_tab
     pattern_context = get_pattern_context(df)
-    if pattern_context is None:
-        patterns_tab(df)
-        return
-
-    strongest = pattern_context.get("strongest")
-    lead_pattern = strongest["pattern"] if strongest else "No active pattern"
-    lead_state = strongest.get("state", "Watch") if strongest else "Watch"
-    lead_color = strongest.get("state_color", INFO) if strongest else INFO
-    guardrails = pattern_context.get("guardrails", {})
-    st.markdown(
-        "<div style='background:#1b1b1b;border:1px solid #272727;border-radius:14px;overflow:hidden;margin-bottom:1rem;'>"
-        "<div style='padding:1rem 1.25rem;background:linear-gradient(135deg,rgba(" + ','.join(str(int(lead_color[i:i+2],16)) for i in (1,3,5)) + ",0.08),transparent);'>"
-        "<div style='font-size:0.62rem;color:#606060;text-transform:uppercase;letter-spacing:1px;font-weight:700;'>Patterns & Price Action Workspace</div>"
-        "<div style='display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;margin-top:0.45rem;'>"
-        "<div style='font-size:0.92rem;color:#e0e0e0;font-weight:800;'>Lead setup: " + lead_pattern + " · " + lead_state + "</div>"
-        "<div style='font-size:0.74rem;color:#8f8f8f;'>Confluence " + str(pattern_context.get("confluence_score", 0)) + " · Filter " + guardrails.get("status", "Clear") + "</div>"
-        "</div></div></div>",
-        unsafe_allow_html=True,
-    )
-
-    setup_tab, board_tab, scanner_tab = st.tabs(["Integrated Setup", "Pattern Board", "Market Scanner"])
-    with setup_tab:
-        from price_action_tab import price_action_analysis_tab
-        price_action_analysis_tab(df, info_icon, pattern_context=pattern_context)
-    with board_tab:
-        patterns_tab(df, pattern_context=pattern_context)
-    with scanner_tab:
-        _render_market_pattern_scanner()
+    price_action_analysis_tab(df, info_icon)
+    patterns_tab(df, pattern_context=pattern_context)
 
 
 # ══════════════════════════════════════════════════════════════════════════════

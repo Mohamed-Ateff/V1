@@ -151,26 +151,31 @@ st.markdown("""
 
     /* ── Hero info card design system ───────────────────────────────── */
     .hero-wrap { background:#1b1b1b; border:1px solid #272727; border-radius:14px;
-                 overflow:hidden; margin-bottom:1.4rem; box-shadow:0 4px 24px rgba(0,0,0,0.3); }
-    .hero-inner { padding:1.6rem 1.8rem; }
-    .hero-hdr { display:flex; justify-content:space-between; align-items:center;
-                flex-wrap:wrap; gap:0.6rem; margin-bottom:1.1rem; }
-    .hero-name { font-size:1.5rem; font-weight:800; color:#e0e0e0; line-height:1.2; }
-    .hero-sub { font-size:0.78rem; color:#606060; margin-top:0.28rem; font-weight:600; }
-    .hero-divider { border-top:1px solid #272727; margin-bottom:0.9rem; }
+                 overflow:hidden; margin-bottom:1.4rem;
+                 box-shadow:0 4px 24px rgba(0,0,0,0.3); }
+    .hero-inner { padding:1.6rem 1.8rem 1.4rem; }
+    .hero-hdr { display:flex; justify-content:space-between; align-items:flex-start;
+                flex-wrap:wrap; gap:0.6rem; margin-bottom:1.3rem; }
+    .hero-name { font-size:1.6rem; font-weight:900; color:#f0f0f0; line-height:1.15;
+                 letter-spacing:-0.5px; }
+    .hero-sub { font-size:0.78rem; color:#606060; margin-top:0.3rem; font-weight:600; }
+    .hero-divider { border-top:1px solid #272727; margin-bottom:1.1rem; }
     .hero-grid5 { display:grid; grid-template-columns:repeat(5,1fr); gap:0.7rem; margin-bottom:0.7rem; }
-    .hero-grid3 { display:grid; grid-template-columns:repeat(3,1fr); gap:0.7rem; }
+    .hero-grid5b { display:grid; grid-template-columns:repeat(5,1fr); gap:0.7rem; margin-bottom:0.7rem; }
+    .hero-grid3 { display:grid; grid-template-columns:repeat(3,1fr); gap:0.7rem; margin-bottom:0.7rem; }
     .hero-tile { background:#161616; border:1px solid #272727; border-radius:10px;
                  padding:1rem 1.1rem; overflow:hidden; }
     .hero-tile-lbl { font-size:0.62rem; color:#606060; text-transform:uppercase;
                      letter-spacing:1px; font-weight:700; margin-bottom:0.5rem;
-                     display:flex; align-items:center; }
+                     display:flex; align-items:center; gap:0.3rem; }
     .hero-tile-val { font-size:1.15rem; font-weight:800; color:#e0e0e0; line-height:1.1; }
-    .hero-tile-val.lg { font-size:1.5rem; }
-    .hero-tile-sub { font-size:0.68rem; margin-top:0.35rem; font-weight:600; }
+    .hero-tile-val.lg { font-size:1.5rem; letter-spacing:-0.5px; }
+    .hero-tile-sub { font-size:0.64rem; margin-top:0.4rem; font-weight:700;
+                     display:inline-flex; align-items:center; gap:0.25rem;
+                     padding:0.2rem 0.6rem; border-radius:20px; }
     .hero-tip { display:inline-flex; align-items:center; justify-content:center;
                 width:14px; height:14px; border-radius:50%; background:#272727; color:#606060;
-                font-size:0.48rem; font-weight:700; margin-left:0.4rem; cursor:help; }
+                font-size:0.48rem; font-weight:700; cursor:help; flex-shrink:0; }
 
     /* Recommendations tab styling */
 
@@ -5580,47 +5585,30 @@ def main():
 
         # -- tile helpers ------------------------------------------------
 
-        def _tile(label, value, sub, accent, val_color=None, sub_color=None, val_size="1.15rem", tooltip=None):
-
-            if val_color is None:
-
-                val_color = "#e0e0e0"
-
-            if sub_color is None:
-
-                sub_color = "#888"
-
-            tip_html = (
-                f"<span title='{tooltip}' class='hero-tip'>?</span>"
-            ) if tooltip else ""
-
-            _lg = " lg" if val_size == "1.5rem" else ""
-
-            return (
-
-                f"<div class='hero-tile'>"
-
-                f"<div class='hero-tile-lbl'>{label}{tip_html}</div>"
-
-                f"<div class='hero-tile-val{_lg}' style='color:{val_color};"
-
-                f" text-shadow:0 0 18px {accent}33;'>{value}</div>"
-
-                f"<div class='hero-tile-sub' style='color:{sub_color};'>{sub}</div>"
-
-                f"</div>"
-
-            )
-
         def _arrow(val):
-
-            return "&#8593;" if val >= 0 else "&#8595;"   # ? ?
-
-
+            return "&#8593;" if val >= 0 else "&#8595;"
 
         def _chg_color(val):
-
             return "#26A69A" if val >= 0 else "#EF5350"
+
+        def _hex_rgba(h, a):
+            h = h.lstrip('#')
+            r, g, b = int(h[0:2],16), int(h[2:4],16), int(h[4:6],16)
+            return f"rgba({r},{g},{b},{a})"
+
+        def _tile(label, value, sub, accent, val_color=None, sub_color=None, val_size="1.15rem", tooltip=None):
+            vc  = val_color or "#e0e0e0"
+            sc  = sub_color or "#888"
+            tip = f"<span title='{tooltip}' class='hero-tip'>?</span>" if tooltip else ""
+            _lg = " lg" if val_size == "1.5rem" else ""
+            sub_bg = _hex_rgba(sc, 0.13)
+            return (
+                f"<div class='hero-tile'>"
+                f"<div class='hero-tile-lbl'>{label}{tip}</div>"
+                f"<div class='hero-tile-val{_lg}' style='color:{vc};text-shadow:0 0 18px {accent}33;'>{value}</div>"
+                f"<div class='hero-tile-sub' style='color:{sc};background:{sub_bg};'>{sub}</div>"
+                f"</div>"
+            )
 
 
 
@@ -5732,115 +5720,78 @@ def main():
 
 
 
-        tiles_bot = (
+        # ── Extra metrics ─────────────────────────────────────────────────────
+        _adx_h    = float(latest.get('ADX_14', 20))
+        _rsi_h    = float(latest.get('RSI_14', 50))
+        _ema20_h  = latest.get('EMA_20',  current_price) or current_price
+        _ema200_h = latest.get('EMA_200', current_price) or current_price
+        _pema20   = (current_price / _ema20_h  - 1) * 100
+        _pema200  = (current_price / _ema200_h - 1) * 100
+        _n5h      = max(len(df) - 6,  0)
+        _n20h     = max(len(df) - 21, 0)
+        _5d_chg   = ((current_price - df.iloc[_n5h]['Close'])  / df.iloc[_n5h]['Close'])  * 100 if len(df) >= 6  else 0
+        _20d_chg  = ((current_price - df.iloc[_n20h]['Close']) / df.iloc[_n20h]['Close']) * 100 if len(df) >= 21 else 0
+        _atr_h    = latest.get('ATR_14', 0)
+        _atr_pct_h = (_atr_h / current_price * 100) if current_price > 0 and _atr_h > 0 else 2.0
 
-            _tile("Analysis Period",
+        _adx_col  = "#26A69A" if _adx_h >= 25 else "#FFC107"
+        _adx_lbl  = "Strong trend" if _adx_h >= 25 else "Weak / no trend"
+        _5d_col   = _chg_color(_5d_chg)
+        _20d_col  = _chg_color(_20d_chg)
+        _atr_col  = "#EF5350" if _atr_pct_h >= 3 else "#FFC107" if _atr_pct_h >= 1.5 else "#26A69A"
+        _atr_lbl  = "High volatility" if _atr_pct_h >= 3 else "Moderate" if _atr_pct_h >= 1.5 else "Low volatility"
 
-                  f"{df.iloc[0]['Date'].strftime('%b %d, %Y')} &#8594; {df.iloc[-1]['Date'].strftime('%b %d, %Y')}",
-
-                  f"{len(df):,} trading days",
-
-                  "#4A9EFF")
-
-            + _tile("Price Range",
-
-                    f"{price_range:.2f} SAR",
-
-                    f"{volatility:.1f}% of period low",
-
-                    "#4A9EFF",
-
-                    tooltip="Difference between the highest and lowest price during the analysis period")
-
-            + _tile("Annualized Volatility",
-
-                    f"{annual_vol:.1f}%",
-
-                    ann_label,
-
-                    annual_vol_color,
-
-                    val_color=annual_vol_color,
-
-                    sub_color=ann_sub_col,
-
-                    tooltip="Standard deviation of daily returns scaled to one year — measures price uncertainty")
-
+        # row 2 — 5 technicals (RSI, EMA removed)
+        tiles_signals = (
+            _tile("ADX-14", f"{_adx_h:.0f}", _adx_lbl,
+                  _adx_col, val_color=_adx_col, sub_color=_adx_col,
+                  tooltip=">25 = strong trend regardless of direction")
+            + _tile("5-Day", f"{_5d_chg:+.1f}%",
+                    f"{_arrow(_5d_chg)} Short-term momentum",
+                    _5d_col, val_color=_5d_col, sub_color=_5d_col)
+            + _tile("20-Day", f"{_20d_chg:+.1f}%",
+                    f"{_arrow(_20d_chg)} Monthly momentum",
+                    _20d_col, val_color=_20d_col, sub_color=_20d_col)
+            + _tile("ATR-14", f"{_atr_pct_h:.1f}%", _atr_lbl,
+                    _atr_col, val_color=_atr_col, sub_color=_atr_col,
+                    tooltip="Daily expected move as % of price — use for stop sizing")
+            + _tile("Ann. Volatility", f"{annual_vol:.1f}%", ann_label,
+                    annual_vol_color, val_color=annual_vol_color, sub_color=ann_sub_col,
+                    tooltip="Annualized std dev of daily returns — measures price uncertainty")
         )
-
-
 
         _period_label = df.iloc[0]['Date'].strftime('%b %Y') + " &#8594; " + df.iloc[-1]['Date'].strftime('%b %Y')
 
-        _regime_pill = (
-
-            "<span style='font-size:0.62rem; color:#606060; text-transform:uppercase;"
-
-            " letter-spacing:1px; font-weight:700; margin-right:0.5rem;'>Regime</span>"
-
-            "<span style='font-size:0.78rem; font-weight:700; color:#fff; background:" + regime_color + ";"
-
-            " padding:0.25rem 0.85rem; border-radius:20px; letter-spacing:0.5px;"
-
-            " box-shadow:0 0 12px " + regime_color + "44;'>" + latest['REGIME'] + "</span>"
-
-        )
-
-
         hero_html = (
-
             "<div class='hero-wrap'>"
-
-
-
             "<div class='hero-inner'>"
 
-
-
+            # ── Header ──
             "<div class='hero-hdr'>"
-
             "<div>"
-
-            "<div class='hero-name'>" + stock_name + "</div>"
-
-            "<div class='hero-sub'>"
-
-            + symbol_input + "&nbsp;&nbsp;&#183;&nbsp;&nbsp;" + _period_label +
-
+            f"<div class='hero-name'>{stock_name}</div>"
+            f"<div class='hero-sub'>{symbol_input}&nbsp;&nbsp;&#183;&nbsp;&nbsp;{_period_label}&nbsp;&nbsp;&#183;&nbsp;&nbsp;{len(df):,} trading days</div>"
             "</div>"
-
+            f"<div style='display:flex;align-items:center;gap:0.5rem;'>"
+            f"<span style='font-size:0.62rem;color:#606060;text-transform:uppercase;letter-spacing:1px;font-weight:700;'>Regime</span>"
+            f"<span style='font-size:0.78rem;font-weight:700;color:#fff;background:{regime_color};"
+            f"padding:0.25rem 0.85rem;border-radius:20px;letter-spacing:0.5px;"
+            f"box-shadow:0 0 12px {regime_color}44;'>{latest['REGIME']}</span>"
             "</div>"
-
-            "<div style='display:flex; align-items:center;'>" + _regime_pill + "</div>"
-
             "</div>"
-
-
 
             "<div class='hero-divider'></div>"
 
-
-
             "<div class='hero-grid5'>"
-
             + tiles_top +
-
             "</div>"
 
-
-
-            "<div class='hero-grid3'>"
-
-            + tiles_bot +
-
-            "</div>"
-
-
-
+            "<div class='hero-grid5b'>"
+            + tiles_signals +
             "</div>"
 
             "</div>"
-
+            "</div>"
         )
 
         st.markdown(hero_html, unsafe_allow_html=True)
@@ -5860,31 +5811,13 @@ def main():
 
         # TABS START HERE
 
-        # ?? precompute metrics for gemini_tab ??????????????????????????????
-
-        adx_current    = float(latest.get('ADX_14', 20))
-
-        rsi_current    = float(latest.get('RSI_14', 50))
-
-        _ema20_v       = latest.get('EMA_20',  current_price) or current_price
-
-        _ema200_v      = latest.get('EMA_200', current_price) or current_price
-
-        price_vs_ema20 = (current_price / _ema20_v  - 1) * 100
-
-        price_vs_ema200= (current_price / _ema200_v - 1) * 100
-
-        _n5  = max(len(df) - 6,  0)
-
-        _n20 = max(len(df) - 21, 0)
-
-        recent_5d_change  = ((current_price - df.iloc[_n5]['Close'])  / df.iloc[_n5]['Close'])  * 100 if len(df) >= 2 else 0
-
-        recent_20d_change = ((current_price - df.iloc[_n20]['Close']) / df.iloc[_n20]['Close']) * 100 if len(df) >= 2 else 0
-
-        _atr_raw = latest.get('ATR_14', 0)
-
-        atr_pct  = (_atr_raw / current_price * 100) if current_price > 0 and _atr_raw > 0 else 2.0
+        adx_current       = _adx_h
+        rsi_current       = _rsi_h
+        price_vs_ema20    = _pema20
+        price_vs_ema200   = _pema200
+        recent_5d_change  = _5d_chg
+        recent_20d_change = _20d_chg
+        atr_pct           = _atr_pct_h
 
 
 
@@ -5920,35 +5853,40 @@ def main():
         with tab2:
             render_patterns_price_action_workspace(df, info_icon)
 
+        _lab_args = (
+            df, symbol_input, stock_name, latest, current_price,
+            period_change, period_high, period_low, annual_vol,
+            current_regime, adx_current, rsi_current, atr_pct,
+            price_vs_ema20, price_vs_ema200, recent_5d_change, recent_20d_change,
+        )
+
+        @st.fragment
+        def _frag_vp(_df=df, _cp=current_price):
+            volume_profile_tab(_df, _cp)
+
+        @st.fragment
+        def _frag_smc(_df=df, _cp=current_price):
+            smc_tab(_df, _cp)
+
+        @st.fragment
+        def _frag_ew(_df=df, _cp=current_price):
+            elliott_wave_tab(_df, _cp)
+
+        @st.fragment
+        def _frag_lab(_args=_lab_args):
+            strategy_lab_tab(*_args)
+
         with tab_vp:
-            @st.fragment
-            def _render_vp():
-                volume_profile_tab(df, current_price)
-            _render_vp()
+            _frag_vp()
 
         with tab_smc:
-            @st.fragment
-            def _render_smc():
-                smc_tab(df, current_price)
-            _render_smc()
+            _frag_smc()
 
         with tab_ew:
-            @st.fragment
-            def _render_ew():
-                elliott_wave_tab(df, current_price)
-            _render_ew()
+            _frag_ew()
 
         with tab_lab:
-            _lab_args = (
-                df, symbol_input, stock_name, latest, current_price,
-                period_change, period_high, period_low, annual_vol,
-                current_regime, adx_current, rsi_current, atr_pct,
-                price_vs_ema20, price_vs_ema200, recent_5d_change, recent_20d_change,
-            )
-            @st.fragment
-            def _render_lab():
-                strategy_lab_tab(*_lab_args)
-            _render_lab()
+            _frag_lab()
 
 
 
