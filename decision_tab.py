@@ -1213,6 +1213,96 @@ def render_decision_tab(df, symbol_input, stock_name, current_price):
     _vc_conf_col = BULL if _verdict_confidence == "HIGH" else ("#FFC107" if _verdict_confidence in ("MODERATE", "LOW") else "#555")
 
     # ══════════════════════════════════════════════════════════════════════════
+    #  0. PRICE CHART — Advanced interactive chart over the selected date range
+    # ══════════════════════════════════════════════════════════════════════════
+    try:
+        from charts import create_price_chart as _create_price_chart_dec
+
+        st.markdown(_sec(f"{stock_name or symbol_input} — Price Chart", INFO), unsafe_allow_html=True)
+
+        _chart_ctrl_cols = st.columns([1.2, 2.4, 1])
+        with _chart_ctrl_cols[0]:
+            _dec_chart_type = st.selectbox(
+                "Chart type",
+                ["Candlestick", "Line", "Area"],
+                index=0,
+                key="_dec_chart_type",
+            )
+        with _chart_ctrl_cols[1]:
+            _dec_chart_indicators = st.multiselect(
+                "Overlays",
+                ["EMA 20", "EMA 50", "EMA 200", "SMA 50", "SMA 200", "VWAP", "Bollinger Bands"],
+                default=["EMA 50", "EMA 200"],
+                key="_dec_chart_indicators",
+            )
+        with _chart_ctrl_cols[2]:
+            _dec_chart_height = st.selectbox(
+                "Height",
+                [480, 600, 720, 880],
+                index=1,
+                key="_dec_chart_height",
+            )
+
+        _df_chart = df.copy()
+        if "Date" not in _df_chart.columns:
+            _df_chart = _df_chart.reset_index().rename(columns={"index": "Date"})
+        if not pd.api.types.is_datetime64_any_dtype(_df_chart["Date"]):
+            _df_chart["Date"] = pd.to_datetime(_df_chart["Date"], errors="coerce")
+
+        _fig_dec = _create_price_chart_dec(_df_chart, _dec_chart_indicators, _dec_chart_type)
+
+        # Polish: range selector / slider, hover crosshair, dark template
+        _fig_dec.update_layout(
+            height=_dec_chart_height,
+            template="plotly_dark",
+            paper_bgcolor="#0e0e0e",
+            plot_bgcolor="#0e0e0e",
+            margin=dict(l=10, r=10, t=30, b=10),
+            hovermode="x unified",
+            xaxis=dict(
+                rangeselector=dict(
+                    buttons=[
+                        dict(count=1,  label="1M", step="month",        stepmode="backward"),
+                        dict(count=3,  label="3M", step="month",        stepmode="backward"),
+                        dict(count=6,  label="6M", step="month",        stepmode="backward"),
+                        dict(count=1,  label="YTD", step="year",        stepmode="todate"),
+                        dict(count=1,  label="1Y", step="year",         stepmode="backward"),
+                        dict(step="all", label="All"),
+                    ],
+                    bgcolor="#1a1a1a",
+                    activecolor=INFO,
+                    font=dict(color="#bbb", size=11),
+                ),
+                rangeslider=dict(visible=True, thickness=0.05, bgcolor="#1a1a1a"),
+                type="date",
+                showspikes=True,
+                spikemode="across",
+                spikesnap="cursor",
+                spikecolor=INFO,
+                spikethickness=1,
+            ),
+            yaxis=dict(showspikes=True, spikemode="across", spikesnap="cursor",
+                       spikecolor=INFO, spikethickness=1),
+            dragmode="zoom",
+        )
+
+        st.plotly_chart(
+            _fig_dec,
+            use_container_width=True,
+            config={
+                "scrollZoom": True,
+                "displaylogo": False,
+                "modeBarButtonsToAdd": ["drawline", "drawopenpath", "drawrect", "eraseshape"],
+                "modeBarButtonsToRemove": ["lasso2d", "select2d"],
+            },
+            key="_dec_price_chart",
+        )
+
+        st.markdown("<div style='height:1.2rem;'></div>", unsafe_allow_html=True)
+    except Exception as _e_chart:
+        st.warning(f"Chart unavailable: {_e_chart}")
+
+    # ══════════════════════════════════════════════════════════════════════════
     #  1. HERO CARD — Master scoring system from all tabs
     # ══════════════════════════════════════════════════════════════════════════
 
