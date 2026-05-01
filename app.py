@@ -149,33 +149,7 @@ st.markdown("""
 
     .info-card { background: transparent; padding: 0; border-radius: 0; margin-bottom: 0.5rem; border: none; }
 
-    /* ── Hero info card design system ───────────────────────────────── */
-    .hero-wrap { background:#1b1b1b; border:1px solid #272727; border-radius:14px;
-                 overflow:hidden; margin-bottom:1.4rem;
-                 box-shadow:0 4px 24px rgba(0,0,0,0.3); }
-    .hero-inner { padding:1.6rem 1.8rem 1.4rem; }
-    .hero-hdr { display:flex; justify-content:space-between; align-items:flex-start;
-                flex-wrap:wrap; gap:0.6rem; margin-bottom:1.3rem; }
-    .hero-name { font-size:1.6rem; font-weight:900; color:#f0f0f0; line-height:1.15;
-                 letter-spacing:-0.5px; }
-    .hero-sub { font-size:0.78rem; color:#606060; margin-top:0.3rem; font-weight:600; }
-    .hero-divider { border-top:1px solid #272727; margin-bottom:1.1rem; }
-    .hero-grid5 { display:grid; grid-template-columns:repeat(5,1fr); gap:0.7rem; margin-bottom:0.7rem; }
-    .hero-grid5b { display:grid; grid-template-columns:repeat(5,1fr); gap:0.7rem; margin-bottom:0.7rem; }
-    .hero-grid3 { display:grid; grid-template-columns:repeat(3,1fr); gap:0.7rem; margin-bottom:0.7rem; }
-    .hero-tile { background:#161616; border:1px solid #272727; border-radius:10px;
-                 padding:1rem 1.1rem; overflow:hidden; }
-    .hero-tile-lbl { font-size:0.62rem; color:#606060; text-transform:uppercase;
-                     letter-spacing:1px; font-weight:700; margin-bottom:0.5rem;
-                     display:flex; align-items:center; gap:0.3rem; }
-    .hero-tile-val { font-size:1.15rem; font-weight:800; color:#e0e0e0; line-height:1.1; }
-    .hero-tile-val.lg { font-size:1.5rem; letter-spacing:-0.5px; }
-    .hero-tile-sub { font-size:0.64rem; margin-top:0.4rem; font-weight:700;
-                     display:inline-flex; align-items:center; gap:0.25rem;
-                     padding:0.2rem 0.6rem; border-radius:20px; }
-    .hero-tip { display:inline-flex; align-items:center; justify-content:center;
-                width:14px; height:14px; border-radius:50%; background:#272727; color:#606060;
-                font-size:0.48rem; font-weight:700; cursor:help; flex-shrink:0; }
+    /* hero section reuses .mstat-card — no extra classes needed */
 
     /* Recommendations tab styling */
 
@@ -461,39 +435,57 @@ st.markdown("""
 
     }
 
-    /* ── Main tab-list: cohesive dark design ── */
+    /* ─────────────────────────────────────────────────────────────────
+       UNIFIED THEME — ChatGPT-style dark palette
+       Palette: bg #181818, panels #1b1b1b, borders #272727
+       ───────────────────────────────────────────────────────────── */
+
+    /* Reusable card classes */
+    .premium-card {
+        background: #161616;
+        border: 1px solid #272727;
+        border-radius: 14px;
+        padding: 1rem 1.1rem;
+    }
+    .premium-wrap {
+        background: #1b1b1b;
+        border: 1px solid #272727;
+        border-radius: 18px;
+        padding: 1.4rem 1.5rem;
+        margin-bottom: 1rem;
+    }
+
+    /* ── Tabs — ChatGPT-style ── */
     [data-testid="stTabs"] [data-baseweb="tab-list"] {
         background: #1b1b1b !important;
-        border-radius: 12px !important;
-        padding: 0.2rem 0.25rem !important;
+        border-radius: 14px !important;
+        padding: 0.3rem !important;
         gap: 0 !important;
         border: 1px solid #272727 !important;
-        margin-bottom: 1.5rem !important;
+        margin-bottom: 1.2rem !important;
         min-height: auto !important;
-        box-shadow: 0 2px 16px rgba(0,0,0,0.25) !important;
     }
     [data-testid="stTabs"] [data-baseweb="tab"] {
         background: transparent !important;
         color: #555 !important;
-        border-radius: 8px !important;
-        font-size: 0.82rem !important;
-        font-weight: 600 !important;
-        letter-spacing: 0.25px !important;
-        padding: 0.55rem 1.2rem !important;
-        border: none !important;
-        margin: 0.2rem 0.1rem !important;
-        transition: all 0.2s ease !important;
+        border-radius: 10px !important;
+        font-size: 0.8rem !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.3px !important;
+        padding: 0.55rem 1.15rem !important;
+        border: 1px solid transparent !important;
+        margin: 0.15rem 0.12rem !important;
+        transition: all 0.18s ease !important;
     }
     [data-testid="stTabs"] [data-baseweb="tab"]:hover {
-        color: #999 !important;
+        color: #b0b0b0 !important;
         background: rgba(255,255,255,0.03) !important;
     }
     [data-testid="stTabs"] [aria-selected="true"] {
-        background: linear-gradient(135deg,rgba(38,166,154,0.12),rgba(33,150,243,0.06)) !important;
-        color: #e0e0e0 !important;
-        border: 1px solid rgba(38,166,154,0.25) !important;
-        font-weight: 700 !important;
-        box-shadow: 0 0 12px rgba(38,166,154,0.08) !important;
+        background: #272727 !important;
+        color: #f0f0f0 !important;
+        border: 1px solid #3a3a3a !important;
+        font-weight: 800 !important;
     }
     [data-testid="stTabs"] [data-baseweb="tab-border"],
     [data-testid="stTabs"] [data-baseweb="tab-highlight"] {
@@ -502,6 +494,45 @@ st.markdown("""
     [data-testid="stTabs"] [data-baseweb="tab-panel"] {
         padding: 0 !important;
     }
+
+    /* ── Buttons ── */
+    .stButton > button {
+        background: #1b1b1b !important;
+        border: 1px solid #272727 !important;
+        color: #b0b0b0 !important;
+        border-radius: 10px !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.2px !important;
+        transition: all 0.18s ease !important;
+    }
+    .stButton > button:hover {
+        border-color: #3a3a3a !important;
+        color: #f0f0f0 !important;
+        background: #232323 !important;
+    }
+
+    /* ── Inputs / selects ── */
+    [data-testid="stTextInput"] input,
+    [data-testid="stNumberInput"] input,
+    [data-testid="stDateInput"] input,
+    [data-baseweb="select"] > div,
+    [data-baseweb="input"] > div {
+        background: #1b1b1b !important;
+        border: 1px solid #272727 !important;
+        border-radius: 10px !important;
+        color: #e0e0e0 !important;
+    }
+
+    /* ── Expanders ── */
+    [data-testid="stExpander"] {
+        background: #161616 !important;
+        border: 1px solid #272727 !important;
+        border-radius: 14px !important;
+    }
+    [data-testid="stExpander"] summary { color: #b0b0b0 !important; font-weight: 700 !important; }
+
+    /* ── Dividers ── */
+    hr { border-color: #272727 !important; }
 
     /* ── Sidebar premium nav ── */
     [data-testid="stSidebar"] {
@@ -2546,6 +2577,8 @@ def main():
         sentiment = market_data.get('sentiment', 'NEUTRAL') if market_data else 'NEUTRAL'
         tasi_price = market_data.get('tasi_price', 0) if market_data else 0
         tasi_change = market_data.get('tasi_change', 0) if market_data else 0
+        market_is_stale = market_data.get('is_stale', False) if market_data else True
+        live_movers = market_data.get('live_movers', 0) if market_data else 0
 
         perf_color = "#26A69A" if avg_change >= 0 else "#ef5350"
         perf_sign = "+" if avg_change >= 0 else ""
@@ -3332,75 +3365,247 @@ def main():
                         ("Reversal Risk", _f_reversal, f"{_overbought} ob / {_oversold} os", info_icon("Oversold stocks = potential bounce support. Overbought stocks = mean-reversion risk. Net oversold tilt adds a bullish buffer for tomorrow.")),
                     ]
 
+                    # ── Verdict tier (5 levels, color + icon + tactical advice)
                     if _mom_score >= 50:
-                        _fc_label, _tf_tone_color, _fc_icon = 'STRONG BIAS UP', '#26A69A', '▲'
+                        _fc_label   = 'STRONG BULLISH'
+                        _tf_tone_color = '#26A69A'
+                        _fc_icon    = '▲'
+                        _fc_summary = "Tomorrow looks strongly bullish. Broad participation, real volume behind moves, and momentum still pushing higher."
+                        _fc_tactic  = "Favor longs · Buy dips into support · Avoid shorting strength"
                     elif _mom_score >= 20:
-                        _fc_label, _tf_tone_color, _fc_icon = 'LEAN BULLISH', '#66bb6a', '↗'
+                        _fc_label   = 'LEAN BULLISH'
+                        _tf_tone_color = '#66bb6a'
+                        _fc_icon    = '↗'
+                        _fc_summary = "Tomorrow leans positive but not unanimous. Most signals are constructive but watch for fading momentum or sector rotation."
+                        _fc_tactic  = "Selective longs in strong names · Tight stops · Take profits on extension"
                     elif _mom_score >= -20:
-                        _fc_label, _tf_tone_color, _fc_icon = 'NEUTRAL / MIXED', '#d9b44a', '→'
+                        _fc_label   = 'MIXED / NEUTRAL'
+                        _tf_tone_color = '#d9b44a'
+                        _fc_icon    = '→'
+                        _fc_summary = "Tomorrow has no clear edge. Bulls and bears are roughly balanced — expect a choppy, range-bound session."
+                        _fc_tactic  = "Stay light · Trade only A+ setups · Don't force directional bets"
                     elif _mom_score >= -50:
-                        _fc_label, _tf_tone_color, _fc_icon = 'LEAN DEFENSIVE', '#ff8a65', '↘'
+                        _fc_label   = 'LEAN BEARISH'
+                        _tf_tone_color = '#ff8a65'
+                        _fc_icon    = '↘'
+                        _fc_summary = "Tomorrow leans negative. Distribution is showing up in the data — selling has more conviction than buying."
+                        _fc_tactic  = "Reduce long exposure · Fade rallies into resistance · Cash is a position"
                     else:
-                        _fc_label, _tf_tone_color, _fc_icon = 'STRONG BIAS DOWN', '#ef5350', '▼'
+                        _fc_label   = 'STRONG BEARISH'
+                        _tf_tone_color = '#ef5350'
+                        _fc_icon    = '▼'
+                        _fc_summary = "Tomorrow looks strongly bearish. Heavy distribution, weak breadth, and momentum is breaking down across the market."
+                        _fc_tactic  = "Stay defensive · Avoid bottom-fishing · Wait for clear capitulation or reversal"
 
                     _fc_bar_w = abs(_mom_score)
                     _fc_bar_side = 'right' if _mom_score >= 0 else 'left'
-                    _forecast_help = info_icon("7-factor next-session pressure model. Scores breadth conviction, close pressure, volume distribution, momentum persistence, trend alignment, TASI signal, and reversal risk. Range: -100 (broad distribution) to +100 (broad accumulation). This is an edge read, not a guarantee — the market does what it wants.")
 
-                    def _signal_bar(_val, _max=20):
-                        _pct = min(abs(_val) / _max * 100, 100)
-                        _col = '#26A69A' if _val >= 0 else '#ef5350'
-                        _side = 'right' if _val >= 0 else 'left'
-                        return (
-                            f'<div style="position:relative;height:4px;background:rgba(255,255,255,0.06);border-radius:999px;margin-top:4px;overflow:hidden;">'
-                            f'<div style="position:absolute;top:0;{_side}:50%;height:100%;width:{_pct/2:.1f}%;background:{_col};border-radius:999px;"></div>'
-                            f'<div style="position:absolute;top:-1px;left:calc(50% - 1px);width:2px;height:6px;background:rgba(255,255,255,0.2);border-radius:1px;"></div>'
+                    # ── Confidence — based on factor agreement
+                    _factor_signs = [1 if v > 1 else (-1 if v < -1 else 0) for _, v, _, _ in _signals]
+                    _bull_count = sum(1 for s in _factor_signs if s > 0)
+                    _bear_count = sum(1 for s in _factor_signs if s < 0)
+                    _agreement = max(_bull_count, _bear_count) / len(_factor_signs)
+                    if _agreement >= 0.7:
+                        _conf_label, _conf_color, _conf_rgb = "HIGH", "#26A69A", "38,166,154"
+                    elif _agreement >= 0.5:
+                        _conf_label, _conf_color, _conf_rgb = "MODERATE", "#FFC107", "255,193,7"
+                    else:
+                        _conf_label, _conf_color, _conf_rgb = "LOW", "#ef5350", "239,83,80"
+
+                    # ── Probability bars (next session up/flat/down)
+                    # Map score to rough next-session probabilities
+                    _p_up = max(15, min(85, 50 + _mom_score * 0.35))
+                    _p_dn = max(10, min(80, 50 - _mom_score * 0.30))
+                    _p_fl = max(5, 100 - _p_up - _p_dn)
+                    _tot = _p_up + _p_dn + _p_fl
+                    _p_up, _p_dn, _p_fl = (_p_up/_tot*100, _p_dn/_tot*100, _p_fl/_tot*100)
+
+                    # ── Top drivers (3 strongest factors aligned with verdict direction)
+                    _direction = 1 if _mom_score >= 0 else -1
+                    _drivers_sorted = sorted(_signals, key=lambda s: -s[1] * _direction)
+                    _top_drivers = [s for s in _drivers_sorted if s[1] * _direction > 0][:3]
+                    _top_risks   = [s for s in _drivers_sorted if s[1] * _direction < 0][-2:]
+
+                    _drivers_html = ""
+                    for _name, _val, _ctx, _ in _top_drivers:
+                        _dc = '#26A69A' if _val > 0 else '#ef5350'
+                        _rgb = '38,166,154' if _val > 0 else '239,83,80'
+                        _drivers_html += (
+                            f'<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;'
+                            f'background:rgba({_rgb},0.08);'
+                            f'border:1px solid rgba({_rgb},0.2);'
+                            f'border-radius:8px;margin-bottom:5px;">'
+                            f'<span style="font-size:0.62rem;font-weight:800;color:{_dc};min-width:36px;">{_val:+.0f}</span>'
+                            f'<div style="flex:1;min-width:0;">'
+                            f'<div style="font-size:0.7rem;font-weight:700;color:#d0d4d8;">{_name}</div>'
+                            f'<div style="font-size:0.58rem;color:#7d848a;margin-top:1px;">{_ctx}</div>'
+                            f'</div>'
                             f'</div>'
                         )
 
-                    _signals_html = ''
+                    _risks_html = ""
+                    if _top_risks:
+                        for _name, _val, _ctx, _ in _top_risks:
+                            _dc = '#FFC107'
+                            _risks_html += (
+                                f'<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;'
+                                f'background:rgba(255,193,7,0.06);border:1px solid rgba(255,193,7,0.18);'
+                                f'border-radius:8px;margin-bottom:5px;">'
+                                f'<span style="font-size:0.62rem;font-weight:800;color:{_dc};min-width:36px;">{_val:+.0f}</span>'
+                                f'<div style="flex:1;min-width:0;">'
+                                f'<div style="font-size:0.7rem;font-weight:700;color:#d0d4d8;">{_name}</div>'
+                                f'<div style="font-size:0.58rem;color:#7d848a;margin-top:1px;">{_ctx}</div>'
+                                f'</div>'
+                                f'</div>'
+                            )
+
+                    # ── All factors — premium row design
+                    # Each row: colored side-bar | name + ? + context above bar | numeric pill
+                    def _signal_bar(_val, _max=20):
+                        _pct = min(abs(_val) / _max * 100, 100)
+                        _col = '#26A69A' if _val >= 0 else '#ef5350' if _val < 0 else '#7f878d'
+                        _side = 'right' if _val >= 0 else 'left'
+                        return (
+                            f'<div style="position:relative;height:5px;background:rgba(0,0,0,0.4);border-radius:999px;margin-top:5px;overflow:hidden;'
+                            f'border:1px solid rgba(255,255,255,0.04);">'
+                            f'<div style="position:absolute;top:0;{_side}:50%;height:100%;width:{_pct/2:.1f}%;'
+                            f'background:linear-gradient(90deg,{_col}aa,{_col});box-shadow:0 0 8px {_col}88;border-radius:999px;"></div>'
+                            f'<div style="position:absolute;top:-2px;left:calc(50% - 1px);width:2px;height:9px;'
+                            f'background:rgba(255,255,255,0.35);border-radius:1px;box-shadow:0 0 3px rgba(255,255,255,0.4);"></div>'
+                            f'</div>'
+                        )
+
+                    _factors_html = ''
                     for _sname, _sval, _sdesc, _shelp in _signals:
-                        _sc = '#26A69A' if _sval > 0 else ('#ef5350' if _sval < 0 else '#7f878d')
-                        _signals_html += (
-                            f'<div style="display:flex;align-items:center;gap:8px;padding:0.32rem 0;">'
+                        if _sval > 0:
+                            _sc, _rgb, _arrow = '#26A69A', '38,166,154', '▲'
+                        elif _sval < 0:
+                            _sc, _rgb, _arrow = '#ef5350', '239,83,80', '▼'
+                        else:
+                            _sc, _rgb, _arrow = '#7f878d', '127,135,141', '–'
+
+                        _factors_html += (
+                            f'<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;margin-bottom:5px;'
+                            f'background:linear-gradient(135deg,rgba({_rgb},0.06),rgba(255,255,255,0.01));'
+                            f'border:1px solid rgba({_rgb},0.18);border-radius:10px;'
+                            f'box-shadow:inset 0 1px 0 rgba(255,255,255,0.02);">'
+                            # Left accent bar
+                            f'<div style="width:3px;align-self:stretch;background:linear-gradient(180deg,{_sc},rgba({_rgb},0.3));'
+                            f'border-radius:2px;box-shadow:0 0 6px {_sc}88;flex-shrink:0;"></div>'
+                            # Middle: name + ? on top row, context on right; bar below
                             f'<div style="flex:1;min-width:0;">'
-                            f'<div style="display:flex;align-items:center;justify-content:space-between;gap:4px;">'
-                            f'<span style="font-size:0.58rem;color:#9ea5ab;">{_sname} {_shelp}</span>'
-                            f'<span style="font-size:0.58rem;color:#7d848a;">{_sdesc}</span>'
+                            f'<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">'
+                            f'<span style="font-size:0.62rem;color:#d0d4d8;font-weight:700;display:inline-flex;align-items:center;gap:5px;letter-spacing:0.2px;">{_sname} {_shelp}</span>'
+                            f'<span style="font-size:0.55rem;color:#909090;font-weight:600;background:rgba(0,0,0,0.25);'
+                            f'padding:2px 7px;border-radius:999px;border:1px solid rgba(255,255,255,0.05);">{_sdesc}</span>'
                             f'</div>'
                             f'{_signal_bar(_sval)}'
                             f'</div>'
-                            f'<div style="flex-shrink:0;font-size:0.7rem;font-weight:800;color:{_sc};min-width:28px;text-align:right;">{_sval:+.0f}</div>'
+                            # Right: glowing number pill with arrow
+                            f'<div style="flex-shrink:0;display:inline-flex;align-items:center;gap:3px;'
+                            f'font-size:0.7rem;font-weight:900;color:{_sc};'
+                            f'background:rgba({_rgb},0.14);border:1px solid rgba({_rgb},0.35);'
+                            f'padding:5px 9px;border-radius:999px;letter-spacing:-0.2px;min-width:46px;justify-content:center;'
+                            f'box-shadow:0 0 10px rgba({_rgb},0.18), inset 0 1px 0 rgba(255,255,255,0.05);'
+                            f'text-shadow:0 0 8px {_sc}66;">'
+                            f'<span style="font-size:0.55rem;opacity:0.85;">{_arrow}</span>'
+                            f'<span>{_sval:+.0f}</span>'
+                            f'</div>'
                             f'</div>'
                         )
 
+                    _forecast_help = info_icon("Predicts tomorrow's market direction by analyzing 7 real-time signals from today's session: how broadly stocks moved, where they closed in their range, whether big volume backed the moves, momentum persistence, structural trend health, TASI's conviction, and extreme overbought/oversold conditions. Score range: -100 (strong sell) to +100 (strong buy). High confidence = most factors agree.")
+                    _stale_banner_html = (
+                        f'<div style="margin:10px 0 0 0;padding:7px 10px;border-radius:8px;'
+                        f'background:rgba(255,193,7,0.08);border:1px solid rgba(255,193,7,0.25);'
+                        f'font-size:0.6rem;color:#FFC107;font-weight:700;letter-spacing:0.2px;">'
+                        f'Market closed — forecast based on last close. Refresh after open.'
+                        f'</div>'
+                    ) if market_is_stale else ''
+
                     st.markdown(
-                        f'<div class="mstat-card">'
-                        f'<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">'
-                        f'<div>'
-                        f'<div class="mstat-label" style="margin:0;">Tomorrow Forecast {_forecast_help}</div>'
+                        f'<div class="mstat-card" style="background:#1b1b1b;border:1px solid #272727;border-radius:14px;padding:1.1rem 1.2rem;">'
+                        # Verdict box — premium gradient + accent border + glow
+                        f'<div style="position:relative;padding:1.1rem 1.15rem;border-radius:16px;'
+                        f'background:linear-gradient(135deg,{_tf_tone_color}1f 0%,{_tf_tone_color}0a 50%,#161616 100%);'
+                        f'border:1px solid {_tf_tone_color}55;'
+                        f'box-shadow:0 0 24px {_tf_tone_color}1a, inset 0 1px 0 rgba(255,255,255,0.04);'
+                        f'margin-bottom:14px;overflow:hidden;">'
+                        # Decorative top accent strip
+                        f'<div style="position:absolute;top:0;left:0;right:0;height:2px;'
+                        f'background:linear-gradient(90deg,transparent,{_tf_tone_color},transparent);"></div>'
+                        # Soft glow corner
+                        f'<div style="position:absolute;top:-40px;right:-40px;width:120px;height:120px;'
+                        f'background:radial-gradient(circle,{_tf_tone_color}22 0%,transparent 70%);pointer-events:none;"></div>'
+
+                        # Top row — outlook label + icon (left) | score + confidence (right)
+                        f'<div style="position:relative;display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;flex-wrap:wrap;">'
+                        f'<div style="display:flex;align-items:center;gap:14px;min-width:0;flex:1;">'
+                        f'<span style="font-size:2rem;line-height:1;color:{_tf_tone_color};'
+                        f'text-shadow:0 0 16px {_tf_tone_color}88;">{_fc_icon}</span>'
+                        f'<div style="min-width:0;">'
+                        f'<div style="display:flex;align-items:center;gap:5px;font-size:0.55rem;color:{_tf_tone_color};font-weight:800;text-transform:uppercase;letter-spacing:1.2px;opacity:0.85;margin-bottom:2px;">Tomorrow Outlook {_forecast_help}</div>'
+                        f'<div style="font-size:1.15rem;font-weight:900;color:{_tf_tone_color};letter-spacing:-0.4px;line-height:1.1;'
+                        f'text-shadow:0 0 14px {_tf_tone_color}44;">{_fc_label}</div>'
                         f'</div>'
+                        f'</div>'
+                        f'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;">'
                         f'<div style="display:flex;align-items:baseline;gap:3px;">'
-                        f'<span style="font-size:1.15rem;font-weight:900;color:{_tf_tone_color};">{_mom_score:+d}</span>'
-                        f'<span style="font-size:0.6rem;font-weight:700;color:#7f878d;">/100</span>'
+                        f'<span style="font-size:1.55rem;font-weight:900;color:{_tf_tone_color};letter-spacing:-0.6px;line-height:1;'
+                        f'text-shadow:0 0 16px {_tf_tone_color}55;">{_mom_score:+d}</span>'
+                        f'<span style="font-size:0.7rem;font-weight:700;color:#707070;">/100</span>'
+                        f'</div>'
+                        f'<span style="font-size:0.55rem;font-weight:800;color:{_conf_color};'
+                        f'background:rgba({_conf_rgb},0.15);padding:3px 9px;border-radius:999px;letter-spacing:0.5px;'
+                        f'border:1px solid rgba({_conf_rgb},0.3);">{_conf_label} CONF</span>'
                         f'</div>'
                         f'</div>'
-                        f'<div style="margin-top:10px;padding:0.9rem;border-radius:16px;background:linear-gradient(135deg, {_tf_tone_color}20, rgba(255,255,255,0.02));border:1px solid {_tf_tone_color}33;">'
-                        f'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">'
-                        f'<span style="font-size:1.35rem;line-height:1;color:{_tf_tone_color};">{_fc_icon}</span>'
-                        f'<span style="font-size:0.96rem;font-weight:800;color:{_tf_tone_color};letter-spacing:-0.2px;">{_fc_label}</span>'
+
+                        # Score gauge bar
+                        f'<div style="position:relative;height:8px;background:rgba(0,0,0,0.35);border-radius:999px;margin-bottom:6px;overflow:hidden;'
+                        f'border:1px solid rgba(255,255,255,0.04);">'
+                        f'<div style="position:absolute;top:0;{_fc_bar_side}:50%;height:100%;width:{_fc_bar_w/2:.1f}%;'
+                        f'background:linear-gradient(90deg,{_tf_tone_color}aa,{_tf_tone_color});'
+                        f'box-shadow:0 0 14px {_tf_tone_color}99;border-radius:999px;"></div>'
+                        f'<div style="position:absolute;top:-2px;left:calc(50% - 1px);width:2px;height:12px;'
+                        f'background:rgba(255,255,255,0.4);border-radius:1px;box-shadow:0 0 4px rgba(255,255,255,0.3);"></div>'
                         f'</div>'
-                        f'<div style="position:relative;height:6px;background:rgba(255,255,255,0.06);border-radius:999px;margin-bottom:12px;overflow:hidden;">'
-                        f'<div style="position:absolute;top:0;{_fc_bar_side}:50%;height:100%;width:{_fc_bar_w/2:.1f}%;background:{_tf_tone_color};box-shadow:0 0 10px {_tf_tone_color}55;"></div>'
-                        f'<div style="position:absolute;top:-2px;left:calc(50% - 1px);width:2px;height:10px;background:rgba(255,255,255,0.25);border-radius:1px;"></div>'
+                        f'<div style="display:flex;justify-content:space-between;font-size:0.52rem;color:#707070;margin-bottom:12px;font-weight:700;letter-spacing:0.4px;">'
+                        f'<span>-100 SELL</span><span style="color:#909090;">NEUTRAL</span><span>BUY +100</span>'
                         f'</div>'
-                        f'<div style="display:flex;justify-content:space-between;font-size:0.55rem;color:#7f878d;margin:-6px 0 12px 0;">'
-                        f'<span>-100 Distribute</span><span>0</span><span>+100 Accumulate</span>'
+
+                        # Plain-English summary in a tinted card
+                        f'<div style="font-size:0.74rem;color:#dadde0;line-height:1.6;font-weight:500;'
+                        f'padding:10px 12px;background:rgba(0,0,0,0.25);border-radius:10px;'
+                        f'border-left:3px solid {_tf_tone_color};">{_fc_summary}</div>'
                         f'</div>'
-                        f'<div style="border-top:1px solid rgba(255,255,255,0.06);padding-top:10px;">'
-                        f'{_signals_html}'
+
+                        # Next session odds
+                        f'<div style="margin-bottom:14px;">'
+                        f'<div style="font-size:0.55rem;color:#606060;font-weight:800;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Next Session Odds</div>'
+                        f'<div style="display:flex;height:9px;border-radius:999px;overflow:hidden;background:#0a0a0a;">'
+                        f'<div style="background:#26A69A;width:{_p_up:.1f}%;"></div>'
+                        f'<div style="background:#7f878d;width:{_p_fl:.1f}%;"></div>'
+                        f'<div style="background:#ef5350;width:{_p_dn:.1f}%;"></div>'
+                        f'</div>'
+                        f'<div style="display:flex;justify-content:space-between;margin-top:5px;font-size:0.6rem;font-weight:700;">'
+                        f'<span style="color:#26A69A;">▲ Up {_p_up:.0f}%</span>'
+                        f'<span style="color:#7f878d;">— Flat {_p_fl:.0f}%</span>'
+                        f'<span style="color:#ef5350;">▼ Down {_p_dn:.0f}%</span>'
                         f'</div>'
                         f'</div>'
+
+                        # All signals (centered bar style)
+                        f'<div>'
+                        f'<div style="display:flex;align-items:center;gap:7px;margin-bottom:8px;">'
+                        f'<span style="width:3px;height:11px;background:linear-gradient(180deg,#4A9EFF,rgba(74,158,255,0.3));'
+                        f'border-radius:2px;box-shadow:0 0 6px rgba(74,158,255,0.5);"></span>'
+                        f'<span style="font-size:0.58rem;color:#a0a4a8;font-weight:800;text-transform:uppercase;letter-spacing:1.2px;">All Signals</span>'
+                        f'<span style="flex:1;height:1px;background:linear-gradient(90deg,rgba(74,158,255,0.2),transparent);"></span>'
+                        f'</div>'
+                        f'{_factors_html}'
+                        f'</div>'
+                        f'{_stale_banner_html}'
                         f'</div>',
                         unsafe_allow_html=True)
 
@@ -5609,221 +5814,188 @@ def main():
 
 
 
-        # -- tile helpers ------------------------------------------------
-
-        def _arrow(val):
-            return "&#8593;" if val >= 0 else "&#8595;"
-
+        # ── Helpers ──────────────────────────────────────────────────────────
         def _chg_color(val):
             return "#26A69A" if val >= 0 else "#EF5350"
 
-        def _hex_rgba(h, a):
+        def _hex2rgb(h):
             h = h.lstrip('#')
-            r, g, b = int(h[0:2],16), int(h[2:4],16), int(h[4:6],16)
-            return f"rgba({r},{g},{b},{a})"
+            return f"{int(h[0:2],16)},{int(h[2:4],16)},{int(h[4:6],16)}"
 
-        def _tile(label, value, sub, accent, val_color=None, sub_color=None, val_size="1.15rem", tooltip=None):
-            vc  = val_color or "#e0e0e0"
-            sc  = sub_color or "#888"
-            tip = f"<span title='{tooltip}' class='hero-tip'>?</span>" if tooltip else ""
-            _lg = " lg" if val_size == "1.5rem" else ""
-            sub_bg = _hex_rgba(sc, 0.13)
-            return (
-                f"<div class='hero-tile'>"
-                f"<div class='hero-tile-lbl'>{label}{tip}</div>"
-                f"<div class='hero-tile-val{_lg}' style='color:{vc};text-shadow:0 0 18px {accent}33;'>{value}</div>"
-                f"<div class='hero-tile-sub' style='color:{sc};background:{sub_bg};'>{sub}</div>"
-                f"</div>"
-            )
-
-
-
-        # ?? precompute sub values ??????????????????????????????????????????
-
+        # ── Precompute metrics ───────────────────────────────────────────────
         high_diff    = (period_high - current_price) / current_price * 100
-
         low_diff     = (period_low  - current_price) / current_price * 100
-
         vol_diff_pct = ((latest_volume / avg_volume - 1) * 100) if avg_volume > 0 else 0
 
-
-
-        price_sub   = f"{_arrow(period_change)} {period_change:+.2f}% since start"
-
-        high_sub    = f"{_arrow(high_diff)} {high_diff:+.1f}% from current"
-
-        low_sub     = f"{_arrow(low_diff)} {low_diff:+.1f}% from current"
-
-        vol_sub     = (f"{_arrow(vol_diff_pct)} {vol_diff_pct:+.0f}% vs avg  ·  latest {latest_volume:,.0f}"
-
-                       if avg_volume > 0 else "-")
-
-        ann_label   = ("&#8595; LOW volatility" if annual_vol < 25
-
-                       else "&#8593; HIGH volatility" if annual_vol >= 45
-
-                       else "~ MID volatility")
-
-        ann_sub_col = annual_vol_color
-
-
-
-        tiles_top = (
-
-            _tile("Start Price",
-
-                  f"{first['Close']:.2f} SAR",
-
-                  "First price in analysis period",
-
-                  "#4A9EFF",
-
-                  val_color="#4A9EFF",
-
-                  sub_color="#4A9EFF",
-
-                  val_size="1.5rem")
-
-            + _tile("Current Price",
-
-                  f"{current_price:.2f} SAR",
-
-                  price_sub,
-
-                  delta_color,
-
-                  val_color=delta_color,
-
-                  sub_color=_chg_color(period_change),
-
-                  val_size="1.5rem")
-
-            + _tile("Period High",
-
-                    f"{period_high:.2f} SAR",
-
-                    high_sub,
-
-                    "#26A69A",
-
-                    val_color=text_color,
-
-                    sub_color="#26A69A",
-
-                    val_size="1.5rem")
-
-            + _tile("Period Low",
-
-                    f"{period_low:.2f} SAR",
-
-                    low_sub,
-
-                    "#EF5350",
-
-                    val_color=text_color,
-
-                    sub_color="#EF5350",
-
-                    val_size="1.5rem")
-
-            + _tile("Avg Daily Volume",
-
-                    f"{avg_volume:,.0f}",
-
-                    vol_sub,
-
-                    volume_color,
-
-                    val_color=text_color,
-
-                    sub_color=_chg_color(vol_diff_pct),
-
-                    val_size="1.5rem",
-
-                    tooltip="Average number of shares traded per day over the analysis period")
-
-        )
-
-
-
-        # ── Extra metrics ─────────────────────────────────────────────────────
-        _adx_h    = float(latest.get('ADX_14', 20))
-        _rsi_h    = float(latest.get('RSI_14', 50))
-        _ema20_h  = latest.get('EMA_20',  current_price) or current_price
-        _ema200_h = latest.get('EMA_200', current_price) or current_price
-        _pema20   = (current_price / _ema20_h  - 1) * 100
-        _pema200  = (current_price / _ema200_h - 1) * 100
-        _n5h      = max(len(df) - 6,  0)
-        _n20h     = max(len(df) - 21, 0)
-        _5d_chg   = ((current_price - df.iloc[_n5h]['Close'])  / df.iloc[_n5h]['Close'])  * 100 if len(df) >= 6  else 0
-        _20d_chg  = ((current_price - df.iloc[_n20h]['Close']) / df.iloc[_n20h]['Close']) * 100 if len(df) >= 21 else 0
-        _atr_h    = latest.get('ATR_14', 0)
+        _adx_h     = float(latest.get('ADX_14', 20))
+        _rsi_h     = float(latest.get('RSI_14', 50))
+        _ema20_h   = latest.get('EMA_20',  current_price) or current_price
+        _ema200_h  = latest.get('EMA_200', current_price) or current_price
+        _pema20    = (current_price / _ema20_h  - 1) * 100
+        _pema200   = (current_price / _ema200_h - 1) * 100
+        _n5h       = max(len(df) - 6,  0)
+        _n20h      = max(len(df) - 21, 0)
+        _5d_chg    = ((current_price - df.iloc[_n5h]['Close'])  / df.iloc[_n5h]['Close'])  * 100 if len(df) >= 6  else 0
+        _20d_chg   = ((current_price - df.iloc[_n20h]['Close']) / df.iloc[_n20h]['Close']) * 100 if len(df) >= 21 else 0
+        _atr_h     = latest.get('ATR_14', 0)
         _atr_pct_h = (_atr_h / current_price * 100) if current_price > 0 and _atr_h > 0 else 2.0
 
         _adx_col  = "#26A69A" if _adx_h >= 25 else "#FFC107"
-        _adx_lbl  = "Strong trend" if _adx_h >= 25 else "Weak / no trend"
+        _adx_lbl  = "Strong trend" if _adx_h >= 25 else "Weak trend"
         _5d_col   = _chg_color(_5d_chg)
         _20d_col  = _chg_color(_20d_chg)
         _atr_col  = "#EF5350" if _atr_pct_h >= 3 else "#FFC107" if _atr_pct_h >= 1.5 else "#26A69A"
-        _atr_lbl  = "High volatility" if _atr_pct_h >= 3 else "Moderate" if _atr_pct_h >= 1.5 else "Low volatility"
+        _atr_lbl  = "High volatility" if _atr_pct_h >= 3 else "Moderate move" if _atr_pct_h >= 1.5 else "Low volatility"
+        _ann_lbl  = "High risk" if annual_vol >= 45 else "Moderate risk" if annual_vol >= 25 else "Low risk"
 
-        # row 2 — 5 technicals (RSI, EMA removed)
-        tiles_signals = (
-            _tile("ADX-14", f"{_adx_h:.0f}", _adx_lbl,
-                  _adx_col, val_color=_adx_col, sub_color=_adx_col,
-                  tooltip=">25 = strong trend regardless of direction")
-            + _tile("5-Day", f"{_5d_chg:+.1f}%",
-                    f"{_arrow(_5d_chg)} Short-term momentum",
-                    _5d_col, val_color=_5d_col, sub_color=_5d_col)
-            + _tile("20-Day", f"{_20d_chg:+.1f}%",
-                    f"{_arrow(_20d_chg)} Monthly momentum",
-                    _20d_col, val_color=_20d_col, sub_color=_20d_col)
-            + _tile("ATR-14", f"{_atr_pct_h:.1f}%", _atr_lbl,
-                    _atr_col, val_color=_atr_col, sub_color=_atr_col,
-                    tooltip="Daily expected move as % of price — use for stop sizing")
-            + _tile("Ann. Volatility", f"{annual_vol:.1f}%", ann_label,
-                    annual_vol_color, val_color=annual_vol_color, sub_color=ann_sub_col,
-                    tooltip="Annualized std dev of daily returns — measures price uncertainty")
+        _period_label = df.iloc[0]['Date'].strftime('%b %Y') + " — " + df.iloc[-1]['Date'].strftime('%b %Y')
+
+        # ── Premium card builder ─────────────────────────────────────────────
+        # Each card: top accent bar + label + value + delta pill
+        def _card(label, value, value_color, delta_text, delta_val,
+                  unit="", icon_arrow=True):
+            """
+            value_color : hex   - color of the main value
+            delta_text  : text shown in the bottom delta pill
+            delta_val   : numeric — sign drives pill color and arrow
+            unit        : tiny faded suffix next to value (e.g. 'SAR')
+            """
+            dc      = _chg_color(delta_val) if delta_val is not None else "#7a8088"
+            arrow   = ("&#9650;" if delta_val >= 0 else "&#9660;") if (icon_arrow and delta_val is not None) else ""
+            rgb_v   = _hex2rgb(value_color)
+            rgb_d   = _hex2rgb(dc)
+            unit_h  = (f"<span style='font-size:0.7rem;color:#5a6068;font-weight:700;"
+                       f"margin-left:0.25rem;'>{unit}</span>") if unit else ""
+            return (
+                f"<div style='position:relative;background:#1b1b1b;"
+                f"border:1px solid #272727;border-radius:14px;padding:0.95rem 1rem 0.85rem;"
+                f"overflow:hidden;min-height:120px;display:flex;flex-direction:column;justify-content:space-between;'>"
+                # Top accent line
+                f"<div style='position:absolute;top:0;left:0;right:0;height:2px;"
+                f"background:linear-gradient(90deg,{value_color},rgba({rgb_v},0));border-radius:14px 14px 0 0;'></div>"
+                # Soft glow corner
+                f"<div style='position:absolute;top:-30px;right:-30px;width:80px;height:80px;"
+                f"background:radial-gradient(circle,rgba({rgb_v},0.10) 0%,transparent 70%);'></div>"
+                # Label
+                f"<div style='font-size:0.6rem;color:#606060;font-weight:700;text-transform:uppercase;"
+                f"letter-spacing:1.2px;'>{label}</div>"
+                # Value
+                f"<div style='display:flex;align-items:baseline;margin-top:0.5rem;'>"
+                f"<span style='font-size:1.55rem;font-weight:900;color:{value_color};"
+                f"letter-spacing:-0.5px;line-height:1;'>{value}</span>"
+                f"{unit_h}"
+                f"</div>"
+                # Delta pill
+                f"<div style='margin-top:0.7rem;'>"
+                f"<span style='display:inline-flex;align-items:center;gap:0.3rem;"
+                f"font-size:0.62rem;font-weight:800;padding:0.22rem 0.6rem;border-radius:999px;"
+                f"background:rgba({rgb_d},0.12);color:{dc};border:1px solid rgba({rgb_d},0.25);"
+                f"letter-spacing:0.3px;'>"
+                f"<span style='font-size:0.55rem;'>{arrow}</span>{delta_text}"
+                f"</span>"
+                f"</div>"
+                f"</div>"
+            )
+
+        # ── 8 cards ──────────────────────────────────────────────────────────
+        _vol_delta_text = f"{vol_diff_pct:+.0f}% vs avg" if avg_volume > 0 else "—"
+
+        _cards_html = (
+            _card("Start Price",     f"{first['Close']:.2f}",  "#4A9EFF",
+                  "Period anchor",   0,                         unit="SAR", icon_arrow=False)
+            + _card("Current Price", f"{current_price:.2f}",   _chg_color(period_change),
+                  f"{period_change:+.2f}% since start",         period_change, unit="SAR")
+            + _card("Period High",   f"{period_high:.2f}",     "#26A69A",
+                  f"{high_diff:+.1f}% from now",                high_diff)
+            + _card("Period Low",    f"{period_low:.2f}",      "#EF5350",
+                  f"{low_diff:+.1f}% from now",                 low_diff)
+            + _card("Avg Volume",    f"{avg_volume/1000:,.0f}K", "#B388FF",
+                  _vol_delta_text,                              vol_diff_pct)
+            + _card("ADX-14",        f"{_adx_h:.0f}",          _adx_col,
+                  _adx_lbl,                                     (_adx_h - 25), icon_arrow=False)
+            + _card("Momentum 20D",  f"{_20d_chg:+.1f}%",      _20d_col,
+                  f"5D: {_5d_chg:+.1f}%",                       _5d_chg)
+            + _card("Volatility",    f"{_atr_pct_h:.1f}%",     _atr_col,
+                  _atr_lbl,                                     (1.5 - _atr_pct_h), icon_arrow=False)
         )
 
-        _period_label = df.iloc[0]['Date'].strftime('%b %Y') + " &#8594; " + df.iloc[-1]['Date'].strftime('%b %Y')
+        # ── Header (name + period meta + regime + change pill) ───────────────
+        _chg_rgb = _hex2rgb(_chg_color(period_change))
+        _hdr_chg = (
+            f"<span style='display:inline-flex;align-items:center;gap:0.35rem;"
+            f"font-size:0.78rem;font-weight:900;padding:0.35rem 0.85rem;border-radius:999px;"
+            f"background:rgba({_chg_rgb},0.14);color:{_chg_color(period_change)};"
+            f"border:1px solid rgba({_chg_rgb},0.35);letter-spacing:0.2px;'>"
+            f"<span style='font-size:0.65rem;'>{('&#9650;' if period_change >= 0 else '&#9660;')}</span>"
+            f"{period_change:+.2f}%</span>"
+        )
+        _reg_rgb = _hex2rgb(regime_color)
 
-        hero_html = (
-            "<div class='hero-wrap'>"
-            "<div class='hero-inner'>"
+        hero_header_html = (
+            # ── Header row ──
+            f"<div style='display:flex;align-items:center;justify-content:space-between;"
+            f"gap:1rem;flex-wrap:wrap;margin-bottom:1.2rem;padding-bottom:1.1rem;"
+            f"border-bottom:1px solid #272727;'>"
 
-            # ── Header ──
-            "<div class='hero-hdr'>"
-            "<div>"
-            f"<div class='hero-name'>{stock_name}</div>"
-            f"<div class='hero-sub'>{symbol_input}&nbsp;&nbsp;&#183;&nbsp;&nbsp;{_period_label}&nbsp;&nbsp;&#183;&nbsp;&nbsp;{len(df):,} trading days</div>"
-            "</div>"
-            f"<div style='display:flex;align-items:center;gap:0.5rem;'>"
-            f"<span style='font-size:0.62rem;color:#606060;text-transform:uppercase;letter-spacing:1px;font-weight:700;'>Regime</span>"
-            f"<span style='font-size:0.78rem;font-weight:700;color:#fff;background:{regime_color};"
-            f"padding:0.25rem 0.85rem;border-radius:20px;letter-spacing:0.5px;"
-            f"box-shadow:0 0 12px {regime_color}44;'>{latest['REGIME']}</span>"
-            "</div>"
-            "</div>"
+            # Left: name + meta
+            f"<div style='display:flex;align-items:center;gap:0.9rem;'>"
+            f"<div style='width:4px;height:42px;background:linear-gradient(180deg,{regime_color},rgba({_reg_rgb},0.2));"
+            f"border-radius:4px;box-shadow:0 0 12px rgba({_reg_rgb},0.4);'></div>"
+            f"<div>"
+            f"<div style='font-size:1.5rem;font-weight:900;color:#f0f0f0;letter-spacing:-0.5px;"
+            f"line-height:1.1;'>{stock_name}</div>"
+            f"<div style='font-size:0.7rem;color:#606060;font-weight:600;margin-top:0.3rem;"
+            f"letter-spacing:0.3px;'>"
+            f"<span style='color:#909090;font-weight:700;'>{symbol_input}</span>"
+            f"&nbsp;&nbsp;·&nbsp;&nbsp;{_period_label}"
+            f"&nbsp;&nbsp;·&nbsp;&nbsp;{len(df):,} sessions"
+            f"</div>"
+            f"</div>"
+            f"</div>"
 
-            "<div class='hero-divider'></div>"
+            # Right: change pill + regime
+            f"<div style='display:flex;align-items:center;gap:0.6rem;'>"
+            f"{_hdr_chg}"
+            f"<span style='display:inline-flex;align-items:center;gap:0.4rem;font-size:0.66rem;"
+            f"font-weight:800;padding:0.35rem 0.85rem;border-radius:999px;color:#fff;"
+            f"background:linear-gradient(135deg,{regime_color},rgba({_reg_rgb},0.7));"
+            f"letter-spacing:0.6px;text-transform:uppercase;"
+            f"box-shadow:0 0 14px rgba({_reg_rgb},0.35);'>"
+            f"<span style='width:6px;height:6px;border-radius:50%;background:#fff;"
+            f"box-shadow:0 0 8px rgba(255,255,255,0.7);'></span>"
+            f"{latest['REGIME']}"
+            f"</span>"
+            f"</div>"
+            f"</div>"
 
-            "<div class='hero-grid5'>"
-            + tiles_top +
-            "</div>"
-
-            "<div class='hero-grid5b'>"
-            + tiles_signals +
-            "</div>"
-
-            "</div>"
-            "</div>"
+            # ── Cards grid (8 in 4×2) ──
+            f"<div style='display:grid;grid-template-columns:repeat(4,1fr);gap:0.7rem;margin-bottom:1.1rem;'>"
+            + _cards_html +
+            f"</div>"
         )
 
-        st.markdown(hero_html, unsafe_allow_html=True)
-
-
-        
+        # CSS targets the keyed container to give it the hero box look,
+        # so the chart renders INSIDE the same visual box.
+        st.markdown(
+            "<style>"
+            ".st-key-hero_box > div:first-child {"
+            "  background:#1b1b1b !important;"
+            "  border:1px solid #272727 !important;"
+            "  border-radius:18px !important;"
+            "  padding:1.4rem 1.5rem 1.3rem !important;"
+            "  margin-bottom:1rem !important;"
+            "}"
+            ".st-key-hero_box .js-plotly-plot { border-radius:12px; overflow:hidden; }"
+            "</style>",
+            unsafe_allow_html=True,
+        )
+        with st.container(key="hero_box"):
+            st.markdown(hero_header_html, unsafe_allow_html=True)
+            from decision_tab import render_price_chart
+            render_price_chart(
+                df, symbol_input, stock_name, current_price,
+                d=st.session_state.get("_score_engine_d"),
+            )
 
         # Calculate metrics for snapshot and recommendations
 

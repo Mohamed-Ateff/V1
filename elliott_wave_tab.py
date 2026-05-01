@@ -1217,43 +1217,6 @@ def elliott_wave_tab(df, current_price):
         unsafe_allow_html=True,
     )
 
-    st.markdown(_sec("How To Use This Setup", INFO), unsafe_allow_html=True)
-    st.markdown(
-        f"<div style='display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0.6rem;margin-bottom:0.7rem;'>"
-        f"<div class='ew-note'>"
-        f"<div style='font-size:0.58rem;color:{MUTED};text-transform:uppercase;letter-spacing:0.7px;font-weight:700;margin-bottom:0.3rem;'>Current Wave</div>"
-        f"<div style='font-size:0.95rem;font-weight:900;color:{hero_color};margin-bottom:0.25rem;'>Wave {current_wave_label}</div>"
-        f"<div style='font-size:0.72rem;color:#9a9a9a;line-height:1.6;'>{wave_role_note}</div>"
-        f"</div>"
-        f"<div class='ew-note'>"
-        f"<div style='font-size:0.58rem;color:{MUTED};text-transform:uppercase;letter-spacing:0.7px;font-weight:700;margin-bottom:0.3rem;'>Best Use Now</div>"
-        f"<div style='font-size:0.95rem;font-weight:900;color:{trade_tool['trade_color']};margin-bottom:0.25rem;'>{trade_tool['setup_label']}</div>"
-        f"<div style='font-size:0.72rem;color:#9a9a9a;line-height:1.6;'>{trade_tool['use_now']}</div>"
-        f"</div>"
-        f"<div class='ew-note'>"
-        f"<div style='font-size:0.58rem;color:{MUTED};text-transform:uppercase;letter-spacing:0.7px;font-weight:700;margin-bottom:0.3rem;'>Avoid Right Now</div>"
-        f"<div style='font-size:0.95rem;font-weight:900;color:{BEAR};margin-bottom:0.25rem;'>Common mistake</div>"
-        f"<div style='font-size:0.72rem;color:#9a9a9a;line-height:1.6;'>{trade_tool['avoid_now']}</div>"
-        f"</div>"
-        f"<div class='ew-note'>"
-        f"<div style='font-size:0.58rem;color:{MUTED};text-transform:uppercase;letter-spacing:0.7px;font-weight:700;margin-bottom:0.3rem;'>Confirmation</div>"
-        f"<div style='font-size:0.95rem;font-weight:900;color:{BULL};margin-bottom:0.25rem;'>What should happen next</div>"
-        f"<div style='font-size:0.72rem;color:#9a9a9a;line-height:1.6;'>{trade_tool['confirmation']}</div>"
-        f"</div>"
-        f"<div class='ew-note'>"
-        f"<div style='font-size:0.58rem;color:{MUTED};text-transform:uppercase;letter-spacing:0.7px;font-weight:700;margin-bottom:0.3rem;'>Count Trust</div>"
-        f"<div style='font-size:0.95rem;font-weight:900;color:{trade_tool['trust_color']};margin-bottom:0.25rem;'>{trade_tool['trust_label']}</div>"
-        f"<div style='font-size:0.72rem;color:#9a9a9a;line-height:1.6;'>{trade_tool['trust_note']}</div>"
-        f"</div>"
-        f"<div class='ew-note'>"
-        f"<div style='font-size:0.58rem;color:{MUTED};text-transform:uppercase;letter-spacing:0.7px;font-weight:700;margin-bottom:0.3rem;'>Extra Context</div>"
-        f"<div style='font-size:0.95rem;font-weight:900;color:{CYAN};margin-bottom:0.25rem;'>Volume and structure</div>"
-        f"<div style='font-size:0.72rem;color:#9a9a9a;line-height:1.6;'>{volume_note}<br><br>{alternation_note}</div>"
-        f"</div>"
-        f"</div>",
-        unsafe_allow_html=True,
-    )
-
     # ══════════════════════════════════════════════════════════════════════════
     # TRADE MAP — projection-driven ladder
     # ══════════════════════════════════════════════════════════════════════════

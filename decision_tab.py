@@ -978,6 +978,292 @@ def _collect_ext_signals(_df_hash: str, _cp: float, df_json: str):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# PRICE CHART (used in hero section)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def render_price_chart(df, symbol_input, stock_name, current_price, d=None):
+    """Standalone price chart with user-controlled overlay toggles.
+    Reads filter state from session_state (set by chips below the chart).
+    `d` is the optional decision dict (for entry/stop/target lines)."""
+    try:
+        import plotly.graph_objects as _go
+        from plotly.subplots import make_subplots as _make_subplots
+        import numpy as _np
+
+        _df_chart = df.copy()
+        if "Date" not in _df_chart.columns:
+            _df_chart = _df_chart.reset_index().rename(columns={"index": "Date"})
+        if not pd.api.types.is_datetime64_any_dtype(_df_chart["Date"]):
+            _df_chart["Date"] = pd.to_datetime(_df_chart["Date"], errors="coerce")
+        _df_chart = _df_chart.dropna(subset=["Date", "Close"]).reset_index(drop=True)
+
+        if len(_df_chart) < 2:
+            raise RuntimeError("Not enough bars to render chart.")
+
+        cp_now    = float(_df_chart["Close"].iloc[-1])
+        _last_252 = _df_chart.tail(252)
+        _hi_52    = float(_last_252["High"].max()) if "High" in _last_252.columns else float(_last_252["Close"].max())
+        _lo_52    = float(_last_252["Low"].min())  if "Low"  in _last_252.columns else float(_last_252["Close"].min())
+
+        # ── Fixed overlays — EMAs, S/R, 52W H/L only ───────────────────────
+        _dec_chart_type   = "Candlestick"
+        _dec_log_scale    = False
+        _dec_chart_height = 540
+        _ovl_ema          = ["EMA 50", "EMA 200"]
+        _ovl_sma          = []
+        _ovl_bands        = []
+        _ovl_extras       = []
+        _dec_show_vol     = False
+        _dec_show_rsi     = False
+        _dec_show_macd    = False
+        _dec_show_sr      = True
+        _dec_show_52w     = True
+        _dec_show_fib     = False
+        _dec_show_pivots  = False
+        _dec_show_anchor  = False
+        _dec_pivot_window = 5
+        _dec_sr_count     = 3
+
+        # ── Theme palette — match platform ──────────────────────────────────
+        _theme_map = {
+            "Platform": {"bg": "#1b1b1b", "grid": "#272727", "panel": "#161616"},
+        }
+        _T = _theme_map["Platform"]
+
+        # ── Pivot detection (always needed for S/R, Fib) ────────────────────
+        _highs = _df_chart["High"].astype(float).values if "High" in _df_chart.columns else _df_chart["Close"].astype(float).values
+        _lows  = _df_chart["Low" ].astype(float).values if "Low"  in _df_chart.columns else _df_chart["Close"].astype(float).values
+        _closes = _df_chart["Close"].astype(float).values
+
+        def _swings(arr, kind, w):
+            out = []
+            for i in range(w, len(arr) - w):
+                window = arr[i - w : i + w + 1]
+                if kind == "high" and arr[i] == window.max():
+                    out.append(i)
+                elif kind == "low" and arr[i] == window.min():
+                    out.append(i)
+            return out
+
+        _pw = int(_dec_pivot_window)
+        _swing_high_idx = _swings(_highs, "high", _pw)
+        _swing_low_idx  = _swings(_lows,  "low",  _pw)
+
+        def _cluster(prices, n=3, tol=0.015):
+            if not prices:
+                return []
+            prices = sorted(prices, reverse=True)
+            clusters = []
+            for p in prices:
+                placed = False
+                for cl in clusters:
+                    if abs(p - cl["price"]) / max(cl["price"], 1e-9) <= tol:
+                        cl["count"] += 1
+                        cl["price"] = (cl["price"] * (cl["count"] - 1) + p) / cl["count"]
+                        placed = True
+                        break
+                if not placed:
+                    clusters.append({"price": p, "count": 1})
+            clusters.sort(key=lambda c: c["count"], reverse=True)
+            return [c["price"] for c in clusters[:n]]
+
+        _recent_swing_highs = [_highs[i] for i in _swing_high_idx[-40:]]
+        _recent_swing_lows  = [_lows[i]  for i in _swing_low_idx[-40:]]
+        _resistances = sorted([p for p in _cluster(_recent_swing_highs, n=int(_dec_sr_count) * 2) if p > cp_now])[:int(_dec_sr_count)]
+        _supports    = sorted([p for p in _cluster(_recent_swing_lows,  n=int(_dec_sr_count) * 2) if p < cp_now], reverse=True)[:int(_dec_sr_count)]
+
+        # ── Build figure ────────────────────────────────────────────────────
+        _has_vol  = _dec_show_vol and "Volume" in _df_chart.columns and _df_chart["Volume"].sum() > 0
+        if _has_vol:
+            _fig_dec = _make_subplots(
+                rows=2, cols=1, shared_xaxes=True,
+                vertical_spacing=0.025, row_heights=[0.78, 0.22],
+            )
+            _price_row = 1
+            _vol_row   = 2
+        else:
+            _fig_dec = _go.Figure()
+            _price_row = None
+            _vol_row   = None
+
+        def _add(trace, row=None):
+            if row is not None:
+                _fig_dec.add_trace(trace, row=row, col=1)
+            else:
+                _fig_dec.add_trace(trace)
+
+        # Main candlestick
+        if {"Open", "High", "Low"}.issubset(_df_chart.columns):
+            _add(_go.Candlestick(
+                x=_df_chart["Date"], open=_df_chart["Open"], high=_df_chart["High"],
+                low=_df_chart["Low"], close=_df_chart["Close"],
+                name="Price",
+                increasing_line_color="#26A69A", increasing_fillcolor="#26A69A",
+                decreasing_line_color="#EF5350", decreasing_fillcolor="#EF5350",
+            ), _price_row)
+        else:
+            _add(_go.Scatter(
+                x=_df_chart["Date"], y=_df_chart["Close"], name="Price",
+                line=dict(color=INFO, width=2.0),
+            ), _price_row)
+
+        # Overlays
+        try:
+            import pandas_ta as _pta
+            _c = _df_chart["Close"].astype(float)
+            _h = _df_chart["High"].astype(float) if "High" in _df_chart.columns else _c
+            _l = _df_chart["Low"].astype(float)  if "Low"  in _df_chart.columns else _c
+
+            _ema_palette = {"EMA 50": ("#42A5F5", 50), "EMA 200": ("#AB47BC", 200)}
+            _sma_palette = {"SMA 50": ("#26C6DA", 50), "SMA 200": ("#EF5350", 200)}
+
+            for n in _ovl_ema:
+                if n in _ema_palette:
+                    col, ln = _ema_palette[n]
+                    s = _pta.ema(_c, length=ln)
+                    if s is not None:
+                        _add(_go.Scatter(x=_df_chart["Date"], y=s, name=n, line=dict(color=col, width=1.4)), _price_row)
+            for n in _ovl_sma:
+                if n in _sma_palette:
+                    col, ln = _sma_palette[n]
+                    s = _pta.sma(_c, length=ln)
+                    if s is not None:
+                        _add(_go.Scatter(x=_df_chart["Date"], y=s, name=n, line=dict(color=col, width=1.3, dash="dash")), _price_row)
+
+            if "Bollinger" in _ovl_bands:
+                _bb = _pta.bbands(_c, length=20, std=2)
+                if _bb is not None and not _bb.empty:
+                    _bbu = next((c for c in _bb.columns if c.startswith("BBU_")), None)
+                    _bbl = next((c for c in _bb.columns if c.startswith("BBL_")), None)
+                    if _bbu and _bbl:
+                        _add(_go.Scatter(x=_df_chart["Date"], y=_bb[_bbu], name="BB Upper", line=dict(color="#90A4AE", width=1, dash="dash")), _price_row)
+                        _add(_go.Scatter(x=_df_chart["Date"], y=_bb[_bbl], name="BB Lower", fill="tonexty",
+                                         fillcolor="rgba(144,164,174,0.05)", line=dict(color="#90A4AE", width=1, dash="dash")), _price_row)
+        except Exception:
+            pass
+
+        # Horizontal helper
+        def _hline(y, color, dash, label, position="right", _row=_price_row):
+            kw = dict(line=dict(color=color, width=1, dash=dash),
+                      annotation_text=label, annotation_position=position,
+                      annotation=dict(font=dict(color=color, size=10)))
+            if _row:
+                _fig_dec.add_hline(y=y, row=_row, col=1, **kw)
+            else:
+                _fig_dec.add_hline(y=y, **kw)
+
+        if _dec_show_sr:
+            for _idx, _r in enumerate(_resistances, 1):
+                _hline(_r, "#EF5350", "dash", f"R{_idx} {_r:.2f}", "right")
+            for _idx, _s in enumerate(_supports, 1):
+                _hline(_s, "#26A69A", "dash", f"S{_idx} {_s:.2f}", "right")
+
+        if _dec_show_52w:
+            _hline(_hi_52, "#FFD54F", "dot", f"52W H {_hi_52:.2f}", "left")
+            _hline(_lo_52, "#7E57C2", "dot", f"52W L {_lo_52:.2f}", "left")
+
+        if _dec_show_fib and _swing_high_idx and _swing_low_idx:
+            _last_h_i = _swing_high_idx[-1]
+            _last_l_i = _swing_low_idx[-1]
+            _fib_high = float(_highs[_last_h_i])
+            _fib_low  = float(_lows[_last_l_i])
+            if _fib_high > _fib_low:
+                _fib_levels = [0.236, 0.382, 0.5, 0.618, 0.786]
+                _fib_colors = ["#9CCC65", "#FFB74D", "#FFEE58", "#FF8A65", "#BA68C8"]
+                _rng = _fib_high - _fib_low
+                for _lvl, _fc in zip(_fib_levels, _fib_colors):
+                    _yp = _fib_high - _rng * _lvl
+                    _hline(_yp, _fc, "dot", f"Fib {_lvl:.3f} {_yp:.2f}", "left")
+
+        if _dec_show_anchor and d is not None:
+            try:
+                _entry  = float(d.get("entry", 0)) or float(d.get("entry_zone_lo", 0))
+                _stop   = float(d.get("stop", 0))
+                _target = float(d.get("target", 0)) or float(d.get("tp1", 0))
+                if _entry > 0:
+                    _hline(_entry, "#42A5F5", "solid", f"Entry {_entry:.2f}", "right")
+                if _stop > 0:
+                    _hline(_stop, "#EF5350", "solid", f"Stop {_stop:.2f}", "right")
+                if _target > 0:
+                    _hline(_target, "#26A69A", "solid", f"Target {_target:.2f}", "right")
+            except Exception:
+                pass
+
+        # Volume bars
+        if _has_vol:
+            _vol_colors = [
+                "#26A69A" if (i > 0 and _df_chart["Close"].iloc[i] >= _df_chart["Close"].iloc[i - 1]) else "#EF5350"
+                for i in range(len(_df_chart))
+            ]
+            _add(_go.Bar(
+                x=_df_chart["Date"], y=_df_chart["Volume"], name="Volume",
+                marker=dict(color=_vol_colors), opacity=0.55, showlegend=False,
+            ), _vol_row)
+            _fig_dec.update_yaxes(title_text="Vol", row=_vol_row, col=1, showgrid=False)
+
+        # Layout — match platform palette
+        _fig_dec.update_layout(
+            height=_dec_chart_height,
+            template="plotly_dark",
+            paper_bgcolor=_T["bg"],
+            plot_bgcolor=_T["bg"],
+            margin=dict(l=10, r=10, t=30, b=10),
+            hovermode="x unified",
+            dragmode="zoom",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
+                        font=dict(size=10), bgcolor="rgba(0,0,0,0)"),
+            modebar=dict(bgcolor="rgba(0,0,0,0)", color="#aaa", activecolor=INFO),
+        )
+        _xa_kw = dict(
+            type="date",
+            showspikes=True, spikemode="across", spikesnap="cursor",
+            spikecolor=INFO, spikethickness=1,
+            gridcolor=_T["grid"], zerolinecolor=_T["grid"],
+            rangeselector=dict(
+                buttons=[
+                    dict(count=1, label="1M", step="month", stepmode="backward"),
+                    dict(count=3, label="3M", step="month", stepmode="backward"),
+                    dict(count=6, label="6M", step="month", stepmode="backward"),
+                    dict(count=1, label="YTD", step="year", stepmode="todate"),
+                    dict(count=1, label="1Y", step="year", stepmode="backward"),
+                    dict(step="all", label="All"),
+                ],
+                bgcolor=_T["panel"], activecolor=INFO,
+                font=dict(color="#bbb", size=11),
+            ),
+            rangeslider=dict(visible=False),
+        )
+        if _price_row:
+            _fig_dec.update_xaxes(row=_price_row, col=1, **_xa_kw)
+        else:
+            _fig_dec.update_xaxes(**_xa_kw)
+
+        _ya_kw = dict(
+            showspikes=True, spikemode="across", spikesnap="cursor",
+            spikecolor=INFO, spikethickness=1,
+            gridcolor=_T["grid"], zerolinecolor=_T["grid"],
+        )
+        if _price_row:
+            _fig_dec.update_yaxes(row=_price_row, col=1, **_ya_kw)
+        else:
+            _fig_dec.update_yaxes(**_ya_kw)
+
+        st.plotly_chart(
+            _fig_dec,
+            use_container_width=True,
+            config={
+                "scrollZoom": True,
+                "displaylogo": False,
+                "modeBarButtonsToRemove": ["lasso2d", "select2d"],
+                "toImageButtonOptions": {"format": "png", "filename": f"{symbol_input}_chart"},
+            },
+            key="_pc_price_chart",
+        )
+    except Exception as _e_chart:
+        st.warning(f"Chart unavailable: {_e_chart}")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # RENDER
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -1212,95 +1498,6 @@ def render_decision_tab(df, symbol_input, stock_name, current_price):
     # Verdict confidence color
     _vc_conf_col = BULL if _verdict_confidence == "HIGH" else ("#FFC107" if _verdict_confidence in ("MODERATE", "LOW") else "#555")
 
-    # ══════════════════════════════════════════════════════════════════════════
-    #  0. PRICE CHART — Advanced interactive chart over the selected date range
-    # ══════════════════════════════════════════════════════════════════════════
-    try:
-        from charts import create_price_chart as _create_price_chart_dec
-
-        st.markdown(_sec(f"{stock_name or symbol_input} — Price Chart", INFO), unsafe_allow_html=True)
-
-        _chart_ctrl_cols = st.columns([1.2, 2.4, 1])
-        with _chart_ctrl_cols[0]:
-            _dec_chart_type = st.selectbox(
-                "Chart type",
-                ["Candlestick", "Line", "Area"],
-                index=0,
-                key="_dec_chart_type",
-            )
-        with _chart_ctrl_cols[1]:
-            _dec_chart_indicators = st.multiselect(
-                "Overlays",
-                ["EMA 20", "EMA 50", "EMA 200", "SMA 50", "SMA 200", "VWAP", "Bollinger Bands"],
-                default=["EMA 50", "EMA 200"],
-                key="_dec_chart_indicators",
-            )
-        with _chart_ctrl_cols[2]:
-            _dec_chart_height = st.selectbox(
-                "Height",
-                [480, 600, 720, 880],
-                index=1,
-                key="_dec_chart_height",
-            )
-
-        _df_chart = df.copy()
-        if "Date" not in _df_chart.columns:
-            _df_chart = _df_chart.reset_index().rename(columns={"index": "Date"})
-        if not pd.api.types.is_datetime64_any_dtype(_df_chart["Date"]):
-            _df_chart["Date"] = pd.to_datetime(_df_chart["Date"], errors="coerce")
-
-        _fig_dec = _create_price_chart_dec(_df_chart, _dec_chart_indicators, _dec_chart_type)
-
-        # Polish: range selector / slider, hover crosshair, dark template
-        _fig_dec.update_layout(
-            height=_dec_chart_height,
-            template="plotly_dark",
-            paper_bgcolor="#0e0e0e",
-            plot_bgcolor="#0e0e0e",
-            margin=dict(l=10, r=10, t=30, b=10),
-            hovermode="x unified",
-            xaxis=dict(
-                rangeselector=dict(
-                    buttons=[
-                        dict(count=1,  label="1M", step="month",        stepmode="backward"),
-                        dict(count=3,  label="3M", step="month",        stepmode="backward"),
-                        dict(count=6,  label="6M", step="month",        stepmode="backward"),
-                        dict(count=1,  label="YTD", step="year",        stepmode="todate"),
-                        dict(count=1,  label="1Y", step="year",         stepmode="backward"),
-                        dict(step="all", label="All"),
-                    ],
-                    bgcolor="#1a1a1a",
-                    activecolor=INFO,
-                    font=dict(color="#bbb", size=11),
-                ),
-                rangeslider=dict(visible=True, thickness=0.05, bgcolor="#1a1a1a"),
-                type="date",
-                showspikes=True,
-                spikemode="across",
-                spikesnap="cursor",
-                spikecolor=INFO,
-                spikethickness=1,
-            ),
-            yaxis=dict(showspikes=True, spikemode="across", spikesnap="cursor",
-                       spikecolor=INFO, spikethickness=1),
-            dragmode="zoom",
-        )
-
-        st.plotly_chart(
-            _fig_dec,
-            use_container_width=True,
-            config={
-                "scrollZoom": True,
-                "displaylogo": False,
-                "modeBarButtonsToAdd": ["drawline", "drawopenpath", "drawrect", "eraseshape"],
-                "modeBarButtonsToRemove": ["lasso2d", "select2d"],
-            },
-            key="_dec_price_chart",
-        )
-
-        st.markdown("<div style='height:1.2rem;'></div>", unsafe_allow_html=True)
-    except Exception as _e_chart:
-        st.warning(f"Chart unavailable: {_e_chart}")
 
     # ══════════════════════════════════════════════════════════════════════════
     #  1. HERO CARD — Master scoring system from all tabs
@@ -1597,20 +1794,35 @@ def render_decision_tab(df, symbol_input, stock_name, current_price):
         "Smart Money":    "Smart Money Concepts",
         "AI Analysis":    "AI Analysis",
     }
+    # Threshold: only show signals with conf >= 50. Below that they're not buys, they're noise.
+    _LIVE_BUY_MIN_CONF = 50
+    _weak_signals = []
     for _sname, _slabel in _sig_label_map.items():
         _s = _cached_sigs.get(_sname)
-        if _s:
+        if not _s:
+            continue
+        if _s.get("conf", 0) >= _LIVE_BUY_MIN_CONF:
             _tab_signals.append((_slabel, _s))
+        else:
+            _weak_signals.append((_slabel, _s))
 
     # ── Render each signal box ────────────────────────────────────────────────
     if not _tab_signals:
+        _weak_note = ""
+        if _weak_signals:
+            _weak_list = ", ".join(f"{_lbl} ({_s.get('conf', 0)}%)" for _lbl, _s in _weak_signals)
+            _weak_note = (
+                f"<div style='font-size:0.66rem;color:#6a6a6a;margin-top:0.7rem;line-height:1.5;'>"
+                f"Weak signals ignored: {_weak_list}</div>"
+            )
         st.markdown(
             f"<div style='background:#1b1b1b;border:1px solid #272727;"
             f"border-radius:12px;padding:2.5rem 1.8rem;text-align:center;'>"
             f"<div style='font-size:1.5rem;margin-bottom:0.5rem;opacity:0.3;'>&#128683;</div>"
             f"<div style='font-size:0.85rem;color:#666;font-weight:600;'>No active BUY signals</div>"
             f"<div style='font-size:0.72rem;color:#4a4a4a;margin-top:0.35rem;'>"
-            f"Stand aside until conditions improve</div></div>",
+            f"Stand aside until conditions improve</div>"
+            f"{_weak_note}</div>",
             unsafe_allow_html=True,
         )
     else:

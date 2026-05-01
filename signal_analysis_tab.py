@@ -229,48 +229,61 @@ def signal_analysis_tab(df, info_icon):
         spread = z * ((p * (1 - p) / n + z * z / (4 * n * n)) ** 0.5)
         return (centre - spread) / denom * 100
 
-    # ── Per-indicator train/test split (last 25% of monthly signals) ──────────
-    def _ind_test_wr(ind_signals):
-        """Approximate out-of-sample WR from most recent 25% of months."""
-        if not ind_signals:
-            return None
-        by_month = {}
-        for s in ind_signals:
-            m = str(s["date"])[:7]
-            by_month.setdefault(m, {"wins": 0, "total": 0})
-            by_month[m]["total"] += 1
-            if s["gain"] > 0:
-                by_month[m]["wins"] += 1
-        months = sorted(by_month.keys())
-        split  = max(1, len(months) // 4)
-        test_months = months[-split:]
-        vals = []
-        for m in test_months:
-            g = by_month[m]
-            if g["total"] > 0:
-                vals.append(g["wins"] / g["total"] * 100)
-        return float(np.mean(vals)) if vals else None
+    # ── Per-indicator 70/30 train/test split (bar-based, framework §11) ──────
+    # Training = first 70% of the price history; Testing = last 30% (out-of-sample).
+    # Returns (train_wr_pct, test_wr_pct) — either may be None if no signals fall in that window.
+    _bar_dates = [str(d) for d in df["Date"].tolist()] if "Date" in df.columns else [str(i) for i in range(len(df))]
+    if _bar_dates:
+        _split_i = max(1, int(len(_bar_dates) * 0.70))
+        _split_i = min(_split_i, len(_bar_dates) - 1)
+        _split_date = _bar_dates[_split_i]
+    else:
+        _split_date = None
 
-    # ── Per-indicator rank score (framework §16 adapted for single indicators) ─
-    # Testing 50% + Stability 20% + Trades 15% + Role diversity 10% + Balance 5%
-    def _ind_rank_score(wr, test_w, total, wins, losses):
-        if test_w is None:
-            test_w = wr
-        gap         = abs(wr - test_w)
+    def _ind_train_test_wr(ind_signals):
+        if not ind_signals or _split_date is None:
+            return (None, None)
+        train_w = train_n = 0
+        test_w  = test_n  = 0
+        for s in ind_signals:
+            d = str(s["date"])
+            if d < _split_date:
+                train_n += 1
+                if s["gain"] > 0: train_w += 1
+            else:
+                test_n += 1
+                if s["gain"] > 0: test_w += 1
+        train_pct = (train_w / train_n * 100) if train_n > 0 else None
+        test_pct  = (test_w  / test_n  * 100) if test_n  > 0 else None
+        return (train_pct, test_pct)
+
+    # Backwards-compat shim — older callers expect a single test-WR value.
+    def _ind_test_wr(ind_signals):
+        return _ind_train_test_wr(ind_signals)[1]
+
+    # ── Per-indicator rank score (framework §16: Test 50 / Stab 20 / Trades 15 / Div 10 / Bal 5)
+    def _ind_rank_score(train_w, test_w, total, wins, losses):
+        eff_test = test_w if test_w is not None else (train_w if train_w is not None else 0.0)
+        eff_train = train_w if train_w is not None else eff_test
+        gap         = abs(eff_train - eff_test)
         bal         = 1 - abs(wins - losses) / max(wins + losses, 1)
-        test_score  = min(test_w, 100) / 100 * 50
+        test_score  = min(max(eff_test, 0), 100) / 100 * 50
         stab_score  = max(0, 1 - gap / 50) * 20
         trade_score = min(total / 20, 1) * 15
         div_score   = 10                          # single indicator always gets full diversity credit
         bal_score   = bal * 5
         return round(test_score + stab_score + trade_score + div_score + bal_score, 1)
 
-    # ── Broad category + logic-type label ────────────────────────────────────
+    # ── Spec §3 + §4: category → role label.
     _LOGIC_TYPE = {
-        "Trend":      "Trend Filter",
-        "Momentum":   "Entry Timing",
-        "Volume":     "Confirmation",
-        "Volatility": "Risk Filter",
+        "Trend":         "Trend Filter",
+        "Momentum":      "Entry Timing",
+        "Volume":        "Confirmation",
+        "Volatility":    "Risk Filter",
+        "Mean Reversion":"Mean Reversion",
+        "Support":       "S/R Level",
+        "Regime":        "Regime Filter",
+        "Pattern":       "Price Action",
     }
 
     # ══════════════════════════════════════════════════════════════════════════
@@ -322,29 +335,38 @@ def signal_analysis_tab(df, info_icon):
 
     with _sig_main_tabs[0]:
         # ── indicator map: key → (name, category, role, params, chart_fn) ──────────
+        # Spec §3: 8 categories. Volatility = filter-only by default (§3.4).
+        # Volume VWAP doubles as a Support/Resistance level.
         indicator_map = {
             "EMA":   ("EMA (20/50/200)",       "Trend",      "Trend Filter + Entry Timing",  "20/50/200",   create_ema_chart),
             "SMA":   ("SMA (50/200)",           "Trend",      "Trend Filter",                 "50/200",      None),
             "PSAR":  ("Parabolic SAR",          "Trend",      "Trailing Stop + Reversal",     "0.02/0.2",    None),
             "ICHI":  ("Ichimoku Cloud",         "Trend",      "Trend Filter + S/R Levels",    "9/26/52",     None),
             "WMA":   ("WMA (20)",               "Trend",      "Trend Filter",                 "20",          None),
+            "MACD":  ("MACD (12/26/9)",         "Trend",      "Trend Filter + Entry Signal",  "12/26/9",     create_macd_chart),
             "RSI":   ("RSI (14)",               "Momentum",   "Entry Timing + Overbought",    "14",          None),
-            "MACD":  ("MACD (12/26/9)",         "Momentum",   "Entry Signal + Confirmation",  "12/26/9",     create_macd_chart),
             "STOCH": ("Stochastic (14,3,3)",    "Momentum",   "Entry Timing + Mean Reversion","14/3/3",      create_stochastic_chart),
             "ROC":   ("ROC (12)",               "Momentum",   "Momentum Confirmation",        "12",          None),
             "CCI":   ("CCI (20)",               "Momentum",   "Extreme Deviation Filter",     "20",          None),
             "WILLR": ("Williams %R (14)",       "Momentum",   "Overbought/Oversold Timing",   "14",          None),
-            "BB":    ("Bollinger Bands (20,2)", "Volatility", "Volatility Filter + Breakout", "20/2",        create_bollinger_bands_chart),
-            "KC":    ("Keltner Channel",        "Volatility", "Breakout Confirmation",        "20/1.5",      None),
-            "DC":    ("Donchian (20)",          "Volatility", "Breakout Entry Signal",        "20",          None),
-            "MFI":   ("MFI (14)",              "Volume",     "Volume Momentum Confirmation",  "14",          None),
-            "CMF":   ("CMF (20)",              "Volume",     "Volume Flow Confirmation",      "20",          None),
-            "VWAP":  ("VWAP",                  "Volume",     "Institutional Anchor / Filter", "daily",       None),
-            "OBV":   ("OBV",                   "Volume",     "Volume Trend Confirmation",     "cumulative",  None),
-            "ADX":   ("ADX (14) +DI/-DI",      "Trend",      "Trend Strength Filter",        "14",          create_adx_chart),
+            "BB":    ("Bollinger Bands (20,2)", "Volatility", "Volatility Filter / Risk",     "20/2",        create_bollinger_bands_chart),
+            "KC":    ("Keltner Channel",        "Volatility", "Volatility Filter / Risk",     "20/1.5",      None),
+            "DC":    ("Donchian (20)",          "Volatility", "Volatility Filter / Risk",     "20",          None),
+            "MFI":   ("MFI (14)",               "Volume",     "Volume Momentum Confirmation", "14",          None),
+            "CMF":   ("CMF (20)",               "Volume",     "Volume Flow Confirmation",     "20",          None),
+            "VWAP":  ("VWAP",                   "Volume",     "Institutional Anchor / Filter","daily",       None),
+            "OBV":   ("OBV",                    "Volume",     "Volume Trend Confirmation",    "cumulative",  None),
+            "ADX":   ("ADX (14) +DI/-DI",       "Regime",     "Trend Strength Filter",        "14",          create_adx_chart),
         }
 
-        _CAT_COLOR = {"Trend": INFO, "Momentum": BULL, "Volume": PURP, "Volatility": NEUT}
+        # Volatility = filter-only per spec §3.4 — excluded from "primary signal" leaderboard.
+        # They still appear in combinations as Risk Filter slots.
+        _FILTER_ONLY = {"BB", "KC", "DC"}
+
+        _CAT_COLOR = {
+            "Trend": INFO, "Momentum": BULL, "Volume": PURP, "Volatility": NEUT,
+            "Regime": GOLD, "Mean Reversion": PURP, "Support": INFO, "Pattern": "#F472B6",
+        }
 
         # ── build per-indicator stats ─────────────────────────────────────────────
         succ_by_ind = {}
@@ -377,7 +399,8 @@ def signal_analysis_tab(df, info_icon):
             )
             regime_perf = data.get("regime_performance", {})
             best_regime = max(regime_perf, key=regime_perf.get) if regime_perf else ""
-            _twr = _ind_test_wr(ind_sigs)
+            _train_wr, _test_wr = _ind_train_test_wr(ind_sigs)
+            _gap = round(abs((_train_wr or 0) - (_test_wr or 0)), 1) if (_train_wr is not None and _test_wr is not None) else None
             indicator_performance.append({
                 "key": key, "name": name, "category": category,
                 "role": role, "params": params,
@@ -390,12 +413,16 @@ def signal_analysis_tab(df, info_icon):
                 "max_gain": data.get("max_gain", 0),
                 "max_loss": data.get("max_loss", 0),
                 "wilson": _wilson(total, win_rate),
-                "test_wr":       round(_twr, 1) if _twr is not None else None,
-                "stability_gap": round(abs(win_rate - _twr), 1) if _twr is not None else None,
-                "rank_score":    _ind_rank_score(win_rate, _twr, total, win_count, total - win_count),
+                "train_wr":      round(_train_wr, 1) if _train_wr is not None else None,
+                "test_wr":       round(_test_wr, 1)  if _test_wr  is not None else None,
+                "stability_gap": _gap,
+                "rank_score":    _ind_rank_score(_train_wr, _test_wr, total, win_count, total - win_count),
                 "logic_type":    _LOGIC_TYPE.get(category, "Signal"),
+                "filter_only":   key in _FILTER_ONLY,
             })
 
+        # Spec §3.4: volatility indicators are filter-only — not graded as primary signals.
+        indicator_performance = [x for x in indicator_performance if not x["filter_only"]]
         indicator_performance = [x for x in indicator_performance if x["win_rate"] < 100]
         indicator_performance.sort(key=lambda x: x["rank_score"], reverse=True)
         card_accents = [BULL, INFO, NEUT, PURP, "#F472B6", GOLD]
@@ -452,19 +479,17 @@ def signal_analysis_tab(df, info_icon):
                 loss_col = BEAR if ind["avg_loss"] < -1 else NEUT
                 logic    = ind["logic_type"]
 
+                _trw = ind.get("train_wr")
                 _twr = ind["test_wr"]
                 _gap = ind["stability_gap"]
                 _rs  = ind["rank_score"]
-                if _twr is not None:
-                    _tw_c  = BULL if _twr >= win_pct - 5 else (NEUT if _twr >= win_pct - 15 else BEAR)
-                    _rs_c  = BULL if _rs >= 70 else (NEUT if _rs >= 50 else BEAR)
-                    _gap_c = BULL if _gap < 10 else (NEUT if _gap < 20 else BEAR)
-                    _twr_str   = f"{_twr:.1f}%"
-                    _gap_str   = f"{_gap:.0f}pts"
-                    _twr_label = "recent 25%"
-                else:
-                    _tw_c = "#555"; _rs_c = NEUT; _gap_c = "#555"
-                    _twr_str = "—"; _gap_str = "—"; _twr_label = "not enough data"
+                _trw_str = f"{_trw:.1f}%" if _trw is not None else "—"
+                _twr_str = f"{_twr:.1f}%" if _twr is not None else "—"
+                _gap_str = f"{_gap:.0f}pts" if _gap is not None else "—"
+                _trw_c = "#888" if _trw is None else (BULL if _trw >= 55 else (NEUT if _trw >= 45 else BEAR))
+                _tw_c  = "#555" if _twr is None else (BULL if _twr >= 55 else (NEUT if _twr >= 45 else BEAR))
+                _gap_c = "#555" if _gap is None else (BULL if _gap < 10 else (NEUT if _gap < 20 else BEAR))
+                _rs_c  = BULL if _rs >= 70 else (NEUT if _rs >= 50 else BEAR)
 
                 _train_test_html = (
                     f"<div style='background:#0e0e0e;border:1px solid #1e1e1e;border-radius:8px;"
@@ -472,14 +497,14 @@ def signal_analysis_tab(df, info_icon):
                     f"<div style='display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:0.5rem;'>"
                     f"<div style='text-align:center;'>"
                     f"<div style='font-size:0.5rem;color:#404040;text-transform:uppercase;letter-spacing:0.6px;"
-                    f"font-weight:700;margin-bottom:0.2rem;'>Training</div>"
-                    f"<div style='font-size:1.0rem;font-weight:900;color:#888;'>{win_pct:.1f}%</div>"
-                    f"<div style='font-size:0.52rem;color:#303030;'>full period</div></div>"
+                    f"font-weight:700;margin-bottom:0.2rem;'>Train WR</div>"
+                    f"<div style='font-size:1.0rem;font-weight:900;color:{_trw_c};'>{_trw_str}</div>"
+                    f"<div style='font-size:0.52rem;color:#303030;'>first 70% bars</div></div>"
                     f"<div style='text-align:center;border-left:1px solid #1e1e1e;'>"
                     f"<div style='font-size:0.5rem;color:#404040;text-transform:uppercase;letter-spacing:0.6px;"
-                    f"font-weight:700;margin-bottom:0.2rem;'>Testing</div>"
+                    f"font-weight:700;margin-bottom:0.2rem;'>Test WR</div>"
                     f"<div style='font-size:1.0rem;font-weight:900;color:{_tw_c};'>{_twr_str}</div>"
-                    f"<div style='font-size:0.52rem;color:#303030;'>{_twr_label}</div></div>"
+                    f"<div style='font-size:0.52rem;color:#303030;'>last 30% (OOS)</div></div>"
                     f"<div style='text-align:center;border-left:1px solid #1e1e1e;'>"
                     f"<div style='font-size:0.5rem;color:#404040;text-transform:uppercase;letter-spacing:0.6px;"
                     f"font-weight:700;margin-bottom:0.2rem;'>Stability</div>"
@@ -567,41 +592,69 @@ def signal_analysis_tab(df, info_icon):
         }
 
         _broad_cat = {
-            "Trend Following": "Trend", "Trend Reversal": "Trend",
-            "Trend & S/R": "Trend", "Trend Strength": "Trend",
-            "Momentum": "Momentum", "Oscillator": "Momentum", "Reversal": "Momentum",
-            "Volatility": "Volatility", "Volatility Breakout": "Volatility", "Breakout": "Volatility",
-            "Volume Momentum": "Volume", "Volume Flow": "Volume",
-            "Volume Anchor": "Volume", "Volume Trend": "Volume",
+            "Trend":          "Trend",
+            "Momentum":       "Momentum",
+            "Volume":         "Volume",
+            "Volatility":     "Volatility",
+            "Regime":         "Regime",
+            "Mean Reversion": "Mean Reversion",
+            "Support":        "Support",
+            "Pattern":        "Pattern",
         }
+
+        # Spec §3.4: volatility = filter-only. Disqualify combos that are *only* volatility.
+        _COMBO_FILTER_ONLY_KEYS = {"BB", "KC", "DC"}
 
         def _ind_cat(key):
             raw = indicator_map.get(key, ("", "", "", "", None))[1]
             return _broad_cat.get(raw, "Other")
 
-        def _test_wr_combo(cd):
+        # Spec §11: 70/30 split. monthly_win_rates is keyed by YYYY-MM; first 70% = train.
+        def _train_test_wr_combo(cd):
             mwr = cd.get("monthly_win_rates", {})
+            base = cd["success_rate"]
             if not mwr:
-                return cd["success_rate"]
+                return (base, base)
             months = sorted(mwr.keys())
-            split  = max(1, len(months) // 4)
-            vals   = [mwr[m] for m in months[-split:] if mwr[m] is not None]
-            return float(np.mean(vals)) if vals else cd["success_rate"]
+            split  = max(1, int(len(months) * 0.70))
+            split  = min(split, len(months) - 1) if len(months) >= 2 else split
+            train_vals = [mwr[m] for m in months[:split] if mwr[m] is not None]
+            test_vals  = [mwr[m] for m in months[split:] if mwr[m] is not None]
+            train_w = float(np.mean(train_vals)) if train_vals else base
+            test_w  = float(np.mean(test_vals))  if test_vals  else train_w
+            return (train_w, test_w)
 
-        def _rank_score_combo(cd, parts, test_w):
-            train_wr = cd["success_rate"]
-            gap      = abs(train_wr - test_w)
-            n        = cd["total"]
-            n_cats   = len(set(_ind_cat(p) for p in parts))
-            wins     = cd["successful"]
-            losses   = cd["failed"]
-            bal      = 1 - abs(wins - losses) / max(wins + losses, 1)
+        # Spec §8 enforcement: penalise combos that violate category-diversity rules.
+        # 1 indicator: ok. 2: should be cross-category. 3: ≥2 cats. 4+: ≥3 cats.
+        # Same-category overload (>2 from one cat) is also penalised.
+        def _diversity_score(parts):
+            cats = [_ind_cat(p) for p in parts]
+            n = len(parts)
+            n_cats = len(set(cats))
+            if n == 1:
+                return 1.0
+            ccount = {}
+            for c in cats:
+                ccount[c] = ccount.get(c, 0) + 1
+            overload = max(0, max(ccount.values()) - 2)  # 0 if max-per-cat ≤ 2
+            if   n == 2: target = 2
+            elif n == 3: target = 2
+            else:        target = 3
+            return max(0.0, min(1.0, n_cats / target)) * (1.0 - 0.25 * overload)
+
+        def _rank_score_combo(cd, parts, train_w, test_w):
+            gap    = abs(train_w - test_w)
+            n      = cd["total"]
+            wins   = cd["successful"]
+            losses = cd["failed"]
+            bal    = 1 - abs(wins - losses) / max(wins + losses, 1)
+            div    = _diversity_score(parts)
             return round(
-                min(test_w, 100) / 100 * 50
-                + max(0, 1 - gap / 50) * 20
-                + min(n / 30, 1) * 15
-                + min(n_cats / 3, 1) * 10
-                + bal * 5,
+                min(test_w, 100) / 100 * 50    # §16 Testing 50%
+                + max(0, 1 - gap / 50) * 20    # §16 Stability 20%
+                + min(n / 30, 1) * 15          # §16 Trades 15%
+                + div * 10                     # §16 Diversity 10%
+                + bal * 5,                     # §16 Balance 5%
                 2,
             )
 
@@ -613,16 +666,22 @@ def signal_analysis_tab(df, info_icon):
                 wr    = cd["success_rate"]
                 if wr >= 100:
                     continue
-                regime_perf_raw = cd.get("regime_performance", {})
-                regime_totals   = cd.get("regime_totals", {})
-                rp      = {r: regime_perf_raw.get(r, 0) for r in regime_perf_raw if regime_totals.get(r, 0) > 0}
-                best_r  = max(rp, key=rp.get) if rp else ""
-                _tw     = _test_wr_combo(cd)
-                _gap    = round(abs(wr - _tw), 1)
+                # Spec §3.4: skip combos that are 100% volatility-filter (no primary signals).
+                if all(p in _COMBO_FILTER_ONLY_KEYS for p in parts):
+                    continue
+                # Spec §8: drop strategies that pile >2 indicators into the same category.
                 _cats   = [_ind_cat(p) for p in parts]
                 _ccount = {}
                 for c in _cats:
                     _ccount[c] = _ccount.get(c, 0) + 1
+                if max(_ccount.values()) > 2:
+                    continue
+                regime_perf_raw = cd.get("regime_performance", {})
+                regime_totals   = cd.get("regime_totals", {})
+                rp      = {r: regime_perf_raw.get(r, 0) for r in regime_perf_raw if regime_totals.get(r, 0) > 0}
+                best_r  = max(rp, key=rp.get) if rp else ""
+                _trw, _tw = _train_test_wr_combo(cd)
+                _gap    = round(abs(_trw - _tw), 1)
                 all_combo_data.append({
                     "key":           combo_key,
                     "indicators":    parts,
@@ -634,6 +693,7 @@ def signal_analysis_tab(df, info_icon):
                     "wins":          cd["successful"],
                     "losses":        cd["failed"],
                     "win_rate":      wr,
+                    "train_wr":      round(_trw, 1),
                     "test_wr":       round(_tw, 1),
                     "stability_gap": _gap,
                     "avg_gain":      cd["avg_gain"],
@@ -643,7 +703,7 @@ def signal_analysis_tab(df, info_icon):
                     "avg_hold":      cd.get("avg_hold", 0),
                     "regime_perf":   rp,
                     "best_regime":   best_r,
-                    "rank_score":    _rank_score_combo(cd, parts, _tw),
+                    "rank_score":    _rank_score_combo(cd, parts, _trw, _tw),
                     "overloaded_cats": [c for c, n in _ccount.items() if n > 2],
                     "cat_counts":    _ccount,
                     "signal_freq":   cd.get("signal_frequency", 0),
@@ -652,15 +712,6 @@ def signal_analysis_tab(df, info_icon):
                     "monthly_win_rates": cd.get("monthly_win_rates", {}),
                 })
             all_combo_data.sort(key=lambda x: x["rank_score"], reverse=True)
-
-        st.markdown(
-            "<div style='margin:2.5rem 0 1.2rem;border-top:1px solid #272727;padding-top:1.5rem;'>"
-            "<div style='font-size:1.1rem;font-weight:900;color:#e0e0e0;margin-bottom:0.2rem;'>"
-            "Regime Champions</div>"
-            "<div style='font-size:0.72rem;color:#606060;'>Best indicator combinations per market condition</div>"
-            "</div>",
-            unsafe_allow_html=True,
-        )
 
         if all_combo_data:
 
@@ -739,7 +790,24 @@ def signal_analysis_tab(df, info_icon):
                         f"<div style='font-size:0.72rem;color:{muted};margin-top:0.18rem;font-weight:600;'>"
                         f"{row['wins']} winners · {row['losses']} losers</div>"
                         f"</div></div>"
-                        f"<div style='display:grid;grid-template-columns:repeat(5,1fr);gap:0.4rem;margin-bottom:0.65rem;'>"
+                        # Spec §11+§16: train/test/stability/score row.
+                        + (
+                            f"<div style='display:grid;grid-template-columns:repeat(4,1fr);gap:0.4rem;margin-bottom:0.55rem;'>"
+                            + _focus_metric('Train WR',  f"{row.get('train_wr', row['win_rate']):.1f}%",
+                                            BULL if row.get('train_wr', row['win_rate']) >= 55 else (NEUT if row.get('train_wr', row['win_rate']) >= 45 else BEAR),
+                                            'first 70%', 'Win rate on the first 70% of months (training).')
+                            + _focus_metric('Test WR',   f"{row['test_wr']:.1f}%",
+                                            BULL if row['test_wr'] >= 55 else (NEUT if row['test_wr'] >= 45 else BEAR),
+                                            'last 30% OOS', 'Out-of-sample win rate on the last 30% of months.')
+                            + _focus_metric('Stability', f"{row['stability_gap']:.0f}pts",
+                                            BULL if row['stability_gap'] < 10 else (NEUT if row['stability_gap'] < 20 else BEAR),
+                                            'train − test', 'Gap between train and test win rate. Lower = more stable.')
+                            + _focus_metric('Rank Score', f"{row.get('rank_score', 0):.0f}",
+                                            BULL if row.get('rank_score', 0) >= 70 else (NEUT if row.get('rank_score', 0) >= 50 else BEAR),
+                                            '/100', 'Test 50% + Stability 20% + Trades 15% + Diversity 10% + Balance 5%.')
+                            + "</div>"
+                        )
+                        + f"<div style='display:grid;grid-template-columns:repeat(5,1fr);gap:0.4rem;margin-bottom:0.65rem;'>"
                         + _focus_metric('Entries', str(row['total']), INFO, f"{row['signal_freq']:.1f}/100 bars", 'Distinct trade entries in the full test.')
                         + _focus_metric('Winners', str(row['wins']), BULL, tip='Entries that finished positive.')
                         + _focus_metric('Losers',  str(row['losses']), BEAR, tip='Entries that finished negative.')
@@ -763,9 +831,10 @@ def signal_analysis_tab(df, info_icon):
                         row for row in all_combo_data
                         if row.get("regime_totals", {}).get(_regime_key, 0) > 0
                     ]
+                # Spec §16: rank by rank_score (test-weighted), then break ties on test_wr / trades.
                 _regime_combos = sorted(
                     _regime_combos_all,
-                    key=lambda row: (row["win_rate"], row["total"], row["profit_factor"], row["expectancy"]),
+                    key=lambda row: (row.get("rank_score", 0), row["test_wr"], row["total"], row["profit_factor"]),
                     reverse=True,
                 )[:10]
 

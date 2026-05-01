@@ -142,11 +142,57 @@ def _compute_stats(trades: list) -> dict:
             else:
                 break
 
+    # ── Open-portfolio risk metrics ─────────────────────────────────────────
+    open_capital = 0.0
+    open_risk    = 0.0
+    open_unrealised = 0.0
+    near_stop    = 0
+    near_target  = 0
+    for t in open_:
+        _shares = float(t.get('shares') or 0)
+        _entry  = float(t.get('entry_price') or 0)
+        _stop   = float(t.get('stop_loss') or 0)
+        _cur    = float(t.get('current_price') or _entry)
+        _t1     = float(t.get('target1') or 0)
+        _direction = str(t.get('direction', 'LONG')).upper()
+        _capital_in = _shares * _entry
+        open_capital += _capital_in
+        if _shares > 0 and _entry > 0 and _stop > 0:
+            if _direction == 'LONG':
+                _risk = max(0.0, (_entry - _stop)) * _shares
+                _unr  = (_cur - _entry) * _shares
+                if _stop > 0 and _cur <= _entry:
+                    _dist_to_stop_pct = (abs(_cur - _stop) / max(_cur, 1e-9)) * 100
+                    if _dist_to_stop_pct < 1.5:
+                        near_stop += 1
+                if _t1 > 0:
+                    _dist_to_t1 = (abs(_cur - _t1) / max(_cur, 1e-9)) * 100
+                    if _dist_to_t1 < 1.5 and _cur >= _entry:
+                        near_target += 1
+            else:  # SHORT
+                _risk = max(0.0, (_stop - _entry)) * _shares
+                _unr  = (_entry - _cur) * _shares
+                if _stop > 0 and _cur >= _entry:
+                    _dist_to_stop_pct = (abs(_stop - _cur) / max(_cur, 1e-9)) * 100
+                    if _dist_to_stop_pct < 1.5:
+                        near_stop += 1
+                if _t1 > 0:
+                    _dist_to_t1 = (abs(_t1 - _cur) / max(_cur, 1e-9)) * 100
+                    if _dist_to_t1 < 1.5 and _cur <= _entry:
+                        near_target += 1
+            open_risk += _risk
+            open_unrealised += _unr
+
     return {
         'total': len(trades), 'open': len(open_), 'closed': len(closed),
         'wins': len(wins), 'losses': len(losses),
         'win_rate': win_rate, 'avg_win': avg_win, 'avg_loss': avg_loss,
         'total_pnl': total_pnl, 'avg_r': avg_r, 'streak': streak,
+        'open_capital':    open_capital,
+        'open_risk':       open_risk,
+        'open_unrealised': open_unrealised,
+        'near_stop':       near_stop,
+        'near_target':     near_target,
     }
 
 
@@ -822,6 +868,74 @@ def render_trade_journal_page():
             f"<div class='tj-hc-lbl'>Total P&L (SAR)</div></div>"
             f"</div>",
             unsafe_allow_html=True)
+
+    # ── Open Portfolio Risk Panel ─────────────────────────────────────────
+    if stats['open'] > 0:
+        _ur     = stats.get('open_unrealised', 0.0)
+        _ur_col = '#26A69A' if _ur >= 0 else '#ef5350'
+        _ur_sgn = '+' if _ur >= 0 else ''
+        _risk_col = '#ef5350' if stats['open_risk'] > 0 else '#666'
+        _ns_col   = '#FFC107' if stats['near_stop']   > 0 else '#666'
+        _nt_col   = '#26A69A' if stats['near_target'] > 0 else '#666'
+
+        # Sector concentration (group symbols by first digit of ticker — Saudi sector mapping by 4-digit prefix)
+        _SECTOR_BY_PREFIX = {
+            '1': 'Banks/Materials', '2': 'Materials/Cement', '3': 'Cement',
+            '4': 'Retail/Consumer/Real Estate/Health', '5': 'Utilities',
+            '6': 'Food/Consumer Services', '7': 'Telecom/IT', '8': 'Insurance',
+            '9': 'Capital Goods',
+        }
+        _sector_count = {}
+        for t in trades:
+            if t.get('status') == 'OPEN':
+                _sym = str(t.get('symbol', '')).replace('.SR', '').strip()
+                if _sym and _sym[0].isdigit():
+                    _key = _sym[0]
+                    _sector_count[_key] = _sector_count.get(_key, 0) + 1
+        _max_in_sector = max(_sector_count.values()) if _sector_count else 0
+        _conc_warn = _max_in_sector >= 3
+
+        st.markdown(
+            f"<div style='background:#161616;border:1px solid #232323;border-radius:12px;"
+            f"padding:0.85rem 1rem;margin-bottom:1rem;display:flex;gap:0.7rem;align-items:stretch;'>"
+            f"<div style='flex:1;text-align:center;border-right:1px solid #222;padding-right:0.7rem;'>"
+            f"<div style='font-size:0.55rem;color:#666;text-transform:uppercase;letter-spacing:0.6px;font-weight:700;'>Open Capital</div>"
+            f"<div style='font-size:1.05rem;font-weight:900;color:#e0e0e0;line-height:1.1;margin-top:0.18rem;'>{stats['open_capital']:,.0f}</div>"
+            f"<div style='font-size:0.6rem;color:#777;margin-top:0.1rem;font-weight:600;'>SAR deployed</div>"
+            f"</div>"
+            f"<div style='flex:1;text-align:center;border-right:1px solid #222;padding:0 0.7rem;'>"
+            f"<div style='font-size:0.55rem;color:#666;text-transform:uppercase;letter-spacing:0.6px;font-weight:700;'>Total Risk</div>"
+            f"<div style='font-size:1.05rem;font-weight:900;color:{_risk_col};line-height:1.1;margin-top:0.18rem;'>{stats['open_risk']:,.0f}</div>"
+            f"<div style='font-size:0.6rem;color:#777;margin-top:0.1rem;font-weight:600;'>if all stops hit</div>"
+            f"</div>"
+            f"<div style='flex:1;text-align:center;border-right:1px solid #222;padding:0 0.7rem;'>"
+            f"<div style='font-size:0.55rem;color:#666;text-transform:uppercase;letter-spacing:0.6px;font-weight:700;'>Unrealised P&L</div>"
+            f"<div style='font-size:1.05rem;font-weight:900;color:{_ur_col};line-height:1.1;margin-top:0.18rem;'>{_ur_sgn}{_ur:,.0f}</div>"
+            f"<div style='font-size:0.6rem;color:#777;margin-top:0.1rem;font-weight:600;'>SAR · live</div>"
+            f"</div>"
+            f"<div style='flex:1;text-align:center;border-right:1px solid #222;padding:0 0.7rem;'>"
+            f"<div style='font-size:0.55rem;color:#666;text-transform:uppercase;letter-spacing:0.6px;font-weight:700;'>Near Stop</div>"
+            f"<div style='font-size:1.05rem;font-weight:900;color:{_ns_col};line-height:1.1;margin-top:0.18rem;'>{stats['near_stop']}</div>"
+            f"<div style='font-size:0.6rem;color:#777;margin-top:0.1rem;font-weight:600;'>within 1.5%</div>"
+            f"</div>"
+            f"<div style='flex:1;text-align:center;padding-left:0.7rem;'>"
+            f"<div style='font-size:0.55rem;color:#666;text-transform:uppercase;letter-spacing:0.6px;font-weight:700;'>Near Target</div>"
+            f"<div style='font-size:1.05rem;font-weight:900;color:{_nt_col};line-height:1.1;margin-top:0.18rem;'>{stats['near_target']}</div>"
+            f"<div style='font-size:0.6rem;color:#777;margin-top:0.1rem;font-weight:600;'>within 1.5%</div>"
+            f"</div>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+
+        if _conc_warn:
+            st.markdown(
+                f"<div style='background:rgba(255,193,7,0.05);border:1px solid rgba(255,193,7,0.25);"
+                f"border-radius:10px;padding:0.55rem 0.85rem;margin-bottom:1rem;font-size:0.72rem;color:#FFC107;'>"
+                f"⚠ Concentration warning: {_max_in_sector} open positions share the same sector code. "
+                f"Correlated bets — total risk may be higher than it looks."
+                f"</div>",
+                unsafe_allow_html=True,
+            )
 
     # ── filter tabs ───────────────────────────────────────────────────────────
     if 'tj_filter' not in st.session_state:

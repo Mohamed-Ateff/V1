@@ -511,21 +511,31 @@ def get_saudi_market_data(period="1d"):
     
 
     # Compute TASI proxy from major index components
-    # Since ^TASI is not available on Yahoo Finance, we use weighted average of top stocks
+    # Since ^TASI is not available on Yahoo Finance, we use weighted average of top stocks.
+    # Filter out stocks with zero volume or exact 0% change (likely stale / non-trading day).
     tasi_price = 0.0
     tasi_change = 0.0
     major_tickers = ['2222', '1120', '2010', '7010', '2280', '1180']  # Aramco, Al Rajhi, SABIC, STC, Almarai, SNB
     major_stocks = [s for s in stocks if s['ticker'] in major_tickers]
-    if major_stocks:
-        # Use average of major stocks as TASI proxy
-        tasi_change = sum(s['change'] for s in major_stocks) / len(major_stocks)
-        # Synthetic price based on weighted average (scale to ~12000 range typical for TASI)
-        avg_price = sum(s['price'] for s in major_stocks) / len(major_stocks)
-        tasi_price = avg_price * 250  # Scale factor to approximate TASI range
-    else:
-        # Fallback to overall market average
+    # Drop stocks that didn't trade (volume 0) or whose change is exactly 0 (stale snapshot).
+    _live_majors = [s for s in major_stocks if s.get('volume', 0) > 0 and abs(s['change']) > 1e-9]
+    if _live_majors:
+        tasi_change = sum(s['change'] for s in _live_majors) / len(_live_majors)
+        avg_price   = sum(s['price']  for s in _live_majors) / len(_live_majors)
+        tasi_price  = avg_price * 250
+    elif major_stocks:
+        # All majors are stale — fall back to the market-wide avg so we don't lie about "+0.00%".
         tasi_change = avg_change
-        tasi_price = 12000 + (avg_change * 100)  # Approximate
+        avg_price   = sum(s['price'] for s in major_stocks) / len(major_stocks)
+        tasi_price  = avg_price * 250
+    else:
+        tasi_change = avg_change
+        tasi_price  = 12000 + (avg_change * 100)
+
+    # Stale-data flag: if very few stocks actually moved, the snapshot is unreliable
+    # (weekend, market closed, mid-data-fetch, holiday, etc.).
+    _moved = sum(1 for s in stocks if abs(s['change']) > 1e-9 and s.get('volume', 0) > 0)
+    is_stale = _moved < max(20, total // 10)
 
     return {
 
@@ -555,7 +565,11 @@ def get_saudi_market_data(period="1d"):
 
         'tasi_price': tasi_price,
 
-        'tasi_change': tasi_change
+        'tasi_change': tasi_change,
+
+        'is_stale': is_stale,
+
+        'live_movers': _moved,
 
     }
 
