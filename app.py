@@ -2554,13 +2554,32 @@ def main():
         _mkt_p = st.session_state.mkt_period
         _ss_mkt_key  = f'_mkt_{_mkt_p}'
         _ss_stat_key = f'_mstat_{_mkt_p}'
-        if _ss_mkt_key not in st.session_state:
+        _ss_ts_key   = f'_mkt_ts_{_mkt_p}'
+
+        # 10-min session TTL so forecast updates match market data (30min) + forecast (10min) cycle.
+        # Streamlit doesn't auto-rerun while idle, so session_state caches persist unless user refreshes.
+        # To force real-time updates, user must refresh browser or close/reopen the app.
+        import time as _t
+        _now_ts  = _t.time()
+        _SESS_TTL = 600  # 10 min
+
+        _stale_session = (
+            '_mkt_init_ts' not in st.session_state
+            or (_now_ts - st.session_state.get('_mkt_init_ts', 0)) > _SESS_TTL
+        )
+        if _stale_session:
             st.session_state[_ss_stat_key] = get_saudi_market_status()
             st.session_state[_ss_mkt_key]  = get_saudi_market_data(period=_mkt_p)
+            st.session_state['_mkt_init_ts'] = _now_ts
 
-        # Cache forecast in session so it never blocks reruns (only fetches once per session)
-        if '_tf_data_cache' not in st.session_state:
+        _tf_stale = (
+            '_tf_data_cache' not in st.session_state
+            or (_now_ts - st.session_state.get('_tf_data_ts', 0)) > _SESS_TTL
+        )
+        if _tf_stale:
             st.session_state['_tf_data_cache'] = get_tomorrow_stock_forecast(limit=3)
+            st.session_state['_tf_data_ts']    = _now_ts
+
         market_status = st.session_state[_ss_stat_key]
         market_data   = st.session_state[_ss_mkt_key]
 
@@ -3174,9 +3193,9 @@ def main():
                                         st.session_state.mkt_period = _pk
                                         st.rerun()
 
-                    # Action buttons — User + Saved Strategies + Journal
+                    # Action buttons — User + Saved Strategies + Journal + Refresh
                     fav_count = len(st.session_state.get('favorites', []))
-                    _bu1, _bu2, _bu3 = st.columns([1, 1, 1], gap="small")
+                    _bu1, _bu2, _bu3, _bu4 = st.columns([1, 1, 1, 0.8], gap="small")
                     with _bu1:
                         with st.container(key="btn_user"):
                             _usr_lbl = f"◉  {username[:10]}"
@@ -3205,6 +3224,13 @@ def main():
                                 if not _tj_active:
                                     st.session_state.show_user_panel = False
                                     st.session_state.show_champions_vault = False
+                                st.rerun()
+                    with _bu4:
+                        with st.container(key="btn_refresh"):
+                            if st.button("🔄", key="toolbar_refresh", use_container_width=True, help="Refresh all market data & forecast"):
+                                st.session_state.pop('_mkt_init_ts', None)
+                                st.session_state.pop('_tf_data_cache', None)
+                                st.session_state.pop('_tf_data_ts', None)
                                 st.rerun()
 
                     # User panel dropdown
@@ -3515,11 +3541,12 @@ def main():
                         )
 
                     _forecast_help = info_icon("Predicts tomorrow's market direction by analyzing 7 real-time signals from today's session: how broadly stocks moved, where they closed in their range, whether big volume backed the moves, momentum persistence, structural trend health, TASI's conviction, and extreme overbought/oversold conditions. Score range: -100 (strong sell) to +100 (strong buy). High confidence = most factors agree.")
+                    _forecast_label_text = "Last Session Forecast" if market_is_stale else "Tomorrow Outlook"
                     _stale_banner_html = (
                         f'<div style="margin:10px 0 0 0;padding:7px 10px;border-radius:8px;'
                         f'background:rgba(255,193,7,0.08);border:1px solid rgba(255,193,7,0.25);'
                         f'font-size:0.6rem;color:#FFC107;font-weight:700;letter-spacing:0.2px;">'
-                        f'Market closed — forecast based on last close. Refresh after open.'
+                        f'⚠ Market closed — based on last session. Refresh after Sunday open for live read.'
                         f'</div>'
                     ) if market_is_stale else ''
 
@@ -3544,7 +3571,7 @@ def main():
                         f'<span style="font-size:2rem;line-height:1;color:{_tf_tone_color};'
                         f'text-shadow:0 0 16px {_tf_tone_color}88;">{_fc_icon}</span>'
                         f'<div style="min-width:0;">'
-                        f'<div style="display:flex;align-items:center;gap:5px;font-size:0.55rem;color:{_tf_tone_color};font-weight:800;text-transform:uppercase;letter-spacing:1.2px;opacity:0.85;margin-bottom:2px;">Tomorrow Outlook {_forecast_help}</div>'
+                        f'<div style="display:flex;align-items:center;gap:5px;font-size:0.55rem;color:{_tf_tone_color};font-weight:800;text-transform:uppercase;letter-spacing:1.2px;opacity:0.85;margin-bottom:2px;">{_forecast_label_text} {_forecast_help}</div>'
                         f'<div style="font-size:1.15rem;font-weight:900;color:{_tf_tone_color};letter-spacing:-0.4px;line-height:1.1;'
                         f'text-shadow:0 0 14px {_tf_tone_color}44;">{_fc_label}</div>'
                         f'</div>'
@@ -3791,6 +3818,42 @@ def main():
                             label_visibility="collapsed",
                         )
 
+                        # ── Fresh Setup filter — show only pre-move opportunities ──
+                        st.markdown(
+                            "<div style='background:linear-gradient(135deg,rgba(38,166,154,0.06),rgba(38,166,154,0.01));"
+                            "border:1px solid rgba(38,166,154,0.22);border-radius:11px;padding:0.55rem 0.75rem;"
+                            "margin:0.4rem 0 0.7rem;display:flex;align-items:center;gap:0.55rem;'>"
+                            "<span style='width:3px;height:22px;background:linear-gradient(180deg,#26A69A,rgba(38,166,154,0.3));"
+                            "border-radius:2px;box-shadow:0 0 6px rgba(38,166,154,0.5);'></span>"
+                            "<div style='flex:1;'>"
+                            "<div style='font-size:0.66rem;color:#26A69A;font-weight:800;letter-spacing:0.4px;'>Fresh Setups Only</div>"
+                            "<div style='font-size:0.58rem;color:#7d848a;margin-top:1px;'>Hide stocks that already ran. Show only pre-move opportunities.</div>"
+                            "</div>"
+                            "</div>",
+                            unsafe_allow_html=True,
+                        )
+                        _fresh_c1, _fresh_c2 = st.columns([1, 1])
+                        with _fresh_c1:
+                            _fresh_only = st.checkbox(
+                                "Filter exhausted moves",
+                                value=st.session_state.get("scan_fresh_only", True),
+                                key="scan_fresh_only",
+                                help=(
+                                    "When ON, the scanner removes stocks that already rallied "
+                                    "(>5% this week, >10% this month, near 52w high, near resistance, "
+                                    "or RSI overbought). You only see stocks where the move hasn't started yet."
+                                ),
+                            )
+                        with _fresh_c2:
+                            _fresh_mode = st.selectbox(
+                                "Filter strength",
+                                ["Strict", "Loose"],
+                                index=0 if st.session_state.get("scan_fresh_mode", "Strict") == "Strict" else 1,
+                                key="scan_fresh_mode",
+                                label_visibility="collapsed",
+                                disabled=not _fresh_only,
+                            )
+
                         if _scan_mode == "Enter Symbols":
                             st.markdown("<div class='cp-input-label'>Stock Symbols (comma separated)</div>", unsafe_allow_html=True)
                             ma_symbols_input = st.text_input(
@@ -3820,6 +3883,10 @@ def main():
                                 with st.spinner(f"Scanning {len(ma_tickers)} stocks…"):
                                     res = run_market_analysis(
                                         tuple(ma_tickers), min_score=1, start=_sd, end=_ed)
+                                    if st.session_state.get("scan_fresh_only", True):
+                                        from market_data import filter_fresh_setups
+                                        _mode = "strict" if st.session_state.get("scan_fresh_mode", "Strict") == "Strict" else "loose"
+                                        res = filter_fresh_setups(res, mode=_mode)
                                     st.session_state.ma_results       = res
                                     st.session_state.ma_scanned_count = len(ma_tickers)
                                     st.session_state.ma_scan_params   = {'start': str(_sd), 'end': str(_ed)}
@@ -3865,6 +3932,10 @@ def main():
                                 with st.spinner(f"Scanning {len(ma_tickers_all)} stocks…"):
                                     res = run_market_analysis(
                                         tuple(ma_tickers_all), min_score=1, start=_sd, end=_ed)
+                                    if st.session_state.get("scan_fresh_only", True):
+                                        from market_data import filter_fresh_setups
+                                        _mode = "strict" if st.session_state.get("scan_fresh_mode", "Strict") == "Strict" else "loose"
+                                        res = filter_fresh_setups(res, mode=_mode)
                                     st.session_state.ma_results          = res
                                     st.session_state.ma_scanned_count    = len(ma_tickers_all)
                                     st.session_state.ma_scan_params      = {'start': str(_sd), 'end': str(_ed)}

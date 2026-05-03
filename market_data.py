@@ -970,7 +970,7 @@ def _analyze_top_pick_price_action(hist):
     return result
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@st.cache_data(ttl=600, show_spinner=False)  # 10-min cache — matches market data freshness
 def get_tomorrow_stock_forecast(limit=3):
 
     """Rank Tadawul stocks for the next session using market-relative trend, price action, fundamentals, and filtered news context."""
@@ -2248,6 +2248,134 @@ def run_market_analysis(tickers_list, period="6mo", min_score=2, sector_filter=N
     results['sell'].sort(key=lambda x: x['score'])
 
     return results
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# FRESH SETUP FILTER — show only stocks BEFORE the move, not after
+# ─────────────────────────────────────────────────────────────────────────────
+def filter_fresh_setups(results, mode="strict"):
+    """Filter the buy list to only stocks where the move hasn't happened yet.
+
+    Removes:
+      - Stocks already at/near resistance (no room to run)
+      - Stocks that already rallied 10%+ this month or 5%+ this week
+      - Stocks at the top of their range (range_pos > 65)
+      - Stocks at 52w high (w52_pos > 75)
+      - Overbought RSI (> 65)
+
+    Boosts:
+      - Pre-breakout: basing pattern near support
+      - Oversold reversal candidates (RSI < 35, near EMA20 from below)
+      - BB squeeze (low volatility about to expand)
+      - Pullback to support inside an uptrend
+      - Deep value (52w low) with positive turn signal
+
+    Returns a NEW results dict — does not mutate input.
+    """
+    if not results or not isinstance(results, dict):
+        return results
+
+    out = {'buy': [], 'sell': results.get('sell', []), 'hold': results.get('hold', []) }
+
+    # Tunable thresholds
+    if mode == "strict":
+        max_5d        = 5.0   # didn't already pop this week
+        max_1m        = 10.0  # didn't run away this month
+        max_w52_pos   = 75    # not at 52w high
+        max_range_pos = 60    # in bottom 60% of 20-bar range
+        max_rsi       = 62    # not overbought
+        min_headroom  = 4.0   # at least 4% room to resistance
+    else:  # "loose" — slight relaxation
+        max_5d        = 8.0
+        max_1m        = 15.0
+        max_w52_pos   = 85
+        max_range_pos = 75
+        max_rsi       = 70
+        min_headroom  = 2.5
+
+    demoted = []  # didn't pass freshness — go to hold
+
+    for r in results.get('buy', []):
+        cp        = float(r.get('price', 0))
+        perf_5d   = float(r.get('perf_5d', 0))
+        perf_1m   = float(r.get('perf_1m', 0))
+        w52_pos   = float(r.get('w52_pos', 50))
+        range_pos = float(r.get('range_pos', 50))
+        headroom  = float(r.get('headroom_pct', 99))
+        rsi       = float(r.get('rsi', 50))
+
+        # ── Hard fails — the move already happened ──────────────────────
+        fails = []
+        if perf_5d > max_5d:
+            fails.append(f"already up {perf_5d:.1f}% this week")
+        if perf_1m > max_1m:
+            fails.append(f"already up {perf_1m:.1f}% this month")
+        if w52_pos > max_w52_pos:
+            fails.append(f"at {w52_pos:.0f}% of 52w range")
+        if range_pos > max_range_pos:
+            fails.append(f"in top {100-int(range_pos)}% of 20-day range")
+        if headroom < min_headroom:
+            fails.append(f"only {headroom:.1f}% to resistance")
+        if rsi > max_rsi:
+            fails.append(f"RSI {rsi:.0f} overbought")
+
+        if fails:
+            r2 = dict(r)
+            r2['why_reasons'] = [
+                "⚠ Move already happened — " + " · ".join(fails[:3])
+            ] + (r.get('why_reasons') or [])
+            demoted.append(r2)
+            continue
+
+        # ── Freshness score — boost early-stage setups ──────────────────
+        freshness = 0
+        fresh_tags = []
+
+        # Pre-breakout base: in bottom half of range, near support, low headroom risk
+        if range_pos < 40 and headroom > 6:
+            freshness += 3
+            fresh_tags.append("base near support")
+        # Oversold turn: RSI was low, just starting to lift
+        if rsi < 40 and perf_5d > -2:
+            freshness += 3
+            fresh_tags.append("oversold turn")
+        # BB squeeze release setup
+        if r.get('setup_type') == "BB Bounce":
+            freshness += 2
+            fresh_tags.append("BB compression")
+        # Deep value (52w low region)
+        if w52_pos < 25:
+            freshness += 2
+            fresh_tags.append("52w low zone")
+        # Pullback in uptrend: above EMA200 but in bottom of range
+        if r.get('above_ema200') and range_pos < 50:
+            freshness += 2
+            fresh_tags.append("uptrend pullback")
+        # MACD just turning bullish
+        if any('macd bullish crossover' in s.lower() for s in r.get('signals', [])):
+            freshness += 2
+            fresh_tags.append("fresh MACD cross")
+        # Stoch oversold cross
+        if any('stoch bullish crossover' in s.lower() for s in r.get('signals', [])):
+            freshness += 2
+            fresh_tags.append("stoch turn")
+        # Penalise stocks that already moved 3-5%
+        if perf_5d > 3:
+            freshness -= 1
+        if perf_1m > 6:
+            freshness -= 1
+
+        r2 = dict(r)
+        r2['freshness']      = freshness
+        r2['freshness_tags'] = fresh_tags
+        # Re-prioritise: keep original score weight but add freshness
+        r2['priority_score'] = float(r.get('priority_score', 0)) + freshness * 8
+        out['buy'].append(r2)
+
+    # Sort fresh results by combined freshness + score
+    out['buy'].sort(key=lambda x: (x.get('freshness', 0), x.get('score', 0)), reverse=True)
+    out['hold'] = demoted + out['hold']
+    return out
 
 
 
