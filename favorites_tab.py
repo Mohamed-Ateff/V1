@@ -2122,10 +2122,10 @@ def render_auto_scanner_page() -> None:
             letter-spacing:0.8px;color:#505050;margin-top:0.14rem;}
 
     /* price ladder */
-    .lsc-ladder{display:grid;grid-template-columns:repeat(4,1fr);
+    .lsc-ladder{display:grid;grid-template-columns:repeat(5,1fr);
                 border:1px solid #202020;border-radius:9px;overflow:hidden;}
     .lsc-lc{padding:0.65rem 0.8rem;border-right:1px solid #1a1a1a;
-            background:#0a0a0a;position:relative;}
+            background:#0a0a0a;position:relative;text-align:left;}
     .lsc-lc:last-child{border-right:none;}
     .lsc-lc-bar{position:absolute;top:0;left:0;right:0;height:3px;}
     .lsc-ll{font-size:0.58rem;font-weight:700;text-transform:uppercase;
@@ -2242,39 +2242,6 @@ def render_auto_scanner_page() -> None:
                 st.rerun()
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # Row 2: Show  +  vsep  +  Sort
-    st.markdown("<div class='sc-panel-row'>", unsafe_allow_html=True)
-    _show_opts = [('All','All'),('Firing Only','Firing')]
-    _sort_opts = [('Best WR','WinRate'),('A → Z','Alpha'),('Firing First','Firing')]
-    _r4 = st.columns(
-        [0.42, 0.55, 0.82, 0.08, 0.42, 0.75, 0.6, 0.88],
-        gap="small")
-    with _r4[0]:
-        st.markdown(
-            "<div class='sc-ctrl-lbl' style='line-height:1.65rem;'>Show</div>",
-            unsafe_allow_html=True)
-    for _i, (_lbl, _val) in enumerate(_show_opts):
-        _active = 'on' if st.session_state.sc_show == _val else f'off{_i}'
-        with _r4[_i + 1]:
-            with st.container(key=f"scs_{_active}_{_i}"):
-                if st.button(_lbl, key=f"scs_btn_{_val}", use_container_width=True):
-                    st.session_state.sc_show = _val
-                    st.rerun()
-    with _r4[3]:
-        st.markdown("<div class='sc-vsep'></div>", unsafe_allow_html=True)
-    with _r4[4]:
-        st.markdown(
-            "<div class='sc-ctrl-lbl' style='line-height:1.65rem;'>Sort</div>",
-            unsafe_allow_html=True)
-    for _i, (_lbl, _val) in enumerate(_sort_opts):
-        _active = 'on' if st.session_state.sc_sort == _val else f'off{_i}'
-        with _r4[_i + 5]:
-            with st.container(key=f"sck_{_active}_{_i}"):
-                if st.button(_lbl, key=f"sck_btn_{_val}", use_container_width=True):
-                    st.session_state.sc_sort = _val
-                    st.rerun()
-    st.markdown("</div>", unsafe_allow_html=True)
-
     st.markdown("</div>", unsafe_allow_html=True)  # end sc-panel
 
     # ── scan ─────────────────────────────────────────────────────────────────
@@ -2308,10 +2275,6 @@ def render_auto_scanner_page() -> None:
             unsafe_allow_html=True)
         return
 
-    # ── apply filters ─────────────────────────────────────────────────────────
-    _f_show   = st.session_state.sc_show     # 'All' | 'Firing'
-    _f_sort   = st.session_state.sc_sort     # 'WinRate' | 'Alpha' | 'Firing'
-
     def _best_wr(row):
         regs = row.get('regimes') or {}
         vals = [float(cb.get('win_rate', 0) or 0) for cb in regs.values() if cb]
@@ -2322,16 +2285,6 @@ def render_auto_scanner_page() -> None:
         return any((cb or {}).get('firing') for cb in regs.values())
 
     _rows = list(_rows_all)
-    if _f_show == 'Firing':
-        _rows = [r for r in _rows if _has_firing(r)]
-
-    # sort
-    if _f_sort == 'WinRate':
-        _rows = sorted(_rows, key=_best_wr, reverse=True)
-    elif _f_sort == 'Alpha':
-        _rows = sorted(_rows, key=lambda r: r['_sym'])
-    elif _f_sort == 'Firing':
-        _rows = sorted(_rows, key=lambda r: (not _has_firing(r), -_best_wr(r)))
 
     # ══════════════════════════════════════════════════════════════════════════
     # SECTION 1 — Scanned Strategy Grid
@@ -2476,15 +2429,35 @@ def render_auto_scanner_page() -> None:
     # ══════════════════════════════════════════════════════════════════════════
     # SECTION 2 — Live Signal Check
     # ══════════════════════════════════════════════════════════════════════════
-    _fire_rows    = [r for r in _rows if _has_firing(r)]
-    _GOLD         = '#FFD700'
-    _REGIME_SHORT = {'TREND': 'Trend', 'RANGE': 'Range', 'VOLATILE': 'Volatile'}
-    _n_signals    = sum(
-        sum(1 for rn in ('TREND','RANGE','VOLATILE')
-            if (r.get('regimes',{}).get(rn) or {}).get('firing'))
-        for r in _fire_rows)
+    import math as _math
 
-    # ── section header ────────────────────────────────────────────────────────
+    _REGIME_SHORT = {'TREND': 'Trend', 'RANGE': 'Range', 'VOLATILE': 'Volatile'}
+    _IND_SHORT    = {'EMA':'EMA','SMA':'SMA','RSI':'RSI','MACD':'MACD',
+                     'BB':'BB','STOCH':'Stoch','ADX':'ADX','CCI':'CCI',
+                     'MFI':'MFI','OBV':'OBV','VWAP':'VWAP','WILLR':'W%R','ROC':'ROC'}
+
+    # collect firing rows, pick best-fit combo per stock, compute sort score
+    _fire_rows_raw = [r for r in _rows if _has_firing(r)]
+
+    def _lsc_score(row):
+        regs = row.get('regimes', {})
+        cur  = row.get('current_regime', 'RANGE')
+        # best-fit = current regime if firing, else highest-wr firing regime
+        firing = [rn for rn in ('TREND','RANGE','VOLATILE')
+                  if (regs.get(rn) or {}).get('firing')]
+        if not firing:
+            return 0
+        bf = cur if cur in firing else max(
+            firing, key=lambda rn: float((regs.get(rn) or {}).get('win_rate', 0) or 0))
+        cb = regs.get(bf) or {}
+        wr = float(cb.get('win_rate', 0) or 0)
+        tot = int(cb.get('total', 1) or 1)
+        return wr * _math.sqrt(tot)
+
+    _fire_rows = sorted(_fire_rows_raw, key=_lsc_score, reverse=True)
+    _n_signals = len(_fire_rows)
+
+    # section header
     st.markdown(
         f"<div class='lsc-section-hdr'>"
         f"<div class='lsc-section-line'></div>"
@@ -2507,327 +2480,514 @@ def render_auto_scanner_page() -> None:
             "All strategies in wait state</div></div>",
             unsafe_allow_html=True)
     else:
-        for _row in _fire_rows:
-            _sym        = _row['_sym']
-            _sname      = _row['_sname']
-            _sym_d      = _sym.replace('.SR', '')
-            _regs       = _row.get('regimes', {})
-            _price      = float(_row.get('price', 0) or 0)
-            _df_f       = _row.get('df')
-            _cur_regime = _row.get('current_regime', 'RANGE')
-            _cr_col     = _REGIME_COLORS.get(_cur_regime, '#888')
-            _cr_icon    = _REGIME_ICONS.get(_cur_regime, '★')
-            _cr_short   = _REGIME_SHORT.get(_cur_regime, _cur_regime.title())
+        # chart expand state
+        if 'lsc_chart_open' not in st.session_state:
+            st.session_state.lsc_chart_open = {}
 
-            # all firing regimes
-            _firing_regimes = [
-                rn for rn in ('TREND', 'RANGE', 'VOLATILE')
-                if (_regs.get(rn) or {}).get('firing')
-            ]
-            if not _firing_regimes:
-                continue
+        for _ri in range(0, len(_fire_rows), 2):
+            _pair = _fire_rows[_ri:_ri + 2]
+            _grid = st.columns(len(_pair), gap="medium")
+            for _col_slot, _row in zip(_grid, _pair):
+             with _col_slot:
+              _sym        = _row['_sym']
+              _sname      = _row['_sname']
+              _sym_d      = _sym.replace('.SR', '')
+              _regs       = _row.get('regimes', {})
+              _price      = float(_row.get('price', 0) or 0)
+              _df_f       = _row.get('df')
+              _cur_regime = _row.get('current_regime', 'RANGE')
 
-            # best-fit = current regime if firing, else first firing
-            _best_rname = _cur_regime if _cur_regime in _firing_regimes else _firing_regimes[0]
+              _firing_regimes = [rn for rn in ('TREND','RANGE','VOLATILE')
+                                 if (_regs.get(rn) or {}).get('firing')]
+              if not _firing_regimes:
+                  continue
 
-            # price ladder — computed once for the card
-            _ladder = ''
-            if _df_f is not None and _price > 0:
-                try:
-                    from _levels import compute_structural_levels
-                    _lv  = compute_structural_levels(_df_f, _price, True)
-                    _en  = _lv['entry']; _sl_p = _lv['stop']
-                    _t1  = _lv['t1'];    _t2   = _lv['t2']
-                    _rp  = round(abs(_en - _sl_p) / _en * 100, 1) if _en else 0
-                    _t1p = round((_t1 - _en) / _en * 100, 1)      if _en else 0
-                    _t2p = round((_t2 - _en) / _en * 100, 1)      if _en else 0
-                    _ladder = (
-                        f"<div class='lsc-ladder'>"
-                        f"<div class='lsc-lc'>"
-                        f"<div class='lsc-lc-bar' style='background:#64b5f6;'></div>"
-                        f"<div class='lsc-ll'>Entry</div>"
-                        f"<div class='lsc-lv' style='color:#64b5f6;'>{_en:.2f}</div>"
-                        f"</div>"
-                        f"<div class='lsc-lc'>"
-                        f"<div class='lsc-lc-bar' style='background:#26A69A;'></div>"
-                        f"<div class='lsc-ll'>Target 1</div>"
-                        f"<div class='lsc-lv' style='color:#26A69A;'>{_t1:.2f}</div>"
-                        f"<div class='lsc-lp' style='color:#26A69A;'>+{_t1p}%</div>"
-                        f"</div>"
-                        f"<div class='lsc-lc'>"
-                        f"<div class='lsc-lc-bar' style='background:#66bb6a;'></div>"
-                        f"<div class='lsc-ll'>Target 2</div>"
-                        f"<div class='lsc-lv' style='color:#66bb6a;'>{_t2:.2f}</div>"
-                        f"<div class='lsc-lp' style='color:#66bb6a;'>+{_t2p}%</div>"
-                        f"</div>"
-                        f"<div class='lsc-lc'>"
-                        f"<div class='lsc-lc-bar' style='background:#ef5350;'></div>"
-                        f"<div class='lsc-ll'>Stop Loss</div>"
-                        f"<div class='lsc-lv' style='color:#ef5350;'>{_sl_p:.2f}</div>"
-                        f"<div class='lsc-lp' style='color:#ef5350;'>−{_rp}%</div>"
-                        f"</div>"
-                        f"</div>"
-                    )
-                except Exception:
-                    pass
+              # best-fit = current regime if firing, else highest WR firing regime
+              _best_rname = (_cur_regime if _cur_regime in _firing_regimes
+                             else max(_firing_regimes,
+                                      key=lambda rn: float((_regs.get(rn) or {}).get('win_rate', 0) or 0)))
+              _best_combo = (_regs.get(_best_rname) or {})
+              _best_col   = _REGIME_COLORS.get(_best_rname, '#888')
+              _best_icon  = _REGIME_ICONS.get(_best_rname, '★')
+              _wr   = float(_best_combo.get('win_rate', 0) or 0)
+              _pf   = float(_best_combo.get('profit_factor', 0) or 0)
+              _exp  = float(_best_combo.get('expectancy', 0) or 0)
+              _tot  = int(_best_combo.get('total', 0) or 0)
+              _inds = _best_combo.get('indicators', [])
+              _wc   = _wr_col(_wr)
+              _exp_c = '#26A69A' if _exp > 0 else '#ef5350'
+              _rank  = _ri + 1
 
-            # card header — stock name + price
-            _best_col = _REGIME_COLORS.get(_best_rname, '#888')
-            st.markdown(
-                f"<div style='background:#0d0d0d;border:1px solid #262626;"
-                f"border-radius:12px 12px 0 0;overflow:hidden;"
-                f"margin-bottom:0;'>"
-                f"<div style='height:2px;background:linear-gradient(90deg,"
-                f"{_best_col} 0%,{_best_col}44 55%,transparent 100%);'></div>"
-                f"<div class='lsc-card-hdr'>"
-                f"<span class='lsc-ticker'>{_sym_d}</span>"
-                + (f"<span style='width:1px;height:1rem;background:#2a2a2a;"
-                   f"display:inline-block;flex-shrink:0;'></span>"
-                   f"<span class='lsc-co'>{_sname}</span>" if _sname else '')
-                + f"<span class='lsc-price-chip' style='margin-left:auto;'>{_price:.2f}"
-                f"<span style='font-size:0.55rem;color:#1a5048;"
-                f"font-weight:700;margin-left:0.2rem;'>SAR</span></span>"
-                f"</div>"
-                f"</div>",
-                unsafe_allow_html=True)
+              # price ladder
+              _ladder = ''; _en = _sl_p = _t1 = _t2 = 0.0
+              if _df_f is not None and _price > 0:
+                  try:
+                      from _levels import compute_structural_levels
+                      _lv   = compute_structural_levels(_df_f, _price, True)
+                      _en   = _lv['entry']; _sl_p = _lv['stop']
+                      _t1   = _lv['t1'];    _t2   = _lv['t2']
+                      _eq   = _lv.get('entry_quality', '')
+                      _eqc  = _lv.get('eq_col', '#64b5f6')
+                      _rp   = round(abs(_en - _sl_p) / _en * 100, 1) if _en else 0
+                      _t1p  = round((_t1 - _en) / _en * 100, 1) if _en else 0
+                      _t2p  = round((_t2 - _en) / _en * 100, 1) if _en else 0
+                      _rr   = round(_t1p / _rp, 2) if _rp else 0
+                      _rr_c = ('#FFD700' if _rr >= 2 else '#26A69A' if _rr >= 1.5 else '#ef5350')
+                      # tooltip text per quality level
+                      _eq_tips = {
+                          'OPTIMAL':  'Price is right at structural support — best possible entry. Low risk of stop hunt.',
+                          'GOOD':     'Price is near support but slightly extended. Still a valid entry with manageable risk.',
+                          'ELEVATED': 'Price has moved away from support. Risk is higher — consider waiting for a pullback.',
+                          'CHASING':  'Price is far from support. Entering here risks a large stop or getting caught in a reversal.',
+                      }
+                      _eq_tip = _eq_tips.get(_eq, '')
+                      _eq_html = (
+                          f"<div class='lsc-lp' style='color:{_eqc};display:flex;"
+                          f"align-items:center;gap:0.2rem;'>"
+                          f"{_eq}"
+                          f"<span title='{_eq_tip}' style='display:inline-flex;align-items:center;"
+                          f"justify-content:center;width:13px;height:13px;border-radius:50%;"
+                          f"background:#1e1e1e;border:1px solid #333;color:#555;"
+                          f"font-size:0.5rem;font-weight:900;cursor:help;flex-shrink:0;'>?</span>"
+                          f"</div>"
+                      ) if _eq else ''
+                      _ladder = (
+                          f"<div class='lsc-ladder'>"
+                          f"<div class='lsc-lc'><div class='lsc-lc-bar' style='background:{_eqc};'></div>"
+                          f"<div class='lsc-ll'>Entry</div>"
+                          f"<div class='lsc-lv' style='color:#64b5f6;'>{_en:.2f}</div>"
+                          f"{_eq_html}</div>"
+                          f"<div class='lsc-lc'><div class='lsc-lc-bar' style='background:#26A69A;'></div>"
+                          f"<div class='lsc-ll'>Target 1</div>"
+                          f"<div class='lsc-lv' style='color:#26A69A;'>{_t1:.2f}</div>"
+                          f"<div class='lsc-lp' style='color:#26A69A;'>+{_t1p}%</div></div>"
+                          f"<div class='lsc-lc'><div class='lsc-lc-bar' style='background:#66bb6a;'></div>"
+                          f"<div class='lsc-ll'>Target 2</div>"
+                          f"<div class='lsc-lv' style='color:#66bb6a;'>{_t2:.2f}</div>"
+                          f"<div class='lsc-lp' style='color:#66bb6a;'>+{_t2p}%</div></div>"
+                          f"<div class='lsc-lc'><div class='lsc-lc-bar' style='background:#ef5350;'></div>"
+                          f"<div class='lsc-ll'>Stop Loss</div>"
+                          f"<div class='lsc-lv' style='color:#ef5350;'>{_sl_p:.2f}</div>"
+                          f"<div class='lsc-lp' style='color:#ef5350;'>−{_rp}%</div></div>"
+                          f"<div class='lsc-lc' style='border-right:none;'>"
+                          f"<div class='lsc-lc-bar' style='background:{_rr_c};'></div>"
+                          f"<div class='lsc-ll'>Risk:Reward</div>"
+                          f"<div class='lsc-lv' style='color:{_rr_c};'>1 : {_rr}</div>"
+                          f"<div class='lsc-lp' style='color:{_rr_c};'>"
+                          f"{'★ Great' if _rr >= 2 else 'Good' if _rr >= 1.5 else 'Weak'}"
+                          f"</div></div>"
+                          f"</div>")
+                  except Exception:
+                      pass
 
-            # firing regime cards side by side — price ladder inside best-fit card
-            _cols = st.columns(len(_firing_regimes), gap="small")
-            for _rname, _col in zip(_firing_regimes, _cols):
-                _combo   = _regs.get(_rname, {}) or {}
-                _rc_col  = _REGIME_COLORS.get(_rname, '#888')
-                _ri_ico  = _REGIME_ICONS.get(_rname, '★')
-                _wr      = float(_combo.get('win_rate', 0) or 0)
-                _pf      = float(_combo.get('profit_factor', 0) or 0)
-                _exp     = float(_combo.get('expectancy', 0) or 0)
-                _tot     = int(_combo.get('total', 0) or 0)
-                _inds    = _combo.get('indicators', [])
-                _wc      = _wr_col(_wr)
-                _exp_c   = '#26A69A' if _exp > 0 else '#ef5350'
-                _is_best = (_rname == _best_rname)
-                _ind_tags = ''.join(
-                    f"<span class='lsc-ind-tag'>{_ind_label([k])}</span>"
-                    for k in _inds)
-                _best_badge = (
-                    f"<span class='lsc-best-badge'>★&thinsp;Best Fit</span>"
-                    if _is_best else '')
-                # ladder only in best-fit card
-                _card_ladder = _ladder if _is_best else ''
-                with _col:
-                    st.markdown(
-                        f"<div class='sc-rcard'"
-                        + (f" style='border-color:#b8860b66;"
-                           f"box-shadow:0 0 18px #b8860b22;'" if _is_best else '')
-                        + f">"
-                        f"<div class='sc-rcard-top'"
-                        + (f" style='background:#b8860b14;'" if _is_best else '')
-                        + f">"
-                        f"<span class='sc-rpill' style='background:{_rc_col};color:#0a0a0a;"
-                        f"box-shadow:0 0 8px {_rc_col}55;'>"
-                        f"{_ri_ico}&thinsp;{_rname.title()}</span>"
-                        + _best_badge
-                        + f"</div>"
-                        f"<div class='sc-rcard-inds'>{_ind_tags}</div>"
-                        f"<div class='sc-rcard-stats'>"
-                        f"<div class='sc-rstat'>"
-                        f"<div class='sc-rstat-top' style='background:{_wc};opacity:0.6;'></div>"
-                        f"<div class='sc-rstat-v' style='color:{_wc};'>{_wr:.0f}%</div>"
-                        f"<div class='sc-rstat-l'>Win Rate</div></div>"
-                        f"<div class='sc-rstat'>"
-                        f"<div class='sc-rstat-top' style='background:#a78bfa;opacity:0.5;'></div>"
-                        f"<div class='sc-rstat-v' style='color:#a78bfa;'>{_pf:.1f}×</div>"
-                        f"<div class='sc-rstat-l'>Profit Factor</div></div>"
-                        f"<div class='sc-rstat'>"
-                        f"<div class='sc-rstat-top' style='background:{_exp_c};opacity:0.6;'></div>"
-                        f"<div class='sc-rstat-v' style='color:{_exp_c};'>{_exp:+.1f}%</div>"
-                        f"<div class='sc-rstat-l'>Expectancy</div></div>"
-                        f"<div class='sc-rstat'>"
-                        f"<div class='sc-rstat-top' style='background:#4a9eff;opacity:0.4;'></div>"
-                        f"<div class='sc-rstat-v' style='color:#4a9eff;'>{_tot}</div>"
-                        f"<div class='sc-rstat-l'>Signals</div></div>"
-                        f"</div>"
-                        + (f"<div style='padding:0.6rem 0.5rem 0.5rem;'>{_card_ladder}</div>"
-                           if _card_ladder else '')
-                        + f"</div>",
-                        unsafe_allow_html=True)
+              # ── context signals ───────────────────────────────────────────
+              _ctx_html = ''
+              if _df_f is not None and len(_df_f) >= 21:
+                  try:
+                      import numpy as _np2
+                      import pandas as _pd2
 
-            # ── proof chart: candles + past signal fires + current fire marker ─
-            if _df_f is not None and _best_rname:
-                try:
-                    import plotly.graph_objects as go
-                    import numpy as _np
-                    import pandas as _pd
-                    from scanner_engine import _build_states
+                      _c  = _df_f['Close'].astype(float)
+                      _h  = _df_f['High'].astype(float)
+                      _l  = _df_f['Low'].astype(float)
+                      _v  = _df_f['Volume'].astype(float)
+                      _N2 = len(_df_f)
 
-                    _best_combo = (_regs.get(_best_rname) or {})
-                    _best_inds  = _best_combo.get('indicators', [])
+                      # ── 1. Volume confirmation ────────────────────────────
+                      _vol_now  = float(_v.iloc[-1])
+                      _vol_avg  = float(_v.iloc[-21:-1].mean())
+                      _vol_rat  = (_vol_now / _vol_avg) if _vol_avg > 0 else 1.0
+                      if _vol_rat >= 1.5:
+                          _vol_lbl = 'Strong'; _vol_c = '#26A69A'
+                      elif _vol_rat >= 0.8:
+                          _vol_lbl = 'Normal'; _vol_c = '#888'
+                      else:
+                          _vol_lbl = 'Weak';   _vol_c = '#ef5350'
+                      _vol_txt = f"{_vol_rat:.1f}× avg"
 
-                    # rebuild indicator states on the full df
-                    _states_all = _build_states(_df_f)
+                      # ── 2. Trend alignment ────────────────────────────────
+                      _e20  = float(_c.rolling(20).mean().iloc[-1])  if _N2 >= 20  else float(_c.iloc[-1])
+                      _e50  = float(_c.rolling(50).mean().iloc[-1])  if _N2 >= 50  else float(_c.iloc[-1])
+                      _e200 = float(_c.rolling(200).mean().iloc[-1]) if _N2 >= 200 else float(_c.iloc[-1])
+                      _cp2  = float(_c.iloc[-1])
+                      _trend_pts = (
+                          (1 if _cp2 > _e20  else 0) +
+                          (1 if _cp2 > _e50  else 0) +
+                          (1 if _cp2 > _e200 else 0) +
+                          (1 if _e20 > _e50  else 0)
+                      )
+                      if _trend_pts >= 4:
+                          _tr_lbl = '↑ Strong Bull'; _tr_c = '#26A69A'
+                      elif _trend_pts == 3:
+                          _tr_lbl = '↗ Bullish';     _tr_c = '#8BC34A'
+                      elif _trend_pts == 2:
+                          _tr_lbl = '→ Neutral';     _tr_c = '#FFC107'
+                      elif _trend_pts == 1:
+                          _tr_lbl = '↘ Bearish';     _tr_c = '#FF7043'
+                      else:
+                          _tr_lbl = '↓ Strong Bear'; _tr_c = '#ef5350'
 
-                    # combined signal array + rising edge
-                    _N = len(_df_f)
-                    if _best_inds and all(k in _states_all for k in _best_inds):
-                        _combo_arr = _states_all[_best_inds[0]].copy()
-                        for _ik in _best_inds[1:]:
-                            _combo_arr = _combo_arr & _states_all[_ik]
-                        _edge = _np.zeros(_N, dtype=_np.int8)
-                        _edge[1:] = ((_combo_arr[1:] == 1) & (_combo_arr[:-1] == 0)).astype(_np.int8)
-                        _fire_idxs = set(_np.where(_edge == 1)[0].tolist())
-                        _currently_firing = bool(int(_combo_arr[-1]) == 1)
-                        # per-indicator state on the last bar
-                        _ind_states = {k: bool(int(_states_all[k][-1]) == 1)
-                                       for k in _best_inds if k in _states_all}
-                    else:
-                        _fire_idxs = set()
-                        _currently_firing = False
-                        _ind_states = {}
+                      # ── 3. Time since signal fired ────────────────────────
+                      # find last rising edge of the best combo
+                      _sig_age_txt = '—'
+                      _sig_age_c   = '#484848'
+                      try:
+                          from scanner_engine import _build_states as _bs2
+                          _st2 = _bs2(_df_f)
+                          if _inds and all(k in _st2 for k in _inds):
+                              _ca2 = _st2[_inds[0]].copy()
+                              for _ik2 in _inds[1:]:
+                                  _ca2 = _ca2 & _st2[_ik2]
+                              _ed2 = _np2.zeros(_N2, dtype=_np2.int8)
+                              _ed2[1:] = ((_ca2[1:] == 1) & (_ca2[:-1] == 0)).astype(_np2.int8)
+                              _fires2 = _np2.where(_ed2 == 1)[0]
+                              if len(_fires2):
+                                  _last_fire_i = int(_fires2[-1])
+                                  _bars_ago    = _N2 - 1 - _last_fire_i
+                                  if _bars_ago == 0:
+                                      _sig_age_txt = 'Today'; _sig_age_c = '#FFD700'
+                                  elif _bars_ago == 1:
+                                      _sig_age_txt = '1 day ago'; _sig_age_c = '#26A69A'
+                                  elif _bars_ago <= 5:
+                                      _sig_age_txt = f'{_bars_ago} days ago'; _sig_age_c = '#8BC34A'
+                                  elif _bars_ago <= 15:
+                                      _sig_age_txt = f'{_bars_ago} days ago'; _sig_age_c = '#FFC107'
+                                  else:
+                                      _sig_age_txt = f'{_bars_ago} days ago'; _sig_age_c = '#ef5350'
+                                  # actual date
+                                  if 'Date' in _df_f.columns:
+                                      _fire_date = str(_df_f['Date'].iloc[_last_fire_i])[:10]
+                                      _sig_age_txt += f' ({_fire_date})'
+                      except Exception:
+                          pass
 
-                    # last 60 bars — use actual dates as x
-                    _tail   = 60
-                    _offset = max(0, _N - _tail)
-                    _chart_df = _df_f.iloc[_offset:].copy().reset_index(drop=True)
-                    _today_str = str(_chart_df['Date'].iloc[-1])[:10] if 'Date' in _chart_df.columns else 'today'
-                    _x_dates = (
-                        _pd.to_datetime(_chart_df['Date'])
-                        if 'Date' in _chart_df.columns
-                        else list(range(len(_chart_df)))
-                    )
+                      # ── 4. Earnings / events ──────────────────────────────
+                      _earn_html = ''
+                      try:
+                          import yfinance as _yf2
+                          _tk2  = _yf2.Ticker(_sym)
+                          _cal  = _tk2.calendar
+                          _earn_date = None
+                          if _cal is not None:
+                              if hasattr(_cal, 'get'):
+                                  _ed_raw = _cal.get('Earnings Date') or _cal.get('earnings_date')
+                                  if _ed_raw is not None:
+                                      if hasattr(_ed_raw, '__iter__') and not isinstance(_ed_raw, str):
+                                          _earn_date = list(_ed_raw)[0] if _ed_raw else None
+                                      else:
+                                          _earn_date = _ed_raw
+                              elif hasattr(_cal, 'iloc'):
+                                  # DataFrame format
+                                  try:
+                                      _earn_date = _cal.iloc[0, 0]
+                                  except Exception:
+                                      pass
+                          if _earn_date is not None:
+                              import datetime as _dt2
+                              try:
+                                  if hasattr(_earn_date, 'date'):
+                                      _ed_d = _earn_date.date()
+                                  else:
+                                      _ed_d = _pd2.Timestamp(_earn_date).date()
+                                  _today_d  = _dt2.date.today()
+                                  _days_to  = (_ed_d - _today_d).days
+                                  if -3 <= _days_to <= 14:
+                                      if _days_to < 0:
+                                          _earn_html = (f"<span style='font-size:0.58rem;font-weight:900;"
+                                                        f"padding:0.14rem 0.5rem;border-radius:20px;"
+                                                        f"background:rgba(255,193,7,0.1);"
+                                                        f"border:1px solid rgba(255,193,7,0.35);"
+                                                        f"color:#FFC107;'>📋 Earnings {abs(_days_to)}d ago</span>")
+                                      elif _days_to == 0:
+                                          _earn_html = (f"<span style='font-size:0.58rem;font-weight:900;"
+                                                        f"padding:0.14rem 0.5rem;border-radius:20px;"
+                                                        f"background:rgba(239,83,80,0.15);"
+                                                        f"border:1px solid rgba(239,83,80,0.5);"
+                                                        f"color:#ef5350;'>⚠ Earnings TODAY</span>")
+                                      else:
+                                          _earn_html = (f"<span style='font-size:0.58rem;font-weight:900;"
+                                                        f"padding:0.14rem 0.5rem;border-radius:20px;"
+                                                        f"background:rgba(239,83,80,0.1);"
+                                                        f"border:1px solid rgba(239,83,80,0.3);"
+                                                        f"color:#ef5350;'>⚠ Earnings in {_days_to}d ({_ed_d})</span>")
+                              except Exception:
+                                  pass
+                      except Exception:
+                          pass
 
-                    fig = go.Figure()
+                      # ── assemble context row ──────────────────────────────
+                      _ctx_html = (
+                          f"<div style='padding:0.45rem 1rem;border-bottom:1px solid #161616;"
+                          f"display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;'>"
+                          # volume
+                          f"<span style='font-size:0.58rem;font-weight:900;"
+                          f"padding:0.14rem 0.5rem;border-radius:20px;"
+                          f"background:{_vol_c}18;border:1px solid {_vol_c}44;color:{_vol_c};'>"
+                          f"Vol {_vol_lbl} {_vol_txt}</span>"
+                          # trend
+                          f"<span style='font-size:0.58rem;font-weight:900;"
+                          f"padding:0.14rem 0.5rem;border-radius:20px;"
+                          f"background:{_tr_c}18;border:1px solid {_tr_c}44;color:{_tr_c};'>"
+                          f"{_tr_lbl}</span>"
+                          # signal age
+                          f"<span style='font-size:0.58rem;font-weight:700;"
+                          f"padding:0.14rem 0.5rem;border-radius:20px;"
+                          f"background:{_sig_age_c}18;border:1px solid {_sig_age_c}44;"
+                          f"color:{_sig_age_c};'>⏱ {_sig_age_txt}</span>"
+                          # earnings (only if relevant)
+                          + (_earn_html if _earn_html else '')
+                          + f"</div>"
+                      )
+                  except Exception:
+                      pass
 
-                    # candlesticks (use real dates on x)
-                    fig.add_trace(go.Candlestick(
-                        x=_x_dates,
-                        open=_chart_df['Open'], high=_chart_df['High'],
-                        low=_chart_df['Low'],   close=_chart_df['Close'],
-                        increasing_line_color='#26A69A',
-                        decreasing_line_color='#ef5350',
-                        increasing_fillcolor='rgba(38,166,154,0.15)',
-                        decreasing_fillcolor='rgba(239,83,80,0.15)',
-                        line_width=1, name=''))
+              # secondary firing regime badges (not best-fit)
+              _sec_badges = ''.join(
+                  f"<span style='font-size:0.58rem;font-weight:900;"
+                  f"padding:0.15rem 0.5rem;border-radius:20px;"
+                  f"background:{_REGIME_COLORS.get(rn,'#888')}22;"
+                  f"border:1px solid {_REGIME_COLORS.get(rn,'#888')}55;"
+                  f"color:{_REGIME_COLORS.get(rn,'#888')};'>"
+                  f"{_REGIME_ICONS.get(rn,'★')}&thinsp;{rn.title()}</span>"
+                  for rn in _firing_regimes if rn != _best_rname)
 
-                    # past signal fire markers
-                    _sig_dates, _sig_lows = [], []
-                    for _fi in sorted(_fire_idxs):
-                        _ci = _fi - _offset
-                        if 0 <= _ci < len(_chart_df) and _fi < _N - 1:
-                            _sig_dates.append(_x_dates.iloc[_ci] if hasattr(_x_dates, 'iloc') else _x_dates[_ci])
-                            _sig_lows.append(float(_chart_df['Low'].iloc[_ci]) * 0.993)
-                    if _sig_dates:
-                        fig.add_trace(go.Scatter(
-                            x=_sig_dates, y=_sig_lows,
-                            mode='markers',
-                            marker=dict(symbol='triangle-up', size=10,
-                                        color='#26A69A', opacity=0.9,
-                                        line=dict(width=0)),
-                            hovertemplate='Signal fired<extra></extra>', name=''))
+              # indicator tags
+              _ind_tags = ''.join(
+                  f"<span class='lsc-ind-tag'>{_IND_SHORT.get(k, k)}</span>"
+                  for k in _inds)
 
-                    # CURRENT BAR — gold triangle + date annotation
-                    _last_x = _x_dates.iloc[-1] if hasattr(_x_dates, 'iloc') else _x_dates[-1]
-                    _last_lo = float(_chart_df['Low'].iloc[-1])
-                    _last_hi = float(_chart_df['High'].iloc[-1])
-                    if _currently_firing:
-                        fig.add_trace(go.Scatter(
-                            x=[_last_x], y=[_last_lo * 0.988],
-                            mode='markers+text',
-                            marker=dict(symbol='triangle-up', size=16,
-                                        color='#FFD700', opacity=1.0,
-                                        line=dict(width=1, color='#b8860b')),
-                            text=[f'NOW\n{_today_str}'],
-                            textposition='bottom center',
-                            textfont=dict(size=8, color='#FFD700'),
-                            hovertemplate=f'FIRING NOW — {_today_str}<extra></extra>', name=''))
-                    # always annotate the last bar date
-                    fig.add_annotation(
-                        x=_last_x, y=_last_hi,
-                        text=f'<b>{_today_str}</b>',
-                        showarrow=True, arrowhead=0, arrowcolor='#333',
-                        arrowwidth=1, ax=0, ay=-22,
-                        font=dict(size=9, color='#FFD700' if _currently_firing else '#505050'),
-                        bgcolor='rgba(8,8,8,0.85)', borderpad=3)
+              # rank medal color
+              _rank_c = ('#FFD700' if _rank == 1 else
+                         '#C0C0C0' if _rank == 2 else
+                         '#CD7F32' if _rank == 3 else '#303030')
 
-                    # level lines
-                    if _ladder:
-                        for _lval, _lc, _ln, _ld in [
-                            (_en,   '#64b5f6', 'Entry',  'dash'),
-                            (_t1,   '#26A69A', 'T1',     'dot'),
-                            (_t2,   '#66bb6a', 'T2',     'dot'),
-                            (_sl_p, '#ef5350', 'Stop',   'dashdot'),
-                        ]:
-                            fig.add_hline(
-                                y=_lval, line_color=_lc, line_dash=_ld,
-                                line_width=1.4, opacity=0.9,
-                                annotation_text=f'<b>{_ln}</b> {_lval:.2f}',
-                                annotation_font_color=_lc,
-                                annotation_font_size=9,
-                                annotation_bgcolor='rgba(8,8,8,0.85)',
-                                annotation_position='right')
+              # ── main card ─────────────────────────────────────────────────────
+              st.markdown(
+                  f"<div style='background:#0d0d0d;border:1px solid #222;"
+                  f"border-radius:12px;overflow:hidden;margin-bottom:0.1rem;'>"
+                  # top color strip
+                  f"<div style='height:2px;background:linear-gradient(90deg,"
+                  f"{_best_col} 0%,{_best_col}44 60%,transparent 100%);'></div>"
+                  # header row: rank + symbol + name + price + regime + secondary badges
+                  f"<div style='display:flex;align-items:center;gap:0.7rem;"
+                  f"padding:0.6rem 1rem;border-bottom:1px solid #1a1a1a;flex-wrap:nowrap;'>"
+                  f"<span style='font-size:0.7rem;font-weight:900;color:{_rank_c};"
+                  f"min-width:1.2rem;text-align:center;flex-shrink:0;'>#{_rank}</span>"
+                  f"<span style='font-size:1.05rem;font-weight:900;color:#f0f0f0;"
+                  f"letter-spacing:-0.3px;white-space:nowrap;'>{_sym_d}</span>"
+                  + (f"<span style='font-size:0.65rem;color:#303030;font-weight:700;"
+                     f"background:#181818;border:1px solid #252525;border-radius:6px;"
+                     f"padding:0.1rem 0.45rem;white-space:nowrap;overflow:hidden;"
+                     f"text-overflow:ellipsis;max-width:12rem;'>{_sname}</span>" if _sname else '')
+                  + f"<span style='font-size:0.62rem;font-weight:900;padding:0.18rem 0.58rem;"
+                  f"border-radius:20px;background:{_best_col}22;"
+                  f"border:1px solid {_best_col}55;color:{_best_col};"
+                  f"white-space:nowrap;flex-shrink:0;'>"
+                  f"{_best_icon}&thinsp;{_best_rname.title()}&thinsp;★ Best Fit</span>"
+                  + (_sec_badges if _sec_badges else '')
+                  + f"<span style='margin-left:auto;font-size:1.05rem;font-weight:900;"
+                  f"color:#26A69A;white-space:nowrap;flex-shrink:0;'>{_price:.2f}"
+                  f"<span style='font-size:0.52rem;color:#1a5048;font-weight:700;"
+                  f"margin-left:0.2rem;'>SAR</span></span>"
+                  f"</div>"
+                  # indicators row
+                  f"<div style='padding:0.4rem 1rem;border-bottom:1px solid #161616;"
+                  f"display:flex;flex-wrap:wrap;gap:0.25rem;'>{_ind_tags}</div>"
+                  # context row: volume + trend + signal age + earnings
+                  + _ctx_html
+                  + "<!-- stats -->"
+                  # stats row
+                  f"<div class='sc-rcard-stats'>"
+                  f"<div class='sc-rstat'>"
+                  f"<div class='sc-rstat-top' style='background:{_wc};opacity:0.6;'></div>"
+                  f"<div class='sc-rstat-v' style='color:{_wc};'>{_wr:.0f}%</div>"
+                  f"<div class='sc-rstat-l'>Win Rate</div></div>"
+                  f"<div class='sc-rstat'>"
+                  f"<div class='sc-rstat-top' style='background:#a78bfa;opacity:0.5;'></div>"
+                  f"<div class='sc-rstat-v' style='color:#a78bfa;'>{_pf:.1f}×</div>"
+                  f"<div class='sc-rstat-l'>Profit Factor</div></div>"
+                  f"<div class='sc-rstat'>"
+                  f"<div class='sc-rstat-top' style='background:{_exp_c};opacity:0.6;'></div>"
+                  f"<div class='sc-rstat-v' style='color:{_exp_c};'>{_exp:+.1f}%</div>"
+                  f"<div class='sc-rstat-l'>Expectancy</div></div>"
+                  f"<div class='sc-rstat'>"
+                  f"<div class='sc-rstat-top' style='background:#4a9eff;opacity:0.4;'></div>"
+                  f"<div class='sc-rstat-v' style='color:#4a9eff;'>{_tot}</div>"
+                  f"<div class='sc-rstat-l'>Signals</div></div>"
+                  f"</div>"
+                  # price ladder
+                  + (f"<div style='padding:0.55rem 0.8rem 0.6rem;border-top:1px solid #161616;'>"
+                     f"{_ladder}</div>" if _ladder else '')
+                  + f"</div>",
+                  unsafe_allow_html=True)
 
-                    fig.update_layout(
-                        paper_bgcolor='#080808',
-                        plot_bgcolor='#0d0d0d',
-                        margin=dict(l=4, r=80, t=10, b=8),
-                        height=280,
-                        xaxis=dict(
-                            showgrid=False, zeroline=False,
-                            rangeslider=dict(visible=False),
-                            type='date',
-                            tickformat='%d %b',
-                            tickfont=dict(size=9, color='#484848'),
-                            nticks=8),
-                        yaxis=dict(
-                            showgrid=True, gridcolor='#161616', zeroline=False,
-                            tickfont=dict(size=9, color='#484848'), side='right'),
-                        showlegend=False)
-                    fig.update_xaxes(showspikes=False)
-                    fig.update_yaxes(showspikes=False)
+              # ── chart toggle button ───────────────────────────────────────────
+              _chart_key = f"lsc_chart_{_sym_d}"
+              _is_open   = st.session_state.lsc_chart_open.get(_chart_key, False)
+              st.markdown(
+                  "<style>"
+                  f"[class*='st-key-lsc_ctoggle_{_sym_d}'] .stButton>button{{"
+                  "background:#0d0d0d!important;border:1px solid #1e1e1e!important;"
+                  "border-top:none!important;border-radius:0 0 10px 10px!important;"
+                  "color:#303030!important;font-size:0.62rem!important;"
+                  "font-weight:800!important;width:100%!important;"
+                  "min-height:1.6rem!important;padding:0!important;"
+                  "letter-spacing:0.5px!important;transition:all .12s!important;}}"
+                  f"[class*='st-key-lsc_ctoggle_{_sym_d}'] .stButton>button:hover{{"
+                  "border-color:#2a2a2a!important;color:#505050!important;}}"
+                  "</style>",
+                  unsafe_allow_html=True)
+              with st.container(key=f"lsc_ctoggle_{_sym_d}"):
+                  if st.button(
+                      f"{'▲ Hide Chart' if _is_open else '▼ Show Chart'}",
+                      key=f"lsc_chart_btn_{_sym_d}",
+                      use_container_width=True):
+                      st.session_state.lsc_chart_open[_chart_key] = not _is_open
+                      st.rerun()
 
-                    # indicator ON/OFF pills HTML
-                    _ind_label_map = {
-                        'EMA':'EMA','SMA':'SMA','RSI':'RSI','MACD':'MACD',
-                        'BB':'BB','STOCH':'Stoch','ADX':'ADX','CCI':'CCI',
-                        'MFI':'MFI','OBV':'OBV','VWAP':'VWAP',
-                        'WILLR':'W%R','ROC':'ROC'}
-                    _ind_pills = ''.join(
-                        f"<span style='display:inline-flex;align-items:center;gap:0.28rem;"
-                        f"padding:0.18rem 0.55rem;border-radius:20px;font-size:0.62rem;"
-                        f"font-weight:900;letter-spacing:0.3px;"
-                        f"background:{'rgba(38,166,154,0.15)' if _ind_states.get(k) else 'rgba(239,83,80,0.08)'};"
-                        f"border:1px solid {'rgba(38,166,154,0.45)' if _ind_states.get(k) else 'rgba(239,83,80,0.25)'};"
-                        f"color:{'#26A69A' if _ind_states.get(k) else '#ef5350'};'>"
-                        f"{'●' if _ind_states.get(k) else '○'}&thinsp;"
-                        f"{_ind_label_map.get(k, k)}</span>"
-                        for k in _best_inds
-                    )
+              # ── chart (shown when open) ───────────────────────────────────────
+              if _is_open and _df_f is not None:
+                  try:
+                      import plotly.graph_objects as go
+                      import numpy as _np
+                      import pandas as _pd
+                      from scanner_engine import _build_states
 
-                    _fire_label = (
-                        f"<span style='color:#FFD700;font-weight:900;"
-                        f"font-size:0.65rem;'>● FIRING — {_today_str}</span>"
-                        if _currently_firing else
-                        f"<span style='color:#484848;font-weight:700;"
-                        f"font-size:0.65rem;'>last bar: {_today_str}</span>")
+                      _states_all = _build_states(_df_f)
+                      _N = len(_df_f)
 
-                    st.markdown(
-                        f"<div style='border:1px solid #1e1e1e;border-radius:10px;"
-                        f"overflow:hidden;background:#080808;margin-top:0.6rem;'>"
-                        f"<div style='padding:0.45rem 0.8rem;border-bottom:1px solid #181818;"
-                        f"display:flex;align-items:center;gap:0.55rem;flex-wrap:wrap;'>"
-                        f"<span style='font-size:0.55rem;font-weight:900;color:#2a2a2a;"
-                        f"text-transform:uppercase;letter-spacing:1px;'>Signal Chart</span>"
-                        f"<span style='font-size:0.6rem;color:#26A69A;'>▲ past fires</span>"
-                        f"<span style='margin-left:auto;'>{_fire_label}</span>"
-                        f"</div>"
-                        f"<div style='padding:0.4rem 0.8rem;border-bottom:1px solid #161616;"
-                        f"display:flex;align-items:center;gap:0.3rem;flex-wrap:wrap;'>"
-                        f"{_ind_pills}"
-                        f"</div>",
-                        unsafe_allow_html=True)
-                    st.plotly_chart(fig, use_container_width=True,
-                                    config={'displayModeBar': False})
-                    st.markdown("</div>", unsafe_allow_html=True)
-                except Exception:
-                    pass
+                      if _inds and all(k in _states_all for k in _inds):
+                          _combo_arr = _states_all[_inds[0]].copy()
+                          for _ik in _inds[1:]:
+                              _combo_arr = _combo_arr & _states_all[_ik]
+                          _edge = _np.zeros(_N, dtype=_np.int8)
+                          _edge[1:] = ((_combo_arr[1:] == 1) & (_combo_arr[:-1] == 0)).astype(_np.int8)
+                          _fire_idxs     = set(_np.where(_edge == 1)[0].tolist())
+                          _cur_firing    = bool(int(_combo_arr[-1]) == 1)
+                          _ind_states    = {k: bool(int(_states_all[k][-1]) == 1)
+                                            for k in _inds if k in _states_all}
+                      else:
+                          _fire_idxs  = set()
+                          _cur_firing = False
+                          _ind_states = {}
 
-            # spacer between stocks
-            st.markdown("<div style='height:1.2rem;'></div>", unsafe_allow_html=True)
+                      _tail     = 60
+                      _offset   = max(0, _N - _tail)
+                      _cdf      = _df_f.iloc[_offset:].copy().reset_index(drop=True)
+                      _today_s  = str(_cdf['Date'].iloc[-1])[:10] if 'Date' in _cdf.columns else ''
+                      _xd       = (_pd.to_datetime(_cdf['Date'])
+                                   if 'Date' in _cdf.columns else list(range(len(_cdf))))
+
+                      fig = go.Figure()
+                      fig.add_trace(go.Candlestick(
+                          x=_xd,
+                          open=_cdf['Open'], high=_cdf['High'],
+                          low=_cdf['Low'],   close=_cdf['Close'],
+                          increasing_line_color='#26A69A', decreasing_line_color='#ef5350',
+                          increasing_fillcolor='rgba(38,166,154,0.15)',
+                          decreasing_fillcolor='rgba(239,83,80,0.15)',
+                          line_width=1, name=''))
+
+                      # past fires
+                      _sdates, _slows = [], []
+                      for _fi in sorted(_fire_idxs):
+                          _ci = _fi - _offset
+                          if 0 <= _ci < len(_cdf) and _fi < _N - 1:
+                              _sdates.append(_xd.iloc[_ci] if hasattr(_xd, 'iloc') else _xd[_ci])
+                              _slows.append(float(_cdf['Low'].iloc[_ci]) * 0.993)
+                      if _sdates:
+                          fig.add_trace(go.Scatter(
+                              x=_sdates, y=_slows, mode='markers',
+                              marker=dict(symbol='triangle-up', size=10,
+                                          color='#26A69A', opacity=0.9,
+                                          line=dict(width=0)),
+                              hovertemplate='Signal fired<extra></extra>', name=''))
+
+                      # NOW marker
+                      _lx  = _xd.iloc[-1] if hasattr(_xd, 'iloc') else _xd[-1]
+                      _llo = float(_cdf['Low'].iloc[-1])
+                      _lhi = float(_cdf['High'].iloc[-1])
+                      if _cur_firing:
+                          fig.add_trace(go.Scatter(
+                              x=[_lx], y=[_llo * 0.988],
+                              mode='markers+text',
+                              marker=dict(symbol='triangle-up', size=16,
+                                          color='#FFD700', opacity=1.0,
+                                          line=dict(width=1, color='#b8860b')),
+                              text=['NOW'], textposition='bottom center',
+                              textfont=dict(size=8, color='#FFD700'),
+                              hovertemplate=f'FIRING NOW — {_today_s}<extra></extra>', name=''))
+
+                      fig.add_annotation(
+                          x=_lx, y=_lhi,
+                          text=f'<b>{_today_s}</b>',
+                          showarrow=True, arrowhead=0, arrowcolor='#333',
+                          arrowwidth=1, ax=0, ay=-22,
+                          font=dict(size=9, color='#FFD700' if _cur_firing else '#505050'),
+                          bgcolor='rgba(8,8,8,0.85)', borderpad=3)
+
+                      # levels
+                      if _ladder:
+                          for _lval, _lc, _ln, _ld in [
+                              (_en,   '#64b5f6', 'Entry', 'dash'),
+                              (_t1,   '#26A69A', 'T1',    'dot'),
+                              (_t2,   '#66bb6a', 'T2',    'dot'),
+                              (_sl_p, '#ef5350', 'Stop',  'dashdot')]:
+                              fig.add_hline(
+                                  y=_lval, line_color=_lc, line_dash=_ld,
+                                  line_width=1.4, opacity=0.9,
+                                  annotation_text=f'<b>{_ln}</b> {_lval:.2f}',
+                                  annotation_font_color=_lc, annotation_font_size=9,
+                                  annotation_bgcolor='rgba(8,8,8,0.85)',
+                                  annotation_position='right')
+
+                      fig.update_layout(
+                          paper_bgcolor='#080808', plot_bgcolor='#0d0d0d',
+                          margin=dict(l=4, r=80, t=10, b=8), height=280,
+                          xaxis=dict(showgrid=False, zeroline=False,
+                                     rangeslider=dict(visible=False),
+                                     type='date', tickformat='%d %b',
+                                     tickfont=dict(size=9, color='#484848'), nticks=8),
+                          yaxis=dict(showgrid=True, gridcolor='#161616', zeroline=False,
+                                     tickfont=dict(size=9, color='#484848'), side='right'),
+                          showlegend=False)
+                      fig.update_xaxes(showspikes=False)
+                      fig.update_yaxes(showspikes=False)
+
+                      # indicator pills
+                      _ind_pills = ''.join(
+                          f"<span style='display:inline-flex;align-items:center;gap:0.25rem;"
+                          f"padding:0.15rem 0.5rem;border-radius:20px;font-size:0.6rem;"
+                          f"font-weight:900;"
+                          f"background:{'rgba(38,166,154,0.14)' if _ind_states.get(k) else 'rgba(239,83,80,0.08)'};"
+                          f"border:1px solid {'rgba(38,166,154,0.4)' if _ind_states.get(k) else 'rgba(239,83,80,0.22)'};"
+                          f"color:{'#26A69A' if _ind_states.get(k) else '#ef5350'};'>"
+                          f"{'●' if _ind_states.get(k) else '○'}&thinsp;{_IND_SHORT.get(k,k)}</span>"
+                          for k in _inds)
+
+                      _fire_lbl = (
+                          f"<span style='color:#FFD700;font-weight:900;font-size:0.65rem;'>"
+                          f"● FIRING — {_today_s}</span>"
+                          if _cur_firing else
+                          f"<span style='color:#484848;font-weight:700;font-size:0.65rem;'>"
+                          f"last bar: {_today_s}</span>")
+
+                      st.markdown(
+                          f"<div style='border:1px solid #1e1e1e;border-radius:0 0 10px 10px;"
+                          f"overflow:hidden;background:#080808;'>"
+                          f"<div style='padding:0.4rem 0.8rem;border-bottom:1px solid #181818;"
+                          f"display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;'>"
+                          f"<span style='font-size:0.55rem;font-weight:900;color:#282828;"
+                          f"text-transform:uppercase;letter-spacing:1px;'>Signal History</span>"
+                          f"<span style='font-size:0.58rem;color:#26A69A;'>▲ past fires</span>"
+                          f"<span style='margin-left:auto;'>{_fire_lbl}</span></div>"
+                          f"<div style='padding:0.35rem 0.8rem;border-bottom:1px solid #161616;"
+                          f"display:flex;gap:0.28rem;flex-wrap:wrap;'>{_ind_pills}</div>",
+                          unsafe_allow_html=True)
+                      st.plotly_chart(fig, use_container_width=True,
+                                      config={'displayModeBar': False})
+                      st.markdown("</div>", unsafe_allow_html=True)
+                  except Exception:
+                      pass
+
+              st.markdown("<div style='height:1rem;'></div>", unsafe_allow_html=True)

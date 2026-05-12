@@ -2556,9 +2556,13 @@ def main():
         _ss_stat_key = f'_mstat_{_mkt_p}'
         _ss_ts_key   = f'_mkt_ts_{_mkt_p}'
 
-        # 10-min session TTL so forecast updates match market data (30min) + forecast (10min) cycle.
-        # Streamlit doesn't auto-rerun while idle, so session_state caches persist unless user refreshes.
-        # To force real-time updates, user must refresh browser or close/reopen the app.
+        # auto-refresh every 10 min so Market Status + Breadth stay current
+        try:
+            from streamlit_autorefresh import st_autorefresh as _sar
+            _sar(interval=600_000, limit=None, key="mkt_autorefresh")
+        except Exception:
+            pass
+
         import time as _t
         _now_ts  = _t.time()
         _SESS_TTL = 600  # 10 min
@@ -3193,9 +3197,9 @@ def main():
                                         st.session_state.mkt_period = _pk
                                         st.rerun()
 
-                    # Action buttons — User + Saved Strategies + Journal + Refresh
+                    # Action buttons — User + Scanner + Journal (auto-refresh, no manual button)
                     fav_count = len(st.session_state.get('favorites', []))
-                    _bu1, _bu2, _bu3, _bu4 = st.columns([1, 1, 1, 0.8], gap="small")
+                    _bu1, _bu2, _bu3 = st.columns([1, 1, 1], gap="small")
                     with _bu1:
                         with st.container(key="btn_user"):
                             _usr_lbl = f"◉  {username[:10]}"
@@ -3208,7 +3212,7 @@ def main():
                     with _bu2:
                         with st.container(key="btn_champions"):
                             _cv_is_active = st.session_state.get('show_champions_vault', False)
-                            _cv_lbl = "✕  Saved" if _cv_is_active else f"★  Saved ({fav_count})"
+                            _cv_lbl = "✕  Scanner" if _cv_is_active else "⟳  Scanner"
                             if st.button(_cv_lbl, key="toolbar_champions", use_container_width=True):
                                 st.session_state.show_champions_vault = not _cv_is_active
                                 if not _cv_is_active:
@@ -3224,13 +3228,6 @@ def main():
                                 if not _tj_active:
                                     st.session_state.show_user_panel = False
                                     st.session_state.show_champions_vault = False
-                                st.rerun()
-                    with _bu4:
-                        with st.container(key="btn_refresh"):
-                            if st.button("🔄", key="toolbar_refresh", use_container_width=True, help="Refresh all market data & forecast"):
-                                st.session_state.pop('_mkt_init_ts', None)
-                                st.session_state.pop('_tf_data_cache', None)
-                                st.session_state.pop('_tf_data_ts', None)
                                 st.rerun()
 
                     # User panel dropdown
