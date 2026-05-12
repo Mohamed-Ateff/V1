@@ -3949,8 +3949,8 @@ def main():
     elif st.session_state.show_champions_vault:
 
         apply_ui_theme()
-        from favorites_tab import render_champions_vault_page
-        render_champions_vault_page()
+        from favorites_tab import render_auto_scanner_page
+        render_auto_scanner_page()
 
     elif st.session_state.show_trade_journal:
 

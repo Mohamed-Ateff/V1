@@ -1385,13 +1385,13 @@ def render_champions_vault_page():
     # ── filter bar ───────────────────────────────────────────────────────────
     _fcol1, _fcol2, _fcol3 = st.columns([2, 1, 1], gap="small")
     with _fcol1:
-        _search = st.text_input("", placeholder="Search symbol or indicator…",
+        _search = st.text_input(" ", placeholder="Search symbol or indicator…",
                                 key="cv_search", label_visibility="collapsed")
     with _fcol2:
-        _regime_filter = st.selectbox("", ["All Regimes", "Trend", "Range", "Volatile"],
+        _regime_filter = st.selectbox(" ", ["All Regimes", "Trend", "Range", "Volatile"],
                                       key="cv_regime_filter", label_visibility="collapsed")
     with _fcol3:
-        _period_filter = st.selectbox("", ["All Periods", "Short", "Medium", "Long"],
+        _period_filter = st.selectbox(" ", ["All Periods", "Short", "Medium", "Long"],
                                       key="cv_period_filter", label_visibility="collapsed")
 
     _sq = _search.strip().lower() if _search else ""
@@ -1830,3 +1830,1004 @@ def _render_live_signals(rc_favs: list) -> None:
             unsafe_allow_html=True)
         for _b in _wait_blocks:
             _render_stock_block(_b)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  AUTO SCANNER PAGE  —  fast, all tickers, period filter, 3-col grid
+# ══════════════════════════════════════════════════════════════════════════════
+
+def render_auto_scanner_page() -> None:
+    from scanner_engine import scan_stock, _REGIME_COLORS, _REGIME_ICONS
+    from market_data import get_all_tadawul_tickers
+
+    _PERIODS = ['Short', 'Medium', 'Long']
+
+    _ticker_map = get_all_tadawul_tickers()   # {sym: name}
+    _ALL_SYMS   = list(_ticker_map.keys())
+
+    # ── helpers ───────────────────────────────────────────────────────────────
+    def _ind_label(inds):
+        _D = {'EMA':'EMA 20/50','SMA':'SMA 50/200','RSI':'RSI 14',
+              'MACD':'MACD','BB':'Bollinger','STOCH':'Stochastic',
+              'ADX':'ADX','CCI':'CCI 20','MFI':'MFI 14',
+              'OBV':'OBV','VWAP':'VWAP','WILLR':'Williams %R','ROC':'ROC 12'}
+        return ' + '.join(_D.get(k, k) for k in inds)
+
+    def _wr_col(wr):
+        return '#26A69A' if wr >= 55 else ('#FFC107' if wr >= 45 else '#ef5350')
+
+    def _price_box(df, price):
+        """Return price-ladder HTML or ''."""
+        if df is None or price <= 0:
+            return ''
+        try:
+            from _levels import compute_structural_levels
+            lv  = compute_structural_levels(df, price, True)
+            en  = lv['entry']; st_ = lv['stop']
+            t1  = lv['t1'];    t2  = lv['t2']
+            rp  = round(abs(en - st_) / en * 100, 1) if en else 0
+            t1p = round((t1 - en) / en * 100, 1)     if en else 0
+            t2p = round((t2 - en) / en * 100, 1)     if en else 0
+            return (
+                f"<div class='sc-pb'>"
+                f"<div class='sc-pc'>"
+                f"<div class='sc-pcb' style='background:#64b5f6;'></div>"
+                f"<div class='sc-pcl'>Entry</div>"
+                f"<div class='sc-pcv' style='color:#64b5f6;'>{en:.2f}</div>"
+                f"</div>"
+                f"<div class='sc-pc'>"
+                f"<div class='sc-pcb' style='background:#ef5350;'></div>"
+                f"<div class='sc-pcl'>Stop Loss</div>"
+                f"<div class='sc-pcv' style='color:#ef5350;'>{st_:.2f}</div>"
+                f"<div class='sc-pcs'>−{rp}%</div>"
+                f"</div>"
+                f"<div class='sc-pc'>"
+                f"<div class='sc-pcb' style='background:#26A69A;'></div>"
+                f"<div class='sc-pcl'>Target 1</div>"
+                f"<div class='sc-pcv' style='color:#26A69A;'>{t1:.2f}</div>"
+                f"<div class='sc-pcs'>+{t1p}%</div>"
+                f"</div>"
+                f"<div class='sc-pc'>"
+                f"<div class='sc-pcb' style='background:#66bb6a;'></div>"
+                f"<div class='sc-pcl'>Target 2</div>"
+                f"<div class='sc-pcv' style='color:#66bb6a;'>{t2:.2f}</div>"
+                f"<div class='sc-pcs'>+{t2p}%</div>"
+                f"</div>"
+                f"</div>"
+            )
+        except Exception:
+            return ''
+
+    # ── CSS ───────────────────────────────────────────────────────────────────
+    st.markdown("""
+    <style>
+    header[data-testid="stHeader"],[data-testid="stToolbar"],
+    [data-testid="stDecoration"]{display:none!important;}
+    .main .block-container,div.block-container{
+        max-width:98%!important;padding:1.3rem 1.6rem 5rem!important;}
+
+    /* ── top bar ─────────────────────────────────────────────────────────── */
+    .sc-tb{display:flex;align-items:center;gap:1rem;margin-bottom:1.2rem;flex-wrap:wrap;}
+    .sc-title{font-size:1.4rem;font-weight:900;color:#e8e8e8;letter-spacing:-0.5px;}
+    .sc-sub{font-size:0.62rem;color:#383838;font-weight:600;margin-top:0.1rem;}
+    .sc-div{width:1px;height:1.8rem;background:#222;flex-shrink:0;}
+    .sc-kv{font-size:1.1rem;font-weight:900;line-height:1.1;}
+    .sc-kl{font-size:0.5rem;font-weight:700;color:#333;
+           text-transform:uppercase;letter-spacing:1px;margin-top:0.12rem;}
+
+    /* ── back button ─────────────────────────────────────────────────────── */
+    .st-key-sc_back .stButton>button{
+        background:transparent!important;border:1px solid #252525!important;
+        border-radius:8px!important;color:#444!important;
+        font-size:0.7rem!important;font-weight:700!important;
+        padding:0.38rem 0.9rem!important;min-height:auto!important;
+        transition:all .15s!important;}
+    .st-key-sc_back .stButton>button:hover{
+        border-color:#444!important;color:#888!important;}
+
+    /* ── controls panel ──────────────────────────────────────────────────── */
+    .sc-panel{background:#0c0c0c;border:1px solid #1e1e1e;border-radius:12px;
+              padding:0.7rem 1rem;margin-bottom:1.2rem;}
+    .sc-panel-row{display:flex;align-items:center;gap:0.5rem;
+                  flex-wrap:wrap;margin-bottom:0.4rem;}
+    .sc-panel-row:last-child{margin-bottom:0;}
+    .sc-ctrl-lbl{font-size:0.52rem;font-weight:800;color:#404040;
+                 text-transform:uppercase;letter-spacing:1px;
+                 white-space:nowrap;min-width:3.2rem;}
+    .sc-vsep{width:1px;height:1.2rem;background:#222;flex-shrink:0;margin:0 0.15rem;}
+
+    /* all pill-style filter buttons share this base */
+    [class*="st-key-scf_"] .stButton>button,
+    [class*="st-key-scp_"] .stButton>button,
+    [class*="st-key-scs_"] .stButton>button,
+    [class*="st-key-scw_"] .stButton>button,
+    [class*="st-key-sck_"] .stButton>button{
+        background:#0a0a0a!important;border:1px solid #222!important;
+        border-radius:20px!important;color:#3a3a3a!important;
+        font-size:0.67rem!important;font-weight:800!important;
+        min-height:1.65rem!important;padding:0 0.88rem!important;
+        transition:all .12s!important;letter-spacing:0.1px!important;}
+
+    /* active period pill — purple */
+    [class*="st-key-scp_on"] .stButton>button{
+        background:rgba(167,139,250,0.12)!important;
+        border-color:rgba(167,139,250,0.45)!important;
+        color:#c4b5fd!important;}
+
+    /* active regime pill — teal */
+    [class*="st-key-scf_on"] .stButton>button{
+        background:rgba(38,166,154,0.12)!important;
+        border-color:rgba(38,166,154,0.40)!important;
+        color:#26A69A!important;}
+
+    /* active min-WR pill — amber */
+    [class*="st-key-scw_on"] .stButton>button{
+        background:rgba(255,193,7,0.10)!important;
+        border-color:rgba(255,193,7,0.38)!important;
+        color:#FFC107!important;}
+
+    /* active show pill — blue */
+    [class*="st-key-scs_on"] .stButton>button{
+        background:rgba(100,181,246,0.10)!important;
+        border-color:rgba(100,181,246,0.38)!important;
+        color:#64b5f6!important;}
+
+    /* active sort pill — pink */
+    [class*="st-key-sck_on"] .stButton>button{
+        background:rgba(240,98,146,0.10)!important;
+        border-color:rgba(240,98,146,0.38)!important;
+        color:#f06292!important;}
+
+    /* run scanner button */
+    .st-key-sc_run .stButton>button{
+        background:rgba(38,166,154,0.10)!important;
+        border:1px solid rgba(38,166,154,0.35)!important;
+        border-radius:20px!important;color:#26A69A!important;
+        font-size:0.67rem!important;font-weight:800!important;
+        min-height:1.65rem!important;padding:0 1rem!important;
+        transition:all .15s!important;}
+    .st-key-sc_run .stButton>button:hover{
+        background:rgba(38,166,154,0.18)!important;
+        box-shadow:0 0 14px rgba(38,166,154,0.14)!important;}
+
+    /* ── stock band (Section 1 — Scanned Strategies) ────────────────────── */
+    .sc-band{border:1px solid #222;border-radius:13px;
+             overflow:hidden;margin-bottom:0.5rem;background:#0d0d0d;}
+    .sc-band-hdr{display:flex;align-items:center;gap:0.65rem;
+                 padding:0.6rem 1rem;background:#111;
+                 border-bottom:1px solid #1e1e1e;}
+    .sc-sym{font-size:1.05rem;font-weight:900;color:#e2e2e2;letter-spacing:-0.2px;}
+    .sc-sname{font-size:0.65rem;color:#3e3e3e;font-weight:700;
+              background:#181818;border:1px solid #252525;
+              border-radius:6px;padding:0.1rem 0.45rem;white-space:nowrap;}
+    .sc-ct{margin-left:auto;font-size:0.55rem;color:#2e2e2e;font-weight:700;
+           background:#161616;border:1px solid #222;border-radius:6px;
+           padding:0.1rem 0.42rem;}
+
+    /* ── regime card (Section 1) ─────────────────────────────────────────── */
+    .sc-rpill{font-size:0.6rem;font-weight:900;padding:0.18rem 0.58rem;
+              border-radius:20px;white-space:nowrap;flex-shrink:0;
+              text-transform:uppercase;letter-spacing:0.5px;}
+    .sc-rcard{border:1px solid #1e1e1e;border-radius:9px;overflow:hidden;
+              background:#0b0b0b;height:100%;}
+    .sc-rcard-top{display:flex;align-items:center;gap:0.4rem;
+                  padding:0.45rem 0.7rem;border-bottom:1px solid #1a1a1a;}
+    .sc-rcard-inds{padding:0.4rem 0.7rem;border-bottom:1px solid #161616;
+                   display:flex;flex-wrap:wrap;gap:0.25rem;}
+    .sc-rind-tag{display:inline-block;background:#141414;border:1px solid #222;
+                 border-radius:5px;padding:0.08rem 0.4rem;
+                 font-size:0.65rem;font-weight:700;color:#686868;letter-spacing:0.1px;}
+    .sc-rcard-stats{display:grid;grid-template-columns:repeat(4,1fr);}
+    .sc-rstat{padding:0.55rem 0.5rem;border-right:1px solid #161616;
+              text-align:center;position:relative;}
+    .sc-rstat:last-child{border-right:none;}
+    .sc-rstat-top{height:2px;position:absolute;top:0;left:0;right:0;}
+    .sc-rstat-v{font-size:0.92rem;font-weight:900;line-height:1;margin-bottom:0.18rem;}
+    .sc-rstat-l{font-size:0.5rem;font-weight:800;text-transform:uppercase;
+                letter-spacing:0.9px;color:#404040;}
+    .sc-cempty{font-size:0.62rem;color:#252525;font-weight:700;
+               padding:1.4rem 0.65rem;text-align:center;}
+    .sc-cfire{display:inline-block;margin-left:auto;font-size:0.56rem;font-weight:900;
+              padding:0.12rem 0.5rem;border-radius:20px;
+              background:rgba(38,166,154,0.12);border:1px solid rgba(38,166,154,0.35);
+              color:#26A69A;letter-spacing:0.6px;text-transform:uppercase;
+              box-shadow:0 0 8px rgba(38,166,154,0.15);}
+
+    /* ── section divider ─────────────────────────────────────────────────── */
+    .sc-sd{display:flex;align-items:center;gap:0.6rem;margin:2.5rem 0 1rem;}
+    .sc-sdl{flex:1;height:1px;background:#191919;}
+    .sc-sdp{display:flex;align-items:center;gap:0.45rem;
+            background:#0d0d0d;border:1px solid #1e1e1e;
+            border-radius:20px;padding:0.28rem 0.88rem;}
+    .sc-sdd{width:7px;height:7px;border-radius:50%;}
+    .sc-sdlbl{font-size:0.68rem;font-weight:800;color:#b8b8b8;
+              text-transform:uppercase;letter-spacing:0.9px;}
+
+    /* ── live pulse ──────────────────────────────────────────────────────── */
+    @keyframes lp{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(38,166,154,0.5);}
+                  60%{opacity:.5;box-shadow:0 0 0 5px rgba(38,166,154,0);}}
+    .sc-live-dot{display:inline-block;width:7px;height:7px;border-radius:50%;
+                 background:#26A69A;animation:lp 2s ease-out infinite;flex-shrink:0;}
+
+    /* ── LSC section label ───────────────────────────────────────────────── */
+    .lsc-section-hdr{display:flex;align-items:center;gap:1rem;margin:2.8rem 0 1.4rem;}
+    .lsc-section-line{flex:1;height:1px;background:linear-gradient(90deg,#1e1e1e,transparent);}
+    .lsc-section-line-r{flex:1;height:1px;background:linear-gradient(90deg,transparent,#1e1e1e);}
+    .lsc-section-pill{display:flex;align-items:center;gap:0.5rem;white-space:nowrap;
+                      background:#0c0c0c;border:1px solid #242424;
+                      border-radius:20px;padding:0.35rem 1.1rem;}
+    .lsc-section-label{font-size:0.7rem;font-weight:900;color:#c0c0c0;
+                       text-transform:uppercase;letter-spacing:1.2px;}
+    .lsc-section-count{font-size:0.6rem;font-weight:900;
+                       background:rgba(38,166,154,0.15);
+                       border:1px solid rgba(38,166,154,0.30);
+                       color:#26A69A;border-radius:20px;padding:0.08rem 0.5rem;}
+
+    /* ── signal card ─────────────────────────────────────────────────────── */
+    .lsc-card{border-radius:12px;overflow:hidden;margin-bottom:0.7rem;
+              background:#0d0d0d;border:1px solid #222;}
+    .lsc-card-strip{height:2px;width:100%;}
+
+    /* header */
+    .lsc-card-hdr{display:flex;align-items:center;gap:0.65rem;
+                  padding:0.65rem 1.1rem;border-bottom:1px solid #1a1a1a;flex-wrap:nowrap;}
+    .lsc-ticker{font-size:1.1rem;font-weight:900;color:#f0f0f0;
+                letter-spacing:-0.3px;line-height:1;white-space:nowrap;}
+    .lsc-co{font-size:1.1rem;font-weight:900;color:#333;white-space:nowrap;
+            overflow:hidden;text-overflow:ellipsis;max-width:14rem;
+            letter-spacing:-0.3px;line-height:1;}
+    .lsc-mkt-badge{font-size:0.62rem;font-weight:900;padding:0.18rem 0.65rem;
+                   border-radius:20px;border-width:1px;border-style:solid;
+                   text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap;}
+    .lsc-best-badge{font-size:0.62rem;font-weight:900;padding:0.18rem 0.65rem;
+                    border-radius:20px;border:1px solid #b8860baa;
+                    background:linear-gradient(135deg,#b8860b,#8b6508);
+                    color:#fff8dc;white-space:nowrap;
+                    letter-spacing:0.4px;text-transform:uppercase;
+                    box-shadow:0 0 16px #b8860b88,0 0 4px #b8860b66;}
+
+    /* regime rows inside lsc card */
+    .lsc-rrow{display:flex;align-items:center;gap:0.6rem;
+              padding:0.65rem 1.1rem;border-top:1px solid #181818;
+              border-left:2px solid transparent;}
+    .lsc-rrow-left{display:flex;align-items:center;gap:0.45rem;flex-wrap:wrap;flex:1;min-width:0;}
+    .lsc-rrow-inds{display:flex;flex-wrap:wrap;gap:0.28rem;margin-top:0.3rem;width:100%;}
+    .lsc-rrow-stats{display:flex;gap:0;flex-shrink:0;}
+    .lsc-rsc{padding:0.4rem 0.7rem;text-align:center;border-left:1px solid #1a1a1a;}
+    .lsc-rsv{font-size:0.95rem;font-weight:900;line-height:1;letter-spacing:-0.2px;}
+    .lsc-rsl{font-size:0.5rem;font-weight:800;text-transform:uppercase;
+             letter-spacing:0.9px;color:#484848;margin-top:0.12rem;}
+    .lsc-price-chip{font-size:1.0rem;font-weight:900;color:#26A69A;
+                    white-space:nowrap;letter-spacing:-0.2px;}
+
+    /* body */
+    .lsc-body{padding:0.7rem 1.1rem 0.85rem;}
+
+    /* indicators row */
+    .lsc-top-row{display:flex;align-items:center;gap:0.45rem;
+                 flex-wrap:wrap;margin-bottom:0.6rem;}
+    .lsc-ind-tag{display:inline-block;background:#141414;border:1px solid #252525;
+                 border-radius:6px;padding:0.22rem 0.65rem;
+                 font-size:0.78rem;font-weight:700;color:#888;
+                 letter-spacing:0.1px;white-space:nowrap;}
+
+    /* stats row */
+    .lsc-stats{display:flex;gap:0;border:1px solid #202020;border-radius:9px;
+               overflow:hidden;margin-bottom:0.6rem;}
+    .lsc-sc{flex:1;padding:0.5rem 0.4rem;text-align:center;
+            border-right:1px solid #1a1a1a;background:#0a0a0a;}
+    .lsc-sc:last-child{border-right:none;}
+    .lsc-sv{font-size:1.0rem;font-weight:900;line-height:1;letter-spacing:-0.2px;}
+    .lsc-sl{font-size:0.55rem;font-weight:700;text-transform:uppercase;
+            letter-spacing:0.8px;color:#505050;margin-top:0.14rem;}
+
+    /* price ladder */
+    .lsc-ladder{display:grid;grid-template-columns:repeat(4,1fr);
+                border:1px solid #202020;border-radius:9px;overflow:hidden;}
+    .lsc-lc{padding:0.65rem 0.8rem;border-right:1px solid #1a1a1a;
+            background:#0a0a0a;position:relative;}
+    .lsc-lc:last-child{border-right:none;}
+    .lsc-lc-bar{position:absolute;top:0;left:0;right:0;height:3px;}
+    .lsc-ll{font-size:0.58rem;font-weight:700;text-transform:uppercase;
+            letter-spacing:0.8px;color:#585858;margin-bottom:0.18rem;}
+    .lsc-lv{font-size:1.15rem;font-weight:900;line-height:1;letter-spacing:-0.3px;}
+    .lsc-lp{font-size:0.68rem;font-weight:800;margin-top:0.14rem;}
+
+    /* divider sep */
+    .sc-sd{display:flex;align-items:center;gap:0.6rem;margin:2.2rem 0 1rem;}
+    .sc-sdl{flex:1;height:1px;background:#191919;}
+    .sc-sdp{display:flex;align-items:center;gap:0.45rem;
+            background:#0d0d0d;border:1px solid #1e1e1e;
+            border-radius:20px;padding:0.28rem 0.88rem;}
+    .sc-sdd{width:7px;height:7px;border-radius:50%;}
+    .sc-sdlbl{font-size:0.68rem;font-weight:800;color:#b8b8b8;
+              text-transform:uppercase;letter-spacing:0.9px;}
+    </style>
+    """, unsafe_allow_html=True)
+
+    # ── session state defaults ────────────────────────────────────────────────
+    _SS_DEFS = [
+        ('sc_period',  'Medium'),
+        ('sc_results', None),
+        ('sc_done',    False),
+        ('sc_regime',  'All'),       # regime filter
+        ('sc_minwr',   0),           # min win-rate filter (0 = off)
+        ('sc_show',    'All'),       # All | Firing
+        ('sc_sort',    'WinRate'),   # WinRate | Alpha | Firing
+    ]
+    for _k, _v in _SS_DEFS:
+        if _k not in st.session_state:
+            st.session_state[_k] = _v
+
+    # ── top bar ───────────────────────────────────────────────────────────────
+    _n_res  = len(st.session_state.sc_results or [])
+    _n_fire = sum(
+        1 for row in (st.session_state.sc_results or [])
+        if any((v or {}).get('firing')
+               for v in (row.get('regimes') or {}).values())
+    )
+    _tl, _tr = st.columns([1, 0.12])
+    with _tl:
+        st.markdown(
+            "<div class='sc-tb'>"
+            "<div><div class='sc-title'>Strategy Scanner</div>"
+            "<div class='sc-sub'>All Tadawul stocks · best combo per regime · auto</div></div>"
+            "<div class='sc-div'></div>"
+            f"<div><div class='sc-kv' style='color:#a78bfa;'>{len(_ALL_SYMS)}</div>"
+            f"<div class='sc-kl'>Stocks</div></div>"
+            "<div class='sc-div'></div>"
+            f"<div><div class='sc-kv' style='color:#606060;'>{_n_res}</div>"
+            f"<div class='sc-kl'>Scanned</div></div>"
+            "<div class='sc-div'></div>"
+            f"<div><div class='sc-kv' style='color:#26A69A;'>{_n_fire}</div>"
+            f"<div class='sc-kl'>Firing</div></div>"
+            "</div>",
+            unsafe_allow_html=True)
+    with _tr:
+        with st.container(key="sc_back"):
+            if st.button("← Back", key="sc_back_btn", use_container_width=True):
+                st.session_state.show_champions_vault = False
+                st.rerun()
+
+    # ── controls panel ────────────────────────────────────────────────────────
+    def _pill_row(label, options, state_key, prefix, reset_scan=False,
+                  extra_cols=None):
+        """Render a labeled row of pill buttons. Returns True if any clicked."""
+        _cur = st.session_state[state_key]
+        _n   = len(options)
+        _widths = [0.42] + [0.65] * _n + (extra_cols or [])
+        _cols = st.columns(_widths, gap="small")
+        with _cols[0]:
+            st.markdown(
+                f"<div class='sc-ctrl-lbl' style='line-height:1.65rem;'>{label}</div>",
+                unsafe_allow_html=True)
+        for _i, (_lbl, _val) in enumerate(options):
+            _active = 'on' if _cur == _val else f'off{_i}'
+            with _cols[_i + 1]:
+                with st.container(key=f"{prefix}_{_active}_{_i}"):
+                    if st.button(_lbl, key=f"{prefix}_btn_{_val}",
+                                 use_container_width=True):
+                        st.session_state[state_key] = _val
+                        if reset_scan:
+                            st.session_state.sc_results = None
+                            st.session_state.sc_done    = False
+                        st.rerun()
+        return _cols
+
+    st.markdown("<div class='sc-panel'>", unsafe_allow_html=True)
+
+    # Row 1: Period  +  vsep  +  ↻ Scan
+    st.markdown("<div class='sc-panel-row'>", unsafe_allow_html=True)
+    _r1 = st.columns([0.42, 0.65, 0.65, 0.65, 0.08, 0.75], gap="small")
+    with _r1[0]:
+        st.markdown(
+            "<div class='sc-ctrl-lbl' style='line-height:1.65rem;'>Period</div>",
+            unsafe_allow_html=True)
+    for _pi, _po in enumerate(_PERIODS):
+        _pk = 'scp_on' if st.session_state.sc_period == _po else f'scp_off{_pi}'
+        with _r1[_pi + 1]:
+            with st.container(key=f"{_pk}_{_pi}"):
+                if st.button(_po, key=f"scp_{_po}", use_container_width=True):
+                    st.session_state.sc_period  = _po
+                    st.session_state.sc_results = None
+                    st.session_state.sc_done    = False
+                    st.rerun()
+    with _r1[4]:
+        st.markdown("<div class='sc-vsep'></div>", unsafe_allow_html=True)
+    with _r1[5]:
+        with st.container(key="sc_run"):
+            if st.button("↻  Scan", key="sc_run_btn", use_container_width=True):
+                st.session_state.sc_results = None
+                st.session_state.sc_done    = False
+                st.rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # Row 2: Show  +  vsep  +  Sort
+    st.markdown("<div class='sc-panel-row'>", unsafe_allow_html=True)
+    _show_opts = [('All','All'),('Firing Only','Firing')]
+    _sort_opts = [('Best WR','WinRate'),('A → Z','Alpha'),('Firing First','Firing')]
+    _r4 = st.columns(
+        [0.42, 0.55, 0.82, 0.08, 0.42, 0.75, 0.6, 0.88],
+        gap="small")
+    with _r4[0]:
+        st.markdown(
+            "<div class='sc-ctrl-lbl' style='line-height:1.65rem;'>Show</div>",
+            unsafe_allow_html=True)
+    for _i, (_lbl, _val) in enumerate(_show_opts):
+        _active = 'on' if st.session_state.sc_show == _val else f'off{_i}'
+        with _r4[_i + 1]:
+            with st.container(key=f"scs_{_active}_{_i}"):
+                if st.button(_lbl, key=f"scs_btn_{_val}", use_container_width=True):
+                    st.session_state.sc_show = _val
+                    st.rerun()
+    with _r4[3]:
+        st.markdown("<div class='sc-vsep'></div>", unsafe_allow_html=True)
+    with _r4[4]:
+        st.markdown(
+            "<div class='sc-ctrl-lbl' style='line-height:1.65rem;'>Sort</div>",
+            unsafe_allow_html=True)
+    for _i, (_lbl, _val) in enumerate(_sort_opts):
+        _active = 'on' if st.session_state.sc_sort == _val else f'off{_i}'
+        with _r4[_i + 5]:
+            with st.container(key=f"sck_{_active}_{_i}"):
+                if st.button(_lbl, key=f"sck_btn_{_val}", use_container_width=True):
+                    st.session_state.sc_sort = _val
+                    st.rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown("</div>", unsafe_allow_html=True)  # end sc-panel
+
+    # ── scan ─────────────────────────────────────────────────────────────────
+    _sel_period = st.session_state.sc_period
+
+    if not st.session_state.sc_done:
+        _out  = []
+        _tot  = len(_ALL_SYMS)
+        _prog = st.progress(0, text="Scanning…")
+        for _i, _sym in enumerate(_ALL_SYMS):
+            _data = scan_stock(_sym, _sel_period)
+            if _data:
+                _data['_sym']   = _sym
+                _data['_sname'] = _ticker_map.get(_sym, '')
+                _out.append(_data)
+            _prog.progress((_i + 1) / _tot,
+                           text=f"{_sym.replace('.SR','')} ({_i+1}/{_tot})")
+        _prog.empty()
+        st.session_state.sc_results      = _out
+        st.session_state.sc_done         = True
+        st.session_state.sc_show_all_strats = False
+        st.rerun()
+
+    _rows_all = st.session_state.sc_results or []
+    if not _rows_all:
+        st.markdown(
+            "<div style='background:#0d0d0d;border:1px solid #1a1a1a;"
+            "border-radius:12px;padding:4rem 2rem;text-align:center;'>"
+            "<div style='font-size:1rem;font-weight:800;color:#2a2a2a;'>"
+            "No results — tap Scan</div></div>",
+            unsafe_allow_html=True)
+        return
+
+    # ── apply filters ─────────────────────────────────────────────────────────
+    _f_show   = st.session_state.sc_show     # 'All' | 'Firing'
+    _f_sort   = st.session_state.sc_sort     # 'WinRate' | 'Alpha' | 'Firing'
+
+    def _best_wr(row):
+        regs = row.get('regimes') or {}
+        vals = [float(cb.get('win_rate', 0) or 0) for cb in regs.values() if cb]
+        return max(vals) if vals else 0.0
+
+    def _has_firing(row):
+        regs = row.get('regimes') or {}
+        return any((cb or {}).get('firing') for cb in regs.values())
+
+    _rows = list(_rows_all)
+    if _f_show == 'Firing':
+        _rows = [r for r in _rows if _has_firing(r)]
+
+    # sort
+    if _f_sort == 'WinRate':
+        _rows = sorted(_rows, key=_best_wr, reverse=True)
+    elif _f_sort == 'Alpha':
+        _rows = sorted(_rows, key=lambda r: r['_sym'])
+    elif _f_sort == 'Firing':
+        _rows = sorted(_rows, key=lambda r: (not _has_firing(r), -_best_wr(r)))
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # SECTION 1 — Scanned Strategy Grid
+    # ══════════════════════════════════════════════════════════════════════════
+    _n_firing_rows = sum(1 for r in _rows if _has_firing(r))
+    st.markdown(
+        f"<div style='display:flex;align-items:center;gap:0.7rem;"
+        f"margin-bottom:0.9rem;flex-wrap:wrap;'>"
+        f"<span style='font-size:0.95rem;font-weight:900;color:#d0d0d0;letter-spacing:-0.2px;'>"
+        f"Scanned Strategies</span>"
+        f"<span style='font-size:0.6rem;color:#303030;background:#141414;"
+        f"border:1px solid #222;border-radius:6px;padding:0.1rem 0.5rem;font-weight:700;'>"
+        f"{_sel_period}</span>"
+        + (f"<span style='font-size:0.6rem;color:#26A69A;background:rgba(38,166,154,0.08);"
+           f"border:1px solid rgba(38,166,154,0.25);border-radius:6px;"
+           f"padding:0.1rem 0.5rem;font-weight:900;'>⚡ {_n_firing_rows} firing</span>"
+           if _n_firing_rows else '')
+        + f"<span style='font-size:0.6rem;color:#2e2e2e;margin-left:auto;font-weight:700;'>"
+        f"{len(_rows)} stocks</span>"
+        f"</div>",
+        unsafe_allow_html=True)
+
+    _PREVIEW_COUNT = 5
+    _show_all_key  = 'sc_show_all_strats'
+    if _show_all_key not in st.session_state:
+        st.session_state[_show_all_key] = False
+
+    _rows_to_show = _rows if st.session_state[_show_all_key] else _rows[:_PREVIEW_COUNT]
+
+    for _row in _rows_to_show:
+        _sym   = _row['_sym']
+        _sname = _row['_sname']
+        _sym_d = _sym.replace('.SR', '')
+        _regs  = _row.get('regimes', {})
+        _n_ok  = sum(1 for v in _regs.values() if v)
+        _has_fire = any((v or {}).get('firing') for v in _regs.values())
+
+        st.markdown(
+            f"<div class='sc-band'>"
+            f"<div class='sc-band-hdr'>"
+            f"<span class='sc-sym'>{_sym_d}</span>"
+            + (f"<span class='sc-sname'>{_sname}</span>" if _sname else '')
+            + (
+                "<span style='margin-left:auto;font-size:0.52rem;font-weight:900;"
+                "padding:0.12rem 0.5rem;border-radius:20px;"
+                "background:rgba(38,166,154,0.13);border:1px solid rgba(38,166,154,0.38);"
+                "color:#26A69A;letter-spacing:0.5px;'>● FIRING</span>"
+                if _has_fire else
+                f"<span class='sc-ct'>{_n_ok}/3 regimes</span>"
+            )
+            + f"</div></div>",
+            unsafe_allow_html=True)
+
+        for _rname, _col in zip(('TREND','RANGE','VOLATILE'), st.columns(3, gap="small")):
+            _combo  = _regs.get(_rname)
+            _rc_col = _REGIME_COLORS.get(_rname, '#888')
+            _ri     = _REGIME_ICONS.get(_rname, '★')
+            with _col:
+                if not _combo:
+                    st.markdown(
+                        f"<div class='sc-rcard'>"
+                        f"<div class='sc-rcard-top'>"
+                        f"<span class='sc-rpill' style='background:#181818;color:#2a2a2a;'>"
+                        f"{_ri}&nbsp;{_rname.title()}</span>"
+                        f"</div>"
+                        f"<div class='sc-cempty'>—</div>"
+                        f"</div>",
+                        unsafe_allow_html=True)
+                    continue
+
+                _wr   = float(_combo.get('win_rate', 0) or 0)
+                _pf   = float(_combo.get('profit_factor', 0) or 0)
+                _exp  = float(_combo.get('expectancy', 0) or 0)
+                _tot  = int(_combo.get('total', 0) or 0)
+                _inds = _combo.get('indicators', [])
+                _fire = _combo.get('firing', False)
+                _wc   = _wr_col(_wr)
+                _exp_c = '#26A69A' if _exp > 0 else '#ef5350'
+                _ind_tags = ''.join(
+                    f"<span class='sc-rind-tag'>{_ind_label([k])}</span>"
+                    for k in _inds)
+
+                st.markdown(
+                    f"<div class='sc-rcard'"
+                    + (f" style='border-color:rgba(38,166,154,0.30);'" if _fire else '')
+                    + f">"
+                    f"<div class='sc-rcard-top'"
+                    + (f" style='background:rgba(38,166,154,0.05);'" if _fire else '')
+                    + f">"
+                    f"<span class='sc-rpill' style='background:{_rc_col};color:#0a0a0a;"
+                    f"box-shadow:0 0 8px {_rc_col}44;'>"
+                    f"{_ri}&thinsp;{_rname.title()}</span>"
+                    + (f"<span class='sc-cfire'>⚡ FIRING</span>" if _fire else '')
+                    + f"</div>"
+                    f"<div class='sc-rcard-inds'>{_ind_tags}</div>"
+                    f"<div class='sc-rcard-stats'>"
+                    f"<div class='sc-rstat'>"
+                    f"<div class='sc-rstat-top' style='background:{_wc};opacity:0.6;'></div>"
+                    f"<div class='sc-rstat-v' style='color:{_wc};'>{_wr:.0f}%</div>"
+                    f"<div class='sc-rstat-l'>Win Rate</div></div>"
+                    f"<div class='sc-rstat'>"
+                    f"<div class='sc-rstat-top' style='background:#a78bfa;opacity:0.5;'></div>"
+                    f"<div class='sc-rstat-v' style='color:#a78bfa;'>{_pf:.1f}×</div>"
+                    f"<div class='sc-rstat-l'>Profit Factor</div></div>"
+                    f"<div class='sc-rstat'>"
+                    f"<div class='sc-rstat-top' style='background:{_exp_c};opacity:0.6;'></div>"
+                    f"<div class='sc-rstat-v' style='color:{_exp_c};'>{_exp:+.1f}%</div>"
+                    f"<div class='sc-rstat-l'>Expectancy</div></div>"
+                    f"<div class='sc-rstat'>"
+                    f"<div class='sc-rstat-top' style='background:#4a9eff;opacity:0.4;'></div>"
+                    f"<div class='sc-rstat-v' style='color:#4a9eff;'>{_tot}</div>"
+                    f"<div class='sc-rstat-l'>Signals</div></div>"
+                    f"</div>"
+                    f"</div>",
+                    unsafe_allow_html=True)
+
+    # ── expand / collapse button for Section 1 ────────────────────────────
+    if len(_rows) > _PREVIEW_COUNT:
+        _remaining = len(_rows) - _PREVIEW_COUNT
+        _btn_label = (
+            f"Show all {len(_rows)} stocks  ↓"
+            if not st.session_state[_show_all_key]
+            else "Show less ↑"
+        )
+        st.markdown(
+            "<style>"
+            ".st-key-sc_expand_strats .stButton>button{"
+            "background:transparent!important;border:1px solid #252525!important;"
+            "border-radius:8px!important;color:#404040!important;"
+            "font-size:0.68rem!important;font-weight:800!important;"
+            "width:100%!important;padding:0.5rem!important;"
+            "letter-spacing:0.4px!important;margin-bottom:0.5rem!important;"
+            "transition:all .15s!important;}"
+            ".st-key-sc_expand_strats .stButton>button:hover{"
+            "border-color:#383838!important;color:#686868!important;}"
+            "</style>",
+            unsafe_allow_html=True)
+        if st.button(_btn_label, key="sc_expand_strats"):
+            st.session_state[_show_all_key] = not st.session_state[_show_all_key]
+            st.rerun()
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # SECTION 2 — Live Signal Check
+    # ══════════════════════════════════════════════════════════════════════════
+    _fire_rows    = [r for r in _rows if _has_firing(r)]
+    _GOLD         = '#FFD700'
+    _REGIME_SHORT = {'TREND': 'Trend', 'RANGE': 'Range', 'VOLATILE': 'Volatile'}
+    _n_signals    = sum(
+        sum(1 for rn in ('TREND','RANGE','VOLATILE')
+            if (r.get('regimes',{}).get(rn) or {}).get('firing'))
+        for r in _fire_rows)
+
+    # ── section header ────────────────────────────────────────────────────────
+    st.markdown(
+        f"<div class='lsc-section-hdr'>"
+        f"<div class='lsc-section-line'></div>"
+        f"<div class='lsc-section-pill'>"
+        f"<span class='sc-live-dot'></span>"
+        f"<span class='lsc-section-label'>Live Signal Check</span>"
+        + (f"<span class='lsc-section-count'>{_n_signals}</span>" if _n_signals else '')
+        + f"</div>"
+        f"<div class='lsc-section-line-r'></div>"
+        f"</div>",
+        unsafe_allow_html=True)
+
+    if not _fire_rows:
+        st.markdown(
+            "<div style='background:#0c0c0c;border:1px solid #1e1e1e;"
+            "border-radius:14px;padding:3rem;text-align:center;'>"
+            "<div style='font-size:0.75rem;font-weight:800;color:#2e2e2e;"
+            "text-transform:uppercase;letter-spacing:1.2px;'>No signals firing</div>"
+            "<div style='font-size:0.62rem;color:#222;margin-top:0.4rem;'>"
+            "All strategies in wait state</div></div>",
+            unsafe_allow_html=True)
+    else:
+        for _row in _fire_rows:
+            _sym        = _row['_sym']
+            _sname      = _row['_sname']
+            _sym_d      = _sym.replace('.SR', '')
+            _regs       = _row.get('regimes', {})
+            _price      = float(_row.get('price', 0) or 0)
+            _df_f       = _row.get('df')
+            _cur_regime = _row.get('current_regime', 'RANGE')
+            _cr_col     = _REGIME_COLORS.get(_cur_regime, '#888')
+            _cr_icon    = _REGIME_ICONS.get(_cur_regime, '★')
+            _cr_short   = _REGIME_SHORT.get(_cur_regime, _cur_regime.title())
+
+            # all firing regimes
+            _firing_regimes = [
+                rn for rn in ('TREND', 'RANGE', 'VOLATILE')
+                if (_regs.get(rn) or {}).get('firing')
+            ]
+            if not _firing_regimes:
+                continue
+
+            # best-fit = current regime if firing, else first firing
+            _best_rname = _cur_regime if _cur_regime in _firing_regimes else _firing_regimes[0]
+
+            # price ladder — computed once for the card
+            _ladder = ''
+            if _df_f is not None and _price > 0:
+                try:
+                    from _levels import compute_structural_levels
+                    _lv  = compute_structural_levels(_df_f, _price, True)
+                    _en  = _lv['entry']; _sl_p = _lv['stop']
+                    _t1  = _lv['t1'];    _t2   = _lv['t2']
+                    _rp  = round(abs(_en - _sl_p) / _en * 100, 1) if _en else 0
+                    _t1p = round((_t1 - _en) / _en * 100, 1)      if _en else 0
+                    _t2p = round((_t2 - _en) / _en * 100, 1)      if _en else 0
+                    _ladder = (
+                        f"<div class='lsc-ladder'>"
+                        f"<div class='lsc-lc'>"
+                        f"<div class='lsc-lc-bar' style='background:#64b5f6;'></div>"
+                        f"<div class='lsc-ll'>Entry</div>"
+                        f"<div class='lsc-lv' style='color:#64b5f6;'>{_en:.2f}</div>"
+                        f"</div>"
+                        f"<div class='lsc-lc'>"
+                        f"<div class='lsc-lc-bar' style='background:#26A69A;'></div>"
+                        f"<div class='lsc-ll'>Target 1</div>"
+                        f"<div class='lsc-lv' style='color:#26A69A;'>{_t1:.2f}</div>"
+                        f"<div class='lsc-lp' style='color:#26A69A;'>+{_t1p}%</div>"
+                        f"</div>"
+                        f"<div class='lsc-lc'>"
+                        f"<div class='lsc-lc-bar' style='background:#66bb6a;'></div>"
+                        f"<div class='lsc-ll'>Target 2</div>"
+                        f"<div class='lsc-lv' style='color:#66bb6a;'>{_t2:.2f}</div>"
+                        f"<div class='lsc-lp' style='color:#66bb6a;'>+{_t2p}%</div>"
+                        f"</div>"
+                        f"<div class='lsc-lc'>"
+                        f"<div class='lsc-lc-bar' style='background:#ef5350;'></div>"
+                        f"<div class='lsc-ll'>Stop Loss</div>"
+                        f"<div class='lsc-lv' style='color:#ef5350;'>{_sl_p:.2f}</div>"
+                        f"<div class='lsc-lp' style='color:#ef5350;'>−{_rp}%</div>"
+                        f"</div>"
+                        f"</div>"
+                    )
+                except Exception:
+                    pass
+
+            # card header — stock name + price
+            _best_col = _REGIME_COLORS.get(_best_rname, '#888')
+            st.markdown(
+                f"<div style='background:#0d0d0d;border:1px solid #262626;"
+                f"border-radius:12px 12px 0 0;overflow:hidden;"
+                f"margin-bottom:0;'>"
+                f"<div style='height:2px;background:linear-gradient(90deg,"
+                f"{_best_col} 0%,{_best_col}44 55%,transparent 100%);'></div>"
+                f"<div class='lsc-card-hdr'>"
+                f"<span class='lsc-ticker'>{_sym_d}</span>"
+                + (f"<span style='width:1px;height:1rem;background:#2a2a2a;"
+                   f"display:inline-block;flex-shrink:0;'></span>"
+                   f"<span class='lsc-co'>{_sname}</span>" if _sname else '')
+                + f"<span class='lsc-price-chip' style='margin-left:auto;'>{_price:.2f}"
+                f"<span style='font-size:0.55rem;color:#1a5048;"
+                f"font-weight:700;margin-left:0.2rem;'>SAR</span></span>"
+                f"</div>"
+                f"</div>",
+                unsafe_allow_html=True)
+
+            # firing regime cards side by side — price ladder inside best-fit card
+            _cols = st.columns(len(_firing_regimes), gap="small")
+            for _rname, _col in zip(_firing_regimes, _cols):
+                _combo   = _regs.get(_rname, {}) or {}
+                _rc_col  = _REGIME_COLORS.get(_rname, '#888')
+                _ri_ico  = _REGIME_ICONS.get(_rname, '★')
+                _wr      = float(_combo.get('win_rate', 0) or 0)
+                _pf      = float(_combo.get('profit_factor', 0) or 0)
+                _exp     = float(_combo.get('expectancy', 0) or 0)
+                _tot     = int(_combo.get('total', 0) or 0)
+                _inds    = _combo.get('indicators', [])
+                _wc      = _wr_col(_wr)
+                _exp_c   = '#26A69A' if _exp > 0 else '#ef5350'
+                _is_best = (_rname == _best_rname)
+                _ind_tags = ''.join(
+                    f"<span class='lsc-ind-tag'>{_ind_label([k])}</span>"
+                    for k in _inds)
+                _best_badge = (
+                    f"<span class='lsc-best-badge'>★&thinsp;Best Fit</span>"
+                    if _is_best else '')
+                # ladder only in best-fit card
+                _card_ladder = _ladder if _is_best else ''
+                with _col:
+                    st.markdown(
+                        f"<div class='sc-rcard'"
+                        + (f" style='border-color:#b8860b66;"
+                           f"box-shadow:0 0 18px #b8860b22;'" if _is_best else '')
+                        + f">"
+                        f"<div class='sc-rcard-top'"
+                        + (f" style='background:#b8860b14;'" if _is_best else '')
+                        + f">"
+                        f"<span class='sc-rpill' style='background:{_rc_col};color:#0a0a0a;"
+                        f"box-shadow:0 0 8px {_rc_col}55;'>"
+                        f"{_ri_ico}&thinsp;{_rname.title()}</span>"
+                        + _best_badge
+                        + f"</div>"
+                        f"<div class='sc-rcard-inds'>{_ind_tags}</div>"
+                        f"<div class='sc-rcard-stats'>"
+                        f"<div class='sc-rstat'>"
+                        f"<div class='sc-rstat-top' style='background:{_wc};opacity:0.6;'></div>"
+                        f"<div class='sc-rstat-v' style='color:{_wc};'>{_wr:.0f}%</div>"
+                        f"<div class='sc-rstat-l'>Win Rate</div></div>"
+                        f"<div class='sc-rstat'>"
+                        f"<div class='sc-rstat-top' style='background:#a78bfa;opacity:0.5;'></div>"
+                        f"<div class='sc-rstat-v' style='color:#a78bfa;'>{_pf:.1f}×</div>"
+                        f"<div class='sc-rstat-l'>Profit Factor</div></div>"
+                        f"<div class='sc-rstat'>"
+                        f"<div class='sc-rstat-top' style='background:{_exp_c};opacity:0.6;'></div>"
+                        f"<div class='sc-rstat-v' style='color:{_exp_c};'>{_exp:+.1f}%</div>"
+                        f"<div class='sc-rstat-l'>Expectancy</div></div>"
+                        f"<div class='sc-rstat'>"
+                        f"<div class='sc-rstat-top' style='background:#4a9eff;opacity:0.4;'></div>"
+                        f"<div class='sc-rstat-v' style='color:#4a9eff;'>{_tot}</div>"
+                        f"<div class='sc-rstat-l'>Signals</div></div>"
+                        f"</div>"
+                        + (f"<div style='padding:0.6rem 0.5rem 0.5rem;'>{_card_ladder}</div>"
+                           if _card_ladder else '')
+                        + f"</div>",
+                        unsafe_allow_html=True)
+
+            # ── proof chart: candles + past signal fires + current fire marker ─
+            if _df_f is not None and _best_rname:
+                try:
+                    import plotly.graph_objects as go
+                    import numpy as _np
+                    import pandas as _pd
+                    from scanner_engine import _build_states
+
+                    _best_combo = (_regs.get(_best_rname) or {})
+                    _best_inds  = _best_combo.get('indicators', [])
+
+                    # rebuild indicator states on the full df
+                    _states_all = _build_states(_df_f)
+
+                    # combined signal array + rising edge
+                    _N = len(_df_f)
+                    if _best_inds and all(k in _states_all for k in _best_inds):
+                        _combo_arr = _states_all[_best_inds[0]].copy()
+                        for _ik in _best_inds[1:]:
+                            _combo_arr = _combo_arr & _states_all[_ik]
+                        _edge = _np.zeros(_N, dtype=_np.int8)
+                        _edge[1:] = ((_combo_arr[1:] == 1) & (_combo_arr[:-1] == 0)).astype(_np.int8)
+                        _fire_idxs = set(_np.where(_edge == 1)[0].tolist())
+                        _currently_firing = bool(int(_combo_arr[-1]) == 1)
+                        # per-indicator state on the last bar
+                        _ind_states = {k: bool(int(_states_all[k][-1]) == 1)
+                                       for k in _best_inds if k in _states_all}
+                    else:
+                        _fire_idxs = set()
+                        _currently_firing = False
+                        _ind_states = {}
+
+                    # last 60 bars — use actual dates as x
+                    _tail   = 60
+                    _offset = max(0, _N - _tail)
+                    _chart_df = _df_f.iloc[_offset:].copy().reset_index(drop=True)
+                    _today_str = str(_chart_df['Date'].iloc[-1])[:10] if 'Date' in _chart_df.columns else 'today'
+                    _x_dates = (
+                        _pd.to_datetime(_chart_df['Date'])
+                        if 'Date' in _chart_df.columns
+                        else list(range(len(_chart_df)))
+                    )
+
+                    fig = go.Figure()
+
+                    # candlesticks (use real dates on x)
+                    fig.add_trace(go.Candlestick(
+                        x=_x_dates,
+                        open=_chart_df['Open'], high=_chart_df['High'],
+                        low=_chart_df['Low'],   close=_chart_df['Close'],
+                        increasing_line_color='#26A69A',
+                        decreasing_line_color='#ef5350',
+                        increasing_fillcolor='rgba(38,166,154,0.15)',
+                        decreasing_fillcolor='rgba(239,83,80,0.15)',
+                        line_width=1, name=''))
+
+                    # past signal fire markers
+                    _sig_dates, _sig_lows = [], []
+                    for _fi in sorted(_fire_idxs):
+                        _ci = _fi - _offset
+                        if 0 <= _ci < len(_chart_df) and _fi < _N - 1:
+                            _sig_dates.append(_x_dates.iloc[_ci] if hasattr(_x_dates, 'iloc') else _x_dates[_ci])
+                            _sig_lows.append(float(_chart_df['Low'].iloc[_ci]) * 0.993)
+                    if _sig_dates:
+                        fig.add_trace(go.Scatter(
+                            x=_sig_dates, y=_sig_lows,
+                            mode='markers',
+                            marker=dict(symbol='triangle-up', size=10,
+                                        color='#26A69A', opacity=0.9,
+                                        line=dict(width=0)),
+                            hovertemplate='Signal fired<extra></extra>', name=''))
+
+                    # CURRENT BAR — gold triangle + date annotation
+                    _last_x = _x_dates.iloc[-1] if hasattr(_x_dates, 'iloc') else _x_dates[-1]
+                    _last_lo = float(_chart_df['Low'].iloc[-1])
+                    _last_hi = float(_chart_df['High'].iloc[-1])
+                    if _currently_firing:
+                        fig.add_trace(go.Scatter(
+                            x=[_last_x], y=[_last_lo * 0.988],
+                            mode='markers+text',
+                            marker=dict(symbol='triangle-up', size=16,
+                                        color='#FFD700', opacity=1.0,
+                                        line=dict(width=1, color='#b8860b')),
+                            text=[f'NOW\n{_today_str}'],
+                            textposition='bottom center',
+                            textfont=dict(size=8, color='#FFD700'),
+                            hovertemplate=f'FIRING NOW — {_today_str}<extra></extra>', name=''))
+                    # always annotate the last bar date
+                    fig.add_annotation(
+                        x=_last_x, y=_last_hi,
+                        text=f'<b>{_today_str}</b>',
+                        showarrow=True, arrowhead=0, arrowcolor='#333',
+                        arrowwidth=1, ax=0, ay=-22,
+                        font=dict(size=9, color='#FFD700' if _currently_firing else '#505050'),
+                        bgcolor='rgba(8,8,8,0.85)', borderpad=3)
+
+                    # level lines
+                    if _ladder:
+                        for _lval, _lc, _ln, _ld in [
+                            (_en,   '#64b5f6', 'Entry',  'dash'),
+                            (_t1,   '#26A69A', 'T1',     'dot'),
+                            (_t2,   '#66bb6a', 'T2',     'dot'),
+                            (_sl_p, '#ef5350', 'Stop',   'dashdot'),
+                        ]:
+                            fig.add_hline(
+                                y=_lval, line_color=_lc, line_dash=_ld,
+                                line_width=1.4, opacity=0.9,
+                                annotation_text=f'<b>{_ln}</b> {_lval:.2f}',
+                                annotation_font_color=_lc,
+                                annotation_font_size=9,
+                                annotation_bgcolor='rgba(8,8,8,0.85)',
+                                annotation_position='right')
+
+                    fig.update_layout(
+                        paper_bgcolor='#080808',
+                        plot_bgcolor='#0d0d0d',
+                        margin=dict(l=4, r=80, t=10, b=8),
+                        height=280,
+                        xaxis=dict(
+                            showgrid=False, zeroline=False,
+                            rangeslider=dict(visible=False),
+                            type='date',
+                            tickformat='%d %b',
+                            tickfont=dict(size=9, color='#484848'),
+                            nticks=8),
+                        yaxis=dict(
+                            showgrid=True, gridcolor='#161616', zeroline=False,
+                            tickfont=dict(size=9, color='#484848'), side='right'),
+                        showlegend=False)
+                    fig.update_xaxes(showspikes=False)
+                    fig.update_yaxes(showspikes=False)
+
+                    # indicator ON/OFF pills HTML
+                    _ind_label_map = {
+                        'EMA':'EMA','SMA':'SMA','RSI':'RSI','MACD':'MACD',
+                        'BB':'BB','STOCH':'Stoch','ADX':'ADX','CCI':'CCI',
+                        'MFI':'MFI','OBV':'OBV','VWAP':'VWAP',
+                        'WILLR':'W%R','ROC':'ROC'}
+                    _ind_pills = ''.join(
+                        f"<span style='display:inline-flex;align-items:center;gap:0.28rem;"
+                        f"padding:0.18rem 0.55rem;border-radius:20px;font-size:0.62rem;"
+                        f"font-weight:900;letter-spacing:0.3px;"
+                        f"background:{'rgba(38,166,154,0.15)' if _ind_states.get(k) else 'rgba(239,83,80,0.08)'};"
+                        f"border:1px solid {'rgba(38,166,154,0.45)' if _ind_states.get(k) else 'rgba(239,83,80,0.25)'};"
+                        f"color:{'#26A69A' if _ind_states.get(k) else '#ef5350'};'>"
+                        f"{'●' if _ind_states.get(k) else '○'}&thinsp;"
+                        f"{_ind_label_map.get(k, k)}</span>"
+                        for k in _best_inds
+                    )
+
+                    _fire_label = (
+                        f"<span style='color:#FFD700;font-weight:900;"
+                        f"font-size:0.65rem;'>● FIRING — {_today_str}</span>"
+                        if _currently_firing else
+                        f"<span style='color:#484848;font-weight:700;"
+                        f"font-size:0.65rem;'>last bar: {_today_str}</span>")
+
+                    st.markdown(
+                        f"<div style='border:1px solid #1e1e1e;border-radius:10px;"
+                        f"overflow:hidden;background:#080808;margin-top:0.6rem;'>"
+                        f"<div style='padding:0.45rem 0.8rem;border-bottom:1px solid #181818;"
+                        f"display:flex;align-items:center;gap:0.55rem;flex-wrap:wrap;'>"
+                        f"<span style='font-size:0.55rem;font-weight:900;color:#2a2a2a;"
+                        f"text-transform:uppercase;letter-spacing:1px;'>Signal Chart</span>"
+                        f"<span style='font-size:0.6rem;color:#26A69A;'>▲ past fires</span>"
+                        f"<span style='margin-left:auto;'>{_fire_label}</span>"
+                        f"</div>"
+                        f"<div style='padding:0.4rem 0.8rem;border-bottom:1px solid #161616;"
+                        f"display:flex;align-items:center;gap:0.3rem;flex-wrap:wrap;'>"
+                        f"{_ind_pills}"
+                        f"</div>",
+                        unsafe_allow_html=True)
+                    st.plotly_chart(fig, use_container_width=True,
+                                    config={'displayModeBar': False})
+                    st.markdown("</div>", unsafe_allow_html=True)
+                except Exception:
+                    pass
+
+            # spacer between stocks
+            st.markdown("<div style='height:1.2rem;'></div>", unsafe_allow_html=True)
