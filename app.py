@@ -3313,79 +3313,88 @@ def main():
                     _adv_pct = gainers / _total_stocks * 100
                     _tf_records = _tf_data.get('top_up', []) + _tf_data.get('top_down', [])
 
-                    # ── Factor 1: Breadth conviction (±20)
-                    # How wide the move was — many stocks participating vs just a few
+                    # ── Factor 1: Breadth conviction (±25)
+                    # % of stocks advancing — high breadth = genuine buying, not index-driven noise
                     _adv_ratio = _adv_pct / 100
-                    _f_breadth = (_adv_ratio - 0.5) * 2 * 20  # -20 to +20
+                    _f_breadth = (_adv_ratio - 0.5) * 2 * 25  # -25 to +25
 
-                    # ── Factor 2: Close location pressure (±18)
-                    # If most stocks closed near their day highs = smart money held long
-                    # Derived from avg_change relative to the intraday range proxy
+                    # ── Factor 2: Average move magnitude + direction (±25)
+                    # How much did stocks actually move — small moves = hesitation, big moves = conviction
                     _abs_avg = abs(avg_change)
-                    _close_loc_signal = avg_change / max(_abs_avg, 0.1)  # direction: +1 or -1
-                    if _abs_avg >= 1.5:
-                        _f_close_loc = _close_loc_signal * 18
+                    _dir = 1 if avg_change >= 0 else -1
+                    if _abs_avg >= 2.0:
+                        _f_close_loc = _dir * 25
+                    elif _abs_avg >= 1.0:
+                        _f_close_loc = _dir * 18
                     elif _abs_avg >= 0.5:
-                        _f_close_loc = _close_loc_signal * 10
+                        _f_close_loc = _dir * 10
+                    elif _abs_avg >= 0.2:
+                        _f_close_loc = _dir * 4
                     else:
-                        _f_close_loc = _close_loc_signal * 3
+                        _f_close_loc = 0
 
-                    # ── Factor 3: Volume conviction (±15)
-                    # Stocks with high vol_ratio moving up = real buying, not noise
-                    _bull_vol = sum(1 for r in _tf_records if r.get('vol_ratio', 1.0) >= 1.4 and r.get('day_ret', 0) > 0)
-                    _bear_vol = sum(1 for r in _tf_records if r.get('vol_ratio', 1.0) >= 1.4 and r.get('day_ret', 0) < 0)
-                    _vol_net = _bull_vol - _bear_vol
-                    _f_vol = max(-15, min(15, _vol_net * 5))
+                    # ── Factor 3: Breadth quality — gainers vs losers gap (±20)
+                    # Hard margin between advancers and decliners relative to total traded
+                    _adv_dec_gap = (gainers - losers) / max(_total_stocks, 1) * 100  # -100 to +100
+                    _f_vol = max(-20, min(20, _adv_dec_gap * 0.4))
+                    _bull_vol = gainers; _bear_vol = losers  # for display
 
-                    # ── Factor 4: Momentum persistence (±15)
-                    # Stocks that were already in 5d uptrends continuing = follow-through likely
-                    _bull_5d = sum(1 for r in _tf_records if r.get('perf_5d', 0) >= 2 and r.get('day_ret', 0) > 0)
-                    _bear_5d = sum(1 for r in _tf_records if r.get('perf_5d', 0) <= -2 and r.get('day_ret', 0) < 0)
-                    _f_mom = max(-15, min(15, (_bull_5d - _bear_5d) * 5))
-
-                    # ── Factor 5: Trend alignment (±12)
-                    # Stocks above EMA20 and EMA50 — means the market structure is healthy
-                    _bull_trend = sum(1 for r in _tf_records if r.get('score', 0) >= 14)
-                    _bear_trend = sum(1 for r in _tf_records if r.get('score', 0) <= -14)
-                    _f_trend = max(-12, min(12, (_bull_trend - _bear_trend) * 4))
-
-                    # ── Factor 6: TASI directional conviction (±12)
-                    # Index magnitude + direction — large moves tend to have follow-through next session
-                    if tasi_change > 1.5:
-                        _f_tasi = 12
-                    elif tasi_change > 0.6:
-                        _f_tasi = 7
+                    # ── Factor 4: TASI directional conviction (±20)
+                    # Index magnitude + direction — large moves tend to have next-session follow-through
+                    if tasi_change > 2.0:
+                        _f_tasi = 20
+                    elif tasi_change > 1.0:
+                        _f_tasi = 14
+                    elif tasi_change > 0.5:
+                        _f_tasi = 8
                     elif tasi_change > 0.15:
                         _f_tasi = 3
                     elif tasi_change > -0.15:
                         _f_tasi = 0
-                    elif tasi_change > -0.6:
+                    elif tasi_change > -0.5:
                         _f_tasi = -3
-                    elif tasi_change > -1.5:
-                        _f_tasi = -7
+                    elif tasi_change > -1.0:
+                        _f_tasi = -8
+                    elif tasi_change > -2.0:
+                        _f_tasi = -14
                     else:
-                        _f_tasi = -12
+                        _f_tasi = -20
 
-                    # ── Factor 7: Reversal risk (±8)
-                    # Extreme RSI or overbought setups = mean-reversion risk for next session
-                    _overbought = sum(1 for r in _tf_records if r.get('day_ret', 0) >= 5)
-                    _oversold = sum(1 for r in _tf_records if r.get('day_ret', 0) <= -5)
-                    _extreme_net = _oversold - _overbought  # oversold = potential bounce = bullish
-                    _f_reversal = max(-8, min(8, _extreme_net * 2))
+                    # ── Factor 5: Momentum bias from top/bottom picks (±15)
+                    # Aggregate score of the top/bottom performers today: positive pool = bull lean
+                    _n_recs = max(len(_tf_records), 1)
+                    _avg_rec_score = sum(r.get('score', 0) for r in _tf_records) / _n_recs
+                    _f_mom = max(-15, min(15, _avg_rec_score * 0.25))
+                    _bull_5d = sum(1 for r in _tf_records if r.get('score', 0) > 0)
+                    _bear_5d = sum(1 for r in _tf_records if r.get('score', 0) < 0)
+
+                    # ── Factor 6: Unchanged % — indecision penalty (±10)
+                    # High unchanged % = market froze = lower confidence for any direction
+                    _unch_pct = unchanged / max(_total_stocks, 1) * 100
+                    _f_trend = max(-10, min(10, (_f_breadth / 5) * (1 - _unch_pct / 100)))
+                    _bull_trend = gainers; _bear_trend = losers  # for display
+
+                    # ── Factor 7: Vol/Momentum quality from sample stocks (±10)
+                    # Are the few stocks we have data for showing volume conviction?
+                    _bull_vol_q = sum(1 for r in _tf_records if r.get('vol_ratio', 1.0) >= 1.4 and r.get('day_ret', 0) > 0)
+                    _bear_vol_q = sum(1 for r in _tf_records if r.get('vol_ratio', 1.0) >= 1.4 and r.get('day_ret', 0) < 0)
+                    _vol_q_pct = (_bull_vol_q - _bear_vol_q) / _n_recs  # normalized -1 to +1
+                    _f_reversal = max(-10, min(10, _vol_q_pct * 10))
+                    _overbought = _bear_vol_q; _oversold = _bull_vol_q  # for display labels
 
                     # ── Composite score
-                    _raw_score = _f_breadth + _f_close_loc + _f_vol + _f_mom + _f_trend + _f_tasi + _f_reversal
+                    _raw_score = _f_breadth + _f_close_loc + _f_vol + _f_tasi + _f_mom + _f_trend + _f_reversal
                     _mom_score = int(max(-100, min(100, round(_raw_score))))
 
                     # ── Signals breakdown for display
                     _signals = [
                         ("Breadth", _f_breadth, f"{_adv_pct:.0f}% adv", info_icon("% of stocks that advanced today. High breadth = broad participation, not just a few large caps moving the index.")),
-                        ("Close Pressure", _f_close_loc, f"avg {avg_change:+.2f}%", info_icon("How strong the close was relative to the day's range. Stocks closing near their highs signal that buyers held — not just a bounce that faded.")),
-                        ("Vol Conviction", _f_vol, f"{_bull_vol}↑ {_bear_vol}↓ vol", info_icon("Count of stocks with above-average volume on advancing vs declining days. High-volume up moves are real demand; high-volume down moves are real distribution.")),
-                        ("Momentum", _f_mom, f"{_bull_5d}↑ {_bear_5d}↓ 5d", info_icon("How many stocks were already in 5-day uptrends and continued today vs those in downtrends. Momentum tends to persist one more session.")),
-                        ("Trend Align", _f_trend, f"{_bull_trend}↑ {_bear_trend}↓ struct", info_icon("Stocks in strong structural uptrend (above EMA20 & EMA50) vs structural downtrend. Strong market structure supports follow-through.")),
-                        ("TASI Signal", _f_tasi, f"{tasi_change:+.2f}%", info_icon("TASI index directional conviction. Larger index moves tend to have next-session follow-through due to institutional momentum and index-tracking flows.")),
-                        ("Reversal Risk", _f_reversal, f"{_overbought} ob / {_oversold} os", info_icon("Oversold stocks = potential bounce support. Overbought stocks = mean-reversion risk. Net oversold tilt adds a bullish buffer for tomorrow.")),
+                        ("Avg Move", _f_close_loc, f"avg {avg_change:+.2f}%", info_icon("How much stocks moved on average today and in which direction. Large moves with conviction set the tone for the next session.")),
+                        ("A/D Gap", _f_vol, f"{gainers}↑ {losers}↓", info_icon("Raw advancers minus decliners as % of total traded. A large gap in either direction reflects genuine market-wide conviction.")),
+                        ("TASI Signal", _f_tasi, f"{tasi_change:+.2f}%", info_icon("TASI index directional conviction. Larger index moves tend to have next-session follow-through due to institutional momentum.")),
+                        ("Top Picks Bias", _f_mom, f"{_bull_5d}↑ {_bear_5d}↓ score", info_icon("Average signal score of today's top/bottom movers. If even the best names are weak, the market has no leaders.")),
+                        ("Indecision", _f_trend, f"{unchanged} unch", info_icon("High unchanged stock count = market froze = no conviction. Adjusts the breadth signal down when too many stocks went nowhere.")),
+                        ("Vol Quality", _f_reversal, f"{_bull_vol_q}↑vol {_bear_vol_q}↓vol", info_icon("Among sampled stocks, how many had above-average volume backing their move. High-volume moves are real; low-volume moves fade.")),
                     ]
 
                     # ── Verdict tier (5 levels, color + icon + tactical advice)

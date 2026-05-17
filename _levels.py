@@ -372,6 +372,17 @@ def _compute_structural_levels_impl(df, cp, is_bullish):
         if t2 >= t1: t2 = r_t2
         if t3 >= t2: t3 = r_t3
 
+    # Sanity: for long trades stop must always be strictly below entry
+    if is_bullish and stop >= cp:
+        stop = round(cp - atr * 1.5, 2)
+        R = abs(cp - stop)
+        r_t1 = round(cp + 1.618 * R, 2)
+        r_t2 = round(cp + 2.618 * R, 2)
+        r_t3 = round(cp + 4.236 * R, 2)
+        if t1 <= cp: t1 = r_t1
+        if t2 <= t1: t2 = r_t2
+        if t3 <= t2: t3 = r_t3
+
     risk_pct = R / cp * 100 if cp > 0 else 2.0
     rr1      = round(_rr(t1), 1)
     rr2      = round(_rr(t2), 1)

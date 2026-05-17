@@ -8,7 +8,6 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
-from ui_helpers import insight_toggle
 
 # Lazy-import sibling modules only when needed to avoid circular imports
 def _import_pa():
@@ -1521,71 +1520,175 @@ def render_decision_tab(df, symbol_input, stock_name, current_price):
         font-size:0.5rem;color:#666;font-weight:700;margin-left:0.3rem}
     </style>""", unsafe_allow_html=True)
 
-    insight_toggle(
-        "signal_strength",
-        "How does the Decision Score work?",
-        "<p>The <strong>Master Score</strong> combines 5 independent analysis modules. "
-        "Technical Indicators gets <strong>2× weight</strong>. Only active modules vote — "
-        "inactive ones are ignored, not counted as bearish.</p>"
-        "<p><strong>BUY</strong> = Score 50+ and engine bullish and modules agree. "
-        "<strong>SELL</strong> = Score below 42 and bearish signals dominate. "
-        "<strong>WAIT</strong> = Mixed or insufficient signals.</p>"
-    )
-
     # RGB of verdict color for glows
     _vc_rgb = ','.join(str(int(vc[i:i+2], 16)) for i in (1, 3, 5))
 
-    # ── Score ring SVG ──────────────────────────────────────────────────────
-    _ring_pct = max(0, min(100, _master_score))
-    _ring_dash = round(251.2 * _ring_pct / 100, 1)
-    _ring_svg = (
-        f"<svg width='120' height='120' viewBox='0 0 120 120' style='display:block;'>"
-        f"<circle cx='60' cy='60' r='46' fill='none' stroke='#1a1a1a' stroke-width='7'/>"
-        f"<circle cx='60' cy='60' r='46' fill='none' stroke='{_ms_col}' stroke-width='7' "
-        f"stroke-linecap='round' stroke-dasharray='{round(289.0 * _ring_pct / 100, 1)} 289' "
-        f"transform='rotate(-90 60 60)' style='filter:drop-shadow(0 0 8px {_ms_col}55);'/>"
-        f"<text x='60' y='56' text-anchor='middle' fill='{_ms_col}' "
-        f"font-size='28' font-weight='900' font-family='Inter,sans-serif'>{_master_score}</text>"
-        f"<text x='60' y='74' text-anchor='middle' fill='#555' "
-        f"font-size='10' font-weight='700' font-family='Inter,sans-serif'>SCORE</text>"
-        f"</svg>"
-    )
-
-    # ── D1 trend display
-    _d1_text  = "Bullish" if _d1_trend_bull is True else ("Bearish" if _d1_trend_bull is False else "N/A")
+    # ── D1 trend display ─────────────────────────────────────────────────────
+    _d1_text  = "Bullish" if _d1_trend_bull is True else ("Bearish" if _d1_trend_bull is False else "Unknown")
     _d1_col   = BULL if _d1_trend_bull is True else (BEAR if _d1_trend_bull is False else "#555")
+    _d1_arrow = "▲" if _d1_trend_bull is True else ("▼" if _d1_trend_bull is False else "—")
 
-    # ── R:R quality badge
+    # ── R:R color ────────────────────────────────────────────────────────────
     _rr_col = BULL if d['rr1'] >= 2.0 else ("#FFC107" if d['rr1'] >= 1.5 else BEAR)
 
-    # ── Build reason chips (top 4 strongest factors + active modules) ───────
-    _chip_html = ""
-    _sorted_f = sorted(d["factors"], key=lambda x: abs(x["pts"]), reverse=True)
-    for _f in _sorted_f[:4]:
-        _fc = BULL if _f["dir"] > 0 else (BEAR if _f["dir"] < 0 else "#555")
-        _fi = "▲" if _f["dir"] > 0 else ("▼" if _f["dir"] < 0 else "—")
-        _chip_html += (
-            f"<div style='display:flex;align-items:center;gap:0.5rem;padding:0.55rem 0.75rem;"
-            f"background:{_fc}08;border:1px solid {_fc}18;border-radius:10px;'>"
-            f"<span style='font-size:0.85rem;font-weight:900;color:{_fc};'>{_fi}</span>"
-            f"<span style='font-size:0.82rem;color:#d0d0d0;font-weight:600;line-height:1.4;'>{_f['name']}</span>"
+    # ── Win probability color ─────────────────────────────────────────────────
+    _wp_col = BULL if _win_rate >= 55 else (BEAR if _win_rate < 45 else "#FFC107")
+
+    # ── Win probability explanation ──────────────────────────────────────────
+    if _n_analogs >= 8:
+        _wp_source = (
+            f"Looked at {_n_analogs} past moments on this stock where RSI, trend &amp; "
+            f"momentum were in the same state as today. The stock was higher 10 days "
+            f"later {_win_rate:.0f}% of those times."
+        )
+    else:
+        _wp_source = "Too few matching past setups — treat as a rough estimate."
+
+    # ── Ring builder — reusable for all 4 stat rings ─────────────────────────
+    def _ring(pct, color, val_text, sub_text):
+        """pct = 0-100 fill, val_text = big label inside, sub_text = small label inside."""
+        circ = 263.9   # 2π × 42
+        dash = round(circ * max(0, min(100, pct)) / 100, 1)
+        return (
+            f"<svg width='96' height='96' viewBox='0 0 96 96' style='display:block;margin:0 auto;'>"
+            f"<circle cx='48' cy='48' r='42' fill='none' stroke='#1a1a1a' stroke-width='6'/>"
+            f"<circle cx='48' cy='48' r='42' fill='none' stroke='{color}' stroke-width='6' "
+            f"stroke-linecap='round' stroke-dasharray='{dash} {circ}' "
+            f"transform='rotate(-90 48 48)' "
+            f"style='filter:drop-shadow(0 0 7px {color}55);'/>"
+            f"<text x='48' y='44' text-anchor='middle' fill='{color}' "
+            f"font-size='17' font-weight='900' font-family='Inter,sans-serif'>{val_text}</text>"
+            f"<text x='48' y='58' text-anchor='middle' fill='#4a4a4a' "
+            f"font-size='7' font-weight='700' font-family='Inter,sans-serif'>{sub_text}</text>"
+            f"</svg>"
+        )
+
+    def _ring_col(ring_svg, title):
+        return (
+            f"<div style='flex:1;display:flex;flex-direction:column;"
+            f"align-items:center;gap:0.4rem;'>"
+            + ring_svg
+            + f"<div style='font-size:0.62rem;color:#555;font-weight:700;"
+            f"text-transform:uppercase;letter-spacing:0.5px;text-align:center;'>{title}</div>"
             f"</div>"
         )
-    for _n, _ic, _sc, _lb, _cl, _rs, _act in _tab_scores[1:]:
-        if _act and _sc >= 55 and _rs:
-            _chip_html += (
-                f"<div style='display:flex;align-items:center;gap:0.5rem;padding:0.55rem 0.75rem;"
-                f"background:{BULL}08;border:1px solid {BULL}18;border-radius:10px;'>"
-                f"<span style='font-size:0.85rem;font-weight:900;color:{BULL};'>▲</span>"
-                f"<span style='font-size:0.82rem;color:#d0d0d0;font-weight:600;line-height:1.4;'>{_n}: {_rs[0]}</span>"
-                f"</div>"
-            )
 
-    # ── Module score row — using the SAME names as the actual tabs ──────────
+    # Score ring
+    _r_score = _ring_col(
+        _ring(_master_score, _ms_col, str(_master_score), "OUT OF 100"),
+        "Score"
+    )
+    # Win Rate ring
+    _r_win = _ring_col(
+        _ring(_win_rate, _wp_col, f"{_win_rate:.0f}%", "WIN RATE"),
+        "Win Rate"
+    )
+    # R:R ring — visual fills to % of 4R max
+    _rr_pct = min(100, d['rr1'] / 4.0 * 100)
+    _r_rr = _ring_col(
+        _ring(_rr_pct, _rr_col, f"1:{d['rr1']:.1f}", "RISK/RWD"),
+        "Risk / Reward"
+    )
+    # Daily Trend ring — 100% if bullish, 0% if bearish, 50% unknown
+    _d1_pct = 100 if _d1_trend_bull is True else (0 if _d1_trend_bull is False else 50)
+    _r_d1 = _ring_col(
+        _ring(_d1_pct, _d1_col, _d1_arrow, _d1_text.upper()),
+        "Daily Trend"
+    )
+
+    # ── Top signals — card rows ───────────────────────────────────────────────
+    _sorted_f   = sorted(d["factors"], key=lambda x: abs(x["pts"]), reverse=True)
+    _top_f      = _sorted_f[:7]
+    _bull_sigs  = sum(1 for _f in _top_f if _f["dir"] > 0)
+    _bear_sigs  = sum(1 for _f in _top_f if _f["dir"] < 0)
+
+    # Shorten long factor names to a readable headline + optional detail
+    def _split_name(raw):
+        # Names like "EMA Stack Full Bull — price above EMA20, EMA50, EMA200"
+        if " — " in raw:
+            head, detail = raw.split(" — ", 1)
+        elif " - " in raw:
+            head, detail = raw.split(" - ", 1)
+        else:
+            head, detail = raw, ""
+        # Trim trailing junk in head
+        head = head.strip()
+        detail = detail.strip()
+        # Cap detail length
+        if len(detail) > 48:
+            detail = detail[:45] + "…"
+        return head, detail
+
+    _cat_colors = {
+        "Trend":      "#2196f3",
+        "Momentum":   "#9c27b0",
+        "Volatility": "#ff9800",
+        "Volume":     "#00bcd4",
+        "Divergence": "#e91e63",
+        "Regime":     "#607d8b",
+    }
+
+    _sig_rows_html = ""
+    for _i, _f in enumerate(_top_f):
+        _fc     = BULL if _f["dir"] > 0 else (BEAR if _f["dir"] < 0 else "#555")
+        _pts    = _f["pts"]
+        _max_p  = _f["max"] if _f["max"] > 0 else 1
+        _bar_w  = min(100, abs(_pts) / _max_p * 100)
+        _label  = "Supporting" if _f["dir"] > 0 else ("Opposing" if _f["dir"] < 0 else "Neutral")
+        _icon   = "▲" if _f["dir"] > 0 else ("▼" if _f["dir"] < 0 else "●")
+        _head, _detail = _split_name(_f["name"])
+        _cat    = _f.get("cat", "")
+        _cat_c  = _cat_colors.get(_cat, "#555")
+        _mb     = "margin-bottom:0.4rem;" if _i < len(_top_f) - 1 else ""
+        _sig_rows_html += (
+            f"<div style='display:flex;align-items:stretch;gap:0;"
+            f"border-radius:8px;overflow:hidden;background:#111;"
+            f"border:1px solid {_fc}18;{_mb}'>"
+
+            # Left accent stripe
+            f"<div style='width:3px;flex-shrink:0;background:{_fc};"
+            f"box-shadow:0 0 8px {_fc}55;'></div>"
+
+            # Icon bubble
+            f"<div style='display:flex;align-items:center;justify-content:center;"
+            f"padding:0 0.75rem;background:{_fc}0d;flex-shrink:0;'>"
+            f"<span style='font-size:0.7rem;font-weight:900;color:{_fc};'>{_icon}</span>"
+            f"</div>"
+
+            # Text block
+            f"<div style='flex:1;min-width:0;padding:0.5rem 0.5rem;'>"
+            f"<div style='display:flex;align-items:center;gap:0.35rem;margin-bottom:0.1rem;'>"
+            f"<span style='font-size:0.49rem;font-weight:800;color:{_cat_c};"
+            f"background:{_cat_c}18;border:1px solid {_cat_c}30;border-radius:3px;"
+            f"padding:0.05rem 0.3rem;text-transform:uppercase;letter-spacing:0.4px;"
+            f"flex-shrink:0;'>{_cat}</span>"
+            f"</div>"
+            f"<div style='font-size:0.76rem;color:#d0d0d0;font-weight:700;"
+            f"white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3;'>{_head}</div>"
+            + (f"<div style='font-size:0.62rem;color:#555;font-weight:500;margin-top:0.08rem;"
+               f"white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'>{_detail}</div>" if _detail else "")
+            + f"</div>"
+
+            # Right side: verdict pill + strength bar
+            f"<div style='display:flex;flex-direction:column;align-items:flex-end;"
+            f"justify-content:center;padding:0.55rem 0.75rem;gap:0.3rem;flex-shrink:0;'>"
+            f"<div style='font-size:0.52rem;color:{_fc};font-weight:800;text-transform:uppercase;"
+            f"letter-spacing:0.4px;background:{_fc}18;border-radius:4px;padding:0.1rem 0.35rem;'>{_label}</div>"
+            f"<div style='width:52px;'>"
+            f"<div style='background:#1a1a1a;border-radius:999px;height:3px;overflow:hidden;'>"
+            f"<div style='width:{_bar_w:.0f}%;height:100%;border-radius:999px;"
+            f"background:{_fc};box-shadow:0 0 5px {_fc}66;'></div></div>"
+            f"</div>"
+            f"</div>"
+
+            f"</div>"
+        )
+
+    # ── Module score tiles ────────────────────────────────────────────────────
     _mod_names = {
-        "Technical Indicators": "Decision",
+        "Technical Indicators": "Technicals",
         "Price Action":         "Price Action",
-        "Volume Profile":       "Volume Profile",
+        "Volume Profile":       "Volume",
         "Chart Patterns":       "Patterns",
         "Smart Money":          "SMC",
     }
@@ -1594,174 +1697,131 @@ def render_decision_tab(df, symbol_input, stock_name, current_price):
         _mname = _mod_names.get(_n, _n)
         _dot_bg = BULL if _act and _sc >= 55 else (BEAR if _act and _sc < 40 else "#444")
         _dot_label = f"{_sc}" if _act else "—"
-        _status_text = "Bullish" if _act and _sc >= 55 else ("Bearish" if _act and _sc < 40 else ("Neutral" if _act else "No Signal"))
+        _status_text = (
+            "Bullish"   if _act and _sc >= 55 else
+            "Bearish"   if _act and _sc < 40  else
+            "Neutral"   if _act               else
+            "No signal"
+        )
         _mods_html += (
-            f"<div style='text-align:center;flex:1;padding:0.6rem 0.3rem;"
+            f"<div style='text-align:center;flex:1;padding:0.65rem 0.3rem;"
             f"background:#111;border:1px solid {_dot_bg}22;border-radius:10px;'>"
-            f"<div style='font-size:1.3rem;font-weight:900;color:{_dot_bg};line-height:1;'>{_dot_label}</div>"
-            f"<div style='font-size:0.65rem;color:#888;font-weight:700;margin-top:0.25rem;'>{_mname}</div>"
-            f"<div style='font-size:0.55rem;color:{_dot_bg};font-weight:600;margin-top:0.1rem;'>{_status_text}</div>"
+            f"<div style='font-size:1.2rem;font-weight:900;color:{_dot_bg};line-height:1;'>{_dot_label}</div>"
+            f"<div style='font-size:0.61rem;color:#888;font-weight:700;margin-top:0.25rem;'>{_mname}</div>"
+            f"<div style='font-size:0.54rem;color:{_dot_bg};font-weight:700;margin-top:0.15rem;"
+            f"background:{_dot_bg}12;border-radius:4px;padding:0.1rem 0.3rem;'>{_status_text}</div>"
             f"</div>"
         )
 
-    st.markdown(
-        f"<div style='background:linear-gradient(180deg,#1c1c1c,#151515);border:1px solid #272727;"
-        f"border-radius:18px;overflow:hidden;margin-bottom:1.5rem;"
-        f"box-shadow:0 8px 40px rgba(0,0,0,0.5);'>"
+    # ── Modules agreement summary ─────────────────────────────────────────────
+    _agree_col = BULL if _bull_tabs >= 3 else ("#FFC107" if _bull_tabs >= 1 else BEAR)
 
-        # ── TOP ACCENT BAR ──────────────────────────────────────────────────
-        f"<div style='height:3px;background:linear-gradient(90deg,{vc}00,{vc},{vc}00);'></div>"
+    # ── KEY LEVELS (BUY only) ─────────────────────────────────────────────────
+    _kl_entry = d["entry"]
+    _kl_stop  = d["stop"]
+    _kl_t1, _kl_t2, _kl_t3 = d["t1"], d["t2"], d["t3"]
+    if _kl_stop >= _kl_entry:
+        _kl_stop = round(_kl_entry - abs(_kl_entry - _kl_stop), 2)
+    _kl_stop_pct = abs((_kl_stop  - _kl_entry) / _kl_entry * 100) if _kl_entry > 0 else d["risk_pct"]
+    _kl_t1_pct   = (_kl_t1 - _kl_entry) / _kl_entry * 100 if _kl_entry > 0 else 0
+    _kl_t2_pct   = (_kl_t2 - _kl_entry) / _kl_entry * 100 if _kl_entry > 0 else 0
+    _kl_t3_pct   = (_kl_t3 - _kl_entry) / _kl_entry * 100 if _kl_entry > 0 else 0
 
-        # ══════════════════════════════════════════════════════════════════════
-        # SECTION 1: THE VERDICT
-        # ══════════════════════════════════════════════════════════════════════
-        f"<div style='padding:2rem 2rem 1.2rem;display:flex;justify-content:space-between;"
-        f"align-items:center;'>"
-
-        f"<div>"
-        f"<div style='font-size:2.8rem;font-weight:900;color:{vc};letter-spacing:-1.5px;"
-        f"line-height:1;text-shadow:0 0 30px rgba({_vc_rgb},0.3);'>{display_v}</div>"
-        f"<div style='display:flex;align-items:center;gap:0.6rem;margin-top:0.5rem;'>"
-        f"<span style='font-size:0.7rem;font-weight:700;color:{_vc_conf_col};"
-        f"padding:0.18rem 0.55rem;border-radius:5px;border:1px solid {_vc_conf_col}33;"
-        f"background:{_vc_conf_col}11;text-transform:uppercase;letter-spacing:0.8px;'>"
-        f"{_verdict_confidence} CONFIDENCE</span>"
-        f"</div>"
-        f"<div style='font-size:0.85rem;color:#888;margin-top:0.6rem;font-weight:500;"
-        f"line-height:1.5;max-width:420px;'>{vsub}</div>"
-        f"</div>"
-
-        # Right: Score Ring
-        f"<div>{_ring_svg}</div>"
-        f"</div>"
-
-        # ══════════════════════════════════════════════════════════════════════
-        # SECTION 2: KEY NUMBERS — 4 columns
-        # ══════════════════════════════════════════════════════════════════════
-        f"<div style='padding:0 2rem;'>"
-        f"<div style='display:grid;grid-template-columns:repeat(4,1fr);gap:0.6rem;"
-        f"padding:1.1rem 0;border-top:1px solid #222;border-bottom:1px solid #222;'>"
-
-        # Win Probability
-        f"<div style='text-align:center;'>"
-        f"<div style='font-size:1.6rem;font-weight:900;color:"
-        f"{BULL if _win_rate >= 55 else (BEAR if _win_rate < 45 else '#FFC107')};line-height:1;'>"
-        f"{_win_rate:.0f}%</div>"
-        f"<div style='font-size:0.65rem;color:#666;font-weight:700;"
-        f"text-transform:uppercase;letter-spacing:0.5px;margin-top:0.3rem;'>"
-        f"Win Probability</div>"
-        f"</div>"
-
-        # Risk : Reward
-        f"<div style='text-align:center;'>"
-        f"<div style='font-size:1.6rem;font-weight:900;color:{_rr_col};line-height:1;'>"
-        f"1:{d['rr1']:.1f}</div>"
-        f"<div style='font-size:0.65rem;color:#666;font-weight:700;"
-        f"text-transform:uppercase;letter-spacing:0.5px;margin-top:0.3rem;'>"
-        f"R:R <span style='color:{_rr_col};'>({d['rr_quality']})</span></div>"
-        f"</div>"
-
-        # D1 Daily Trend
-        f"<div style='text-align:center;'>"
-        f"<div style='font-size:1.6rem;font-weight:900;color:{_d1_col};line-height:1;'>"
-        f"{'▲' if _d1_trend_bull is True else ('▼' if _d1_trend_bull is False else '—')} {_d1_text}</div>"
-        f"<div style='font-size:0.65rem;color:#666;font-weight:700;"
-        f"text-transform:uppercase;letter-spacing:0.5px;margin-top:0.3rem;'>Daily Trend</div>"
-        f"</div>"
-
-        # Agreement
-        f"<div style='text-align:center;'>"
-        f"<div style='font-size:1.6rem;font-weight:900;line-height:1;'>"
-        f"<span style='color:{BULL};'>{_bull_tabs}</span>"
-        f"<span style='color:#333;'> / </span>"
-        f"<span style='color:{BEAR};'>{_bear_real}</span>"
-        f"<span style='color:#333;'> / </span>"
-        f"<span style='color:#555;'>{_inactive}</span></div>"
-        f"<div style='font-size:0.65rem;color:#666;font-weight:700;"
-        f"text-transform:uppercase;letter-spacing:0.5px;margin-top:0.3rem;'>"
-        f"Bull / Bear / None</div>"
-        f"</div>"
-
-        f"</div></div>"
-
-        # ══════════════════════════════════════════════════════════════════════
-        # SECTION 3: KEY LEVELS
-        # ══════════════════════════════════════════════════════════════════════
-        f"<div style='padding:1.1rem 2rem;'>"
-        f"<div style='font-size:0.65rem;color:#555;text-transform:uppercase;"
-        f"letter-spacing:1.2px;font-weight:700;margin-bottom:0.6rem;'>KEY LEVELS</div>"
-        f"<div style='display:grid;grid-template-columns:repeat(5,1fr);gap:0.4rem;'>"
-
-        f"<div style='text-align:center;padding:0.7rem 0.3rem;background:#111;"
-        f"border:1px solid #282828;border-radius:10px;'>"
-        f"<div style='font-size:1.1rem;font-weight:900;color:#e0e0e0;'>{d['entry']:.2f}</div>"
-        f"<div style='font-size:0.55rem;color:#666;font-weight:700;text-transform:uppercase;"
-        f"letter-spacing:0.5px;margin-top:0.15rem;'>Entry</div></div>"
-
-        f"<div style='text-align:center;padding:0.7rem 0.3rem;background:#111;"
-        f"border:1px solid {BEAR}22;border-radius:10px;'>"
-        f"<div style='font-size:1.1rem;font-weight:900;color:{BEAR};'>{d['stop']:.2f}</div>"
-        f"<div style='font-size:0.55rem;color:{BEAR}99;font-weight:700;text-transform:uppercase;"
-        f"letter-spacing:0.5px;margin-top:0.15rem;'>Stop (−{d['risk_pct']:.1f}%)</div></div>"
-
-        f"<div style='text-align:center;padding:0.7rem 0.3rem;background:#111;"
-        f"border:1px solid {BULL}22;border-radius:10px;'>"
-        f"<div style='font-size:1.1rem;font-weight:900;color:{BULL};'>{d['t1']:.2f}</div>"
-        f"<div style='font-size:0.55rem;color:{BULL}99;font-weight:700;text-transform:uppercase;"
-        f"letter-spacing:0.5px;margin-top:0.15rem;'>T1 ({d['rr1']:.1f}R)</div></div>"
-
-        f"<div style='text-align:center;padding:0.7rem 0.3rem;background:#111;"
-        f"border:1px solid {BULL}22;border-radius:10px;'>"
-        f"<div style='font-size:1.1rem;font-weight:900;color:{BULL};'>{d['t2']:.2f}</div>"
-        f"<div style='font-size:0.55rem;color:{BULL}99;font-weight:700;text-transform:uppercase;"
-        f"letter-spacing:0.5px;margin-top:0.15rem;'>T2 ({d['rr2']:.1f}R)</div></div>"
-
-        f"<div style='text-align:center;padding:0.7rem 0.3rem;background:#111;"
-        f"border:1px solid {BULL}22;border-radius:10px;'>"
-        f"<div style='font-size:1.1rem;font-weight:900;color:{BULL};'>{d['t3']:.2f}</div>"
-        f"<div style='font-size:0.55rem;color:{BULL}99;font-weight:700;text-transform:uppercase;"
-        f"letter-spacing:0.5px;margin-top:0.15rem;'>T3</div></div>"
-
-        f"</div></div>"
-
-        # ══════════════════════════════════════════════════════════════════════
-        # SECTION 4: MODULE SCORES — matches tab names exactly
-        # ══════════════════════════════════════════════════════════════════════
-        f"<div style='padding:1rem 2rem;border-top:1px solid #1e1e1e;'>"
-        f"<div style='font-size:0.65rem;color:#555;text-transform:uppercase;"
-        f"letter-spacing:1.2px;font-weight:700;margin-bottom:0.6rem;'>MODULE SCORES</div>"
-        f"<div style='display:flex;gap:0.4rem;'>"
-        + _mods_html +
-        f"</div></div>"
-
-        # ══════════════════════════════════════════════════════════════════════
-        # SECTION 5: WHY
-        # ══════════════════════════════════════════════════════════════════════
-        f"<div style='padding:1rem 2rem 1.4rem;border-top:1px solid #1e1e1e;'>"
-        f"<div style='font-size:0.65rem;color:#555;text-transform:uppercase;"
-        f"letter-spacing:1.2px;font-weight:700;margin-bottom:0.6rem;'>WHY {display_v}</div>"
-        f"<div style='display:flex;flex-direction:column;gap:0.4rem;'>"
-        + _chip_html +
-        f"</div></div>"
-
-        # ── Bottom accent
-        f"<div style='height:2px;background:linear-gradient(90deg,{vc}00,{vc}66,{vc}00);'></div>"
-        f"</div>",
-        unsafe_allow_html=True,
-    )
-    
-
-    # ══════════════════════════════════════════════════════════════════════════
-    #  2. PRICE LADDER  (BUY signal only)
-    # ══════════════════════════════════════════════════════════════════════════
-    if V == "BUY":
-        from _levels import price_ladder_html as _plh
-        st.markdown(
-            _plh(d["entry"], d["stop"], d["t1"], d["t2"], d["t3"], True,
-                 d.get("entry_quality", ""), d.get("eq_col", ""),
-                 d.get("entry_zone_lo"), d.get("entry_zone_hi")),
-            unsafe_allow_html=True,
+    def _kl_cell(label, price, pct_str, color, action=""):
+        return (
+            f"<div style='text-align:center;padding:0.8rem 0.3rem;background:#111;"
+            f"border:1px solid {color}22;border-radius:10px;'>"
+            f"<div style='font-size:0.54rem;color:#444;font-weight:700;text-transform:uppercase;"
+            f"letter-spacing:0.6px;margin-bottom:0.3rem;'>{label}</div>"
+            f"<div style='font-size:1.05rem;font-weight:900;color:{color};line-height:1;'>{price:.2f}</div>"
+            f"<div style='font-size:0.63rem;font-weight:700;color:{color}bb;margin-top:0.25rem;'>{pct_str}</div>"
+            + (f"<div style='font-size:0.52rem;color:#3a3a3a;margin-top:0.2rem;font-weight:600;'>{action}</div>" if action else "")
+            + f"</div>"
         )
+
+    _kl_html = (
+        _kl_cell("Entry", _kl_entry, "Buy here", "#e0e0e0")
+        + _kl_cell("Stop Loss", _kl_stop, f"−{_kl_stop_pct:.1f}%", BEAR, "Exit if price drops here")
+        + _kl_cell("Target 1", _kl_t1, f"+{_kl_t1_pct:.1f}%  ·  {d['rr1']:.1f}×", BULL, "Sell partial here")
+        + _kl_cell("Target 2", _kl_t2, f"+{_kl_t2_pct:.1f}%  ·  {d['rr2']:.1f}×", BULL, "Main exit")
+        + _kl_cell("Target 3", _kl_t3, f"+{_kl_t3_pct:.1f}%", BULL, "If momentum holds")
+    )
+
+    _kl_section = (
+        f"<div style='padding:1rem 2rem 1.2rem;border-top:1px solid #1e1e1e;'>"
+        f"<div style='font-size:0.63rem;color:#555;text-transform:uppercase;"
+        f"letter-spacing:1.2px;font-weight:700;margin-bottom:0.65rem;'>Trade Plan</div>"
+        f"<div style='display:grid;grid-template-columns:repeat(5,1fr);gap:0.4rem;'>"
+        + _kl_html
+        + f"</div></div>"
+    ) if display_v == "BUY" else ""
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # ASSEMBLE HERO CARD
+    # ══════════════════════════════════════════════════════════════════════════
+    _hero_html = (
+        f"<div style='background:linear-gradient(180deg,#1c1c1c,#161616);"
+        f"border:1px solid #272727;border-radius:18px;overflow:hidden;"
+        f"margin-bottom:1.5rem;box-shadow:0 8px 40px rgba(0,0,0,0.5);'>"
+
+        # TOP ACCENT LINE
+        + f"<div style='height:3px;background:linear-gradient(90deg,{vc}00,{vc},{vc}00);'></div>"
+
+        # ── SECTION 1: VERDICT ───────────────────────────────────────────────
+        + f"<div style='padding:1.8rem 2rem 1.4rem;border-bottom:1px solid #1e1e1e;'>"
+        f"<div style='font-size:2.8rem;font-weight:900;color:{vc};letter-spacing:-1.5px;"
+        f"line-height:1;text-shadow:0 0 28px rgba({_vc_rgb},0.25);'>{display_v}</div>"
+        f"<div style='font-size:0.84rem;color:#999;margin-top:0.65rem;"
+        f"font-weight:500;line-height:1.6;'>{vsub}</div>"
+        f"</div>"
+
+        # ── SECTION 2: 4 RINGS ROW ────────────────────────────────────────────
+        + f"<div style='padding:1.2rem 2rem 1.4rem;border-bottom:1px solid #1e1e1e;'>"
+        f"<div style='display:flex;gap:0.5rem;'>"
+        + _r_score + _r_win + _r_rr + _r_d1
+        + f"</div></div>"
+
+        # ── SECTION 2: TRADE PLAN (BUY only) ─────────────────────────────────
+        + _kl_section
+
+        # ── SECTION 3: ANALYSIS MODULES ──────────────────────────────────────
+        + f"<div style='padding:1rem 2rem;border-top:1px solid #1e1e1e;'>"
+        f"<div style='display:flex;justify-content:space-between;align-items:center;"
+        f"margin-bottom:0.6rem;'>"
+        f"<div style='font-size:0.63rem;color:#555;text-transform:uppercase;"
+        f"letter-spacing:1.2px;font-weight:700;'>Analysis Modules</div>"
+        f"<div style='font-size:0.68rem;font-weight:700;color:{_agree_col};'>"
+        f"{_bull_tabs} bullish &nbsp;·&nbsp; {_bear_real} bearish</div>"
+        f"</div>"
+        f"<div style='display:flex;gap:0.4rem;'>"
+        + _mods_html
+        + f"</div>"
+        f"<div style='font-size:0.6rem;color:#333;margin-top:0.45rem;'>"
+        f"No signal = that tab found no clear setup on this stock."
+        f"</div></div>"
+
+        # ── SECTION 4: KEY REASONS ────────────────────────────────────────────
+        + f"<div style='padding:1rem 2rem 1.5rem;border-top:1px solid #1e1e1e;'>"
+        f"<div style='display:flex;justify-content:space-between;align-items:center;"
+        f"margin-bottom:0.65rem;'>"
+        f"<div style='font-size:0.63rem;color:#555;text-transform:uppercase;"
+        f"letter-spacing:1.2px;font-weight:700;'>Key Reasons</div>"
+        f"<div style='display:flex;gap:0.4rem;'>"
+        f"<span style='font-size:0.6rem;font-weight:800;color:{BULL};"
+        f"background:{BULL}18;border-radius:4px;padding:0.1rem 0.4rem;"
+        f"border:1px solid {BULL}30;'>{_bull_sigs} supporting</span>"
+        f"<span style='font-size:0.6rem;font-weight:800;color:{BEAR};"
+        f"background:{BEAR}18;border-radius:4px;padding:0.1rem 0.4rem;"
+        f"border:1px solid {BEAR}30;'>{_bear_sigs} opposing</span>"
+        f"</div></div>"
+        + _sig_rows_html
+        + f"</div>"
+
+        # BOTTOM ACCENT
+        + f"<div style='height:2px;background:linear-gradient(90deg,{vc}00,{vc}55,{vc}00);'></div>"
+        f"</div>"
+    )
+    st.markdown(_hero_html, unsafe_allow_html=True)
 
     # ══════════════════════════════════════════════════════════════════════════
     #  3. LIVE BUY SIGNALS FROM ALL TABS
