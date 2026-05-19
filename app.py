@@ -1562,114 +1562,105 @@ def main():
 
 
 
-        /* ?? Indicator chips ?? */
+        /* ── Indicator chips: hide native Streamlit checkboxes visually ── */
 
-        .st-key-ind_panel [data-testid="stHorizontalBlock"] {{ gap: 0.35rem !important; }}
-
-        .st-key-ind_panel [data-testid="column"] {{
-
-            padding: 0 !important;
-
-            min-width: 0 !important;
-
-            flex-shrink: 1 !important;
-
-        }}
-
-        .st-key-ind_panel .stCheckbox {{
-
-            width: 100% !important;
-
-            margin: 0 !important;
-
-            padding: 0 !important;
-
-        }}
-
-        .st-key-ind_panel .stCheckbox label[data-testid="stCheckboxWidget"] {{
-
-            display: flex !important;
-
-            justify-content: center !important;
-
-            align-items: center !important;
-
-            width: 100% !important;
-
-            min-height: 2rem !important;
-
-            padding: 0.25rem 0.2rem !important;
-
-            border-radius: 6px !important;
-
-            border: 1px solid #404040 !important;
-
-            background: #303030 !important;
-
-            cursor: pointer !important;
-
-            transition: border-color 0.12s, background 0.12s !important;
-
-            gap: 0 !important;
-
-            box-sizing: border-box !important;
-
-        }}
-
-        .st-key-ind_panel .stCheckbox label[data-testid="stCheckboxWidget"]:hover {{
-
-            border-color: #26A69A !important;
-
-            background: #383838 !important;
-
-        }}
-
-        .st-key-ind_panel .stCheckbox:has(input:checked) label[data-testid="stCheckboxWidget"] {{
-
-            background: rgba(38,166,154,0.2) !important;
-
-            border-color: #26A69A !important;
-
-        }}
-
-        .st-key-ind_panel .stCheckbox label[data-testid="stCheckboxWidget"] > :first-child {{
-
-            display: none !important;
-
-        }}
-
-        .st-key-ind_panel .stCheckbox label[data-testid="stCheckboxWidget"] p,
-
-        .st-key-ind_panel .stCheckbox label[data-testid="stCheckboxWidget"] span {{
-
-            margin: 0 !important;
-
-            font-size: 0.68rem !important;
-
-            font-weight: 600 !important;
-
-            color: #9e9e9e !important;
-
-            text-align: center !important;
-
-            line-height: 1 !important;
-
-            white-space: nowrap !important;
-
+        .st-key-ind_panel {{
+            position: absolute !important;
+            width: 1px !important;
+            height: 1px !important;
             overflow: hidden !important;
-
-            text-overflow: ellipsis !important;
-
+            opacity: 0 !important;
+            pointer-events: none !important;
         }}
 
-        .st-key-ind_panel .stCheckbox:has(input:checked) label[data-testid="stCheckboxWidget"] p,
+        /* ── Indicator chip pill ── */
+        .ind-chip {{
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.38rem 0.65rem;
+            border-radius: 8px;
+            border: 1px solid #333;
+            background: #222;
+            cursor: pointer;
+            transition: border-color 0.15s, background 0.15s;
+            user-select: none;
+            white-space: nowrap;
+        }}
+        .ind-chip:hover {{ border-color: #26A69A; background: #2a2a2a; }}
+        .ind-chip.active {{
+            background: rgba(38,166,154,0.14);
+            border-color: #26A69A;
+            box-shadow: 0 0 0 1px #26A69A22;
+        }}
+        .ind-chip span.ic-lbl {{
+            font-size: 0.73rem;
+            font-weight: 600;
+            color: #888;
+            line-height: 1;
+        }}
+        .ind-chip.active span.ic-lbl {{ color: #26A69A; font-weight: 700; }}
+        .ind-chip span.ic-new {{
+            display: inline-flex;
+            align-items: center;
+            padding: 0.1rem 0.35rem;
+            border-radius: 20px;
+            background: #16a34a;
+            border: 1px solid #22c55e;
+            font-size: 0.5rem;
+            font-weight: 800;
+            color: #ffffff;
+            letter-spacing: 0.4px;
+            text-transform: uppercase;
+            line-height: 1;
+            flex-shrink: 0;
+        }}
 
-        .st-key-ind_panel .stCheckbox:has(input:checked) label[data-testid="stCheckboxWidget"] span {{
+        /* ── Indicator ? tooltip bubble ── */
+        .ind-tip {{
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 14px; height: 14px;
+            border-radius: 50%;
+            background: #2a2a2a;
+            border: 1px solid #3a3a3a;
+            font-size: 0.56rem;
+            font-weight: 900;
+            color: #555;
+            cursor: help;
+            flex-shrink: 0;
+            line-height: 1;
+        }}
+        .ind-tip:hover {{ border-color: #26A69A; color: #26A69A; }}
+        .ind-tip .ind-tt {{
+            display: none;
+            position: absolute;
+            bottom: calc(100% + 6px);
+            left: 50%;
+            transform: translateX(-50%);
+            width: 230px;
+            background: #1c1c1c;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 0.55rem 0.7rem;
+            font-size: 0.67rem;
+            color: #ccc;
+            line-height: 1.55;
+            z-index: 9999;
+            pointer-events: none;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.7);
+            white-space: normal;
+        }}
+        .ind-tip:hover .ind-tt {{ display: block; }}
 
-            color: #4caf50 !important;
-
-            font-weight: 700 !important;
-
+        /* ── Chip row wrap ── */
+        .ind-row {{
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.42rem;
+            margin: 0.3rem 0 0.6rem;
         }}
 
 
@@ -3155,9 +3146,17 @@ def main():
         _qp_goto = st.query_params.get("goto", "")
         if _qp_goto:
             _qp_sym = str(_qp_goto).replace(".SR", "")
+            # Carry over scan context if passed in query params
+            _qp_score  = st.query_params.get("sc", "")
+            _qp_conv   = st.query_params.get("cv", "")
+            _qp_setup  = st.query_params.get("st", "")
             st.query_params.clear()
             st.session_state["symbol_input"] = _qp_sym
             st.session_state["screener_auto_analyze"] = True
+            if _qp_score:
+                st.session_state["scan_context"] = {
+                    "score": _qp_score, "conviction": _qp_conv, "setup": _qp_setup
+                }
             st.rerun()
 
         # ── Screener auto-navigate: pre-fill symbol_input before widgets render ──
@@ -3653,68 +3652,122 @@ def main():
 
                     # ── shared indicator block (reused in stock tab) ────────
                     def _render_indicators():
-                        selected = []
-                        st.markdown("<div class='cp-ind-hdr'>Indicators</div>", unsafe_allow_html=True)
+                        # ── master indicator registry ──────────────────────────────────────
+                        # (label, key, default_on, is_new, mapped_name, tooltip)
+                        _ALL_CATS = [
+                            ("#4A9EFF", "Trend", [
+                                ("SMA",        "ind_sma",        True,  False, "SMA",           "Simple Moving Average: the plain average of closing prices. Best for identifying the overall trend direction at a glance."),
+                                ("EMA",        "ind_ema",        True,  False, "EMA",           "Exponential Moving Average: weights recent prices more heavily than SMA. Reacts faster to new price moves — great for dynamic support/resistance."),
+                                ("WMA",        "ind_wma",        True,  False, "WMA",           "Weighted Moving Average: linearly decays weight for older bars. Faster than SMA, smoother than EMA. Useful in trending markets."),
+                                ("Par.SAR",    "ind_psar",       True,  False, "Parabolic SAR", "Parabolic SAR: dots above price = downtrend, dots below = uptrend. Flips instantly on trend change — great as a trailing stop guide."),
+                                ("Ichimoku",   "ind_ichimoku",   True,  False, "Ichimoku",      "Ichimoku Cloud: all-in-one indicator showing trend, support, resistance, and momentum in one view. Price above cloud = bullish bias."),
+                                ("MACD",       "ind_macd",       True,  False, "MACD",          "MACD: difference between 12 and 26 EMA. Histogram above zero = bullish momentum. Crossover of signal line = entry/exit trigger."),
+                                ("SuperTrend", "ind_supertrend", True,  False, "SuperTrend",    "SuperTrend: ATR-based line that flips green (uptrend) / red (downtrend). The single clearest trend-following signal available."),
+                                ("Hull MA",    "ind_hma",        True,  True,  "Hull MA",       "Hull MA: much smoother and faster than SMA/EMA. Dramatically reduces lag so you catch trend changes before they become obvious."),
+                            ]),
+                            ("#F59E0B", "Momentum", [
+                                ("RSI",        "ind_rsi",       True,  False, "RSI",           "RSI: measures speed of price change. Above 70 = overbought, below 30 = oversold. Most widely used momentum indicator worldwide."),
+                                ("Stoch",      "ind_stoch",     True,  False, "Stochastic",    "Stochastic Oscillator: compares closing price to its range. %K crossing %D from below 20 = strong buy signal."),
+                                ("ROC",        "ind_roc",       True,  False, "ROC",           "Rate of Change: % change over N bars. Rising above zero = acceleration. Useful for spotting momentum shifts before price confirms."),
+                                ("CCI",        "ind_cci",       True,  False, "CCI",           "CCI: measures how far price is from its average. Above +100 = strong uptrend. Below -100 = oversold bounce zone."),
+                                ("Wm.%R",      "ind_willr",     True,  False, "Williams %R",   "Williams %R: inverted stochastic. Above -20 = overbought. Below -80 = oversold. Faster at catching reversals than standard RSI."),
+                                ("Momentum",   "ind_momentum",  True,  True,  "Momentum",      "Raw Momentum: close minus close N bars ago. Positive & rising = acceleration. Simpler and faster than ROC for pure momentum reads."),
+                                ("TSI",        "ind_tsi",       True,  True,  "TSI",           "True Strength Index: double-smoothed momentum. Stays flat in sideways markets, spikes sharply on real trend moves. Cross above zero = bullish."),
+                                ("PPO",        "ind_ppo",       True,  True,  "PPO",           "Percentage Price Oscillator: MACD expressed as a %. Comparable across different-priced stocks — great for relative strength analysis."),
+                                ("Elder Ray",  "ind_elderray",  True,  True,  "Elder Ray",     "Elder Ray: Bull Power (high vs EMA) and Bear Power (low vs EMA). Positive bull power + rising EMA = buyers in structural control."),
+                            ]),
+                            ("#34D399", "Volume", [
+                                ("OBV",       "ind_obv",      True,  False, "OBV",          "On-Balance Volume: cumulative volume flowing in/out. If OBV rises while price is flat, institutions are accumulating — breakout likely."),
+                                ("MFI",       "ind_mfi",      True,  False, "MFI",          "Money Flow Index: RSI applied to volume-weighted prices. Below 20 = oversold with volume confirmation. More reliable than RSI alone."),
+                                ("CMF",       "ind_cmf",      True,  False, "CMF",          "Chaikin Money Flow: measures buying/selling pressure over 20 bars. Above zero = net accumulation. Below zero = distribution."),
+                                ("VWAP",      "ind_vwap",     True,  False, "VWAP",         "Volume-Weighted Average Price: the price institutions benchmark their orders to. Price above VWAP = buyers in control intraday."),
+                                ("A/D Line",  "ind_adline",   True,  True,  "A/D Line",     "Accumulation/Distribution: if price rises but A/D falls, institutions are selling into the rally. Classic early distribution warning."),
+                                ("Vol MA",    "ind_volma",    True,  True,  "Volume MA",    "Volume Moving Average: 20-bar average on volume panel. Bars above it = above-average participation. Bars below = weak, low-conviction move."),
+                                ("Force Idx", "ind_forceidx", True,  True,  "Force Index",  "Force Index: price change × volume. Positive spikes = strong institutional buying. Negative spikes = heavy selling pressure confirmed."),
+                                ("Vol RSI",   "ind_volrsi",   True,  True,  "Volume RSI",   "Volume RSI: RSI applied to volume itself. Spikes above 70 = climax volume — either breakout confirmation or exhaustion top."),
+                            ]),
+                            ("#A78BFA", "Volatility", [
+                                ("Bol.Bands",  "ind_bb",         True,  False, "Bollinger Bands",      "Bollinger Bands: 2 standard deviation envelope around 20 MA. Price touching lower band + reversal candle = high-probability bounce zone."),
+                                ("ATR",        "ind_atr",        True,  False, "ATR",                  "ATR: average of the last 14 candles' true ranges. Use it to set your stop loss — 1.5× ATR below entry is the standard method."),
+                                ("Keltner",    "ind_keltner",    True,  False, "Keltner Channel",      "Keltner Channel: EMA ± 2× ATR. When Bollinger Bands are inside Keltner = squeeze. When they expand out = breakout trigger."),
+                                ("Donchian",   "ind_donchian",   True,  False, "Donchian Channel",     "Donchian Channel: highest high and lowest low over N bars. Break above upper band = new momentum high. Used in turtle trading systems."),
+                                ("Squeeze",    "ind_squeeze",    True,  False, "Squeeze Momentum",     "Squeeze: Bollinger Bands inside Keltner = stock is coiling. When BBands expand outside Keltner = explosive breakout trigger. Most powerful pre-move signal."),
+                                ("Hist.Vol %", "ind_histvol",    True,  True,  "Historical Volatility","Historical Volatility %: realized vol over 20 bars normalized. Low after a flat period = compression before a big move."),
+                                ("Std.Dev",    "ind_stddev",     True,  True,  "Standard Deviation",   "Standard Deviation channel: wide bands = volatile market. Narrow bands = compression phase. Watch for breakout when bands squeeze to multi-month lows."),
+                                ("Chandelier", "ind_chandelier", True,  True,  "Chandelier Exit",      "Chandelier Exit: ATR trailing stop anchored to the highest high. Trails the trend upward and only exits on a genuine reversal — not random noise."),
+                            ]),
+                            ("#60A5FA", "Support &amp; Resistance", [
+                                ("Pivot Pts",   "ind_pivots",    True,  False, "Pivot Points",     "Pivot Points: daily/weekly S1, S2, R1, R2 auto-calculated. The most widely-watched levels by institutional trading desks globally."),
+                                ("Fib Levels",  "ind_fib",       True,  False, "Fibonacci Levels", "Fibonacci Retracement: 38.2%, 50%, 61.8% from swing high/low. The 61.8% golden ratio is the strongest pullback re-entry level in any uptrend."),
+                                ("ADX",         "ind_adx",       True,  False, "ADX",              "ADX: measures trend strength, not direction. Above 25 = strong trend. +DI above -DI = bulls in control. Filter out weak sideways signals."),
+                                ("VWAP Bands",  "ind_vwapbands", True,  True,  "VWAP Bands",       "VWAP ±1σ/2σ bands. Price reverting to VWAP from the 1σ band with a bullish candle = high-probability institutional re-entry zone."),
+                                ("Prev Hi/Lo",  "ind_prevhilo",  True,  True,  "Prev High/Low",    "Previous Day/Week High & Low: breaks above prev high = momentum confirmed. Holding above prev low = support intact. Clean binary levels."),
+                                ("Swing Hi/Lo", "ind_swinghl",   True,  True,  "Swing High/Low",   "Auto-detected swing highs and lows. Building blocks of market structure — HH+HL = uptrend, LH+LL = downtrend."),
+                            ]),
+                            ("#F87171", "Mean Reversion", [
+                                ("RSI Ext.",   "ind_rsiext",   True,  False, "RSI Extremes",         "RSI Extremes: colored zones below 30 (oversold) and above 70 (overbought). Best entry zone = RSI under 30 with a reversal candle pattern."),
+                                ("BB Z-Score", "ind_bbzscore", True,  True,  "BB Z-Score",           "BB Z-Score: how many standard deviations price is from the mean. Above +2 = dangerously extended. Below -2 = deeply oversold bargain zone."),
+                                ("Dist. MA",   "ind_distma",   True,  True,  "Distance from MA",     "Distance from MA %: how far price is above/below the 20/50 MA. Over 8% above = likely reversion. Great for the anti-chaser filter."),
+                                ("Stoch Ext.", "ind_stochext", True,  True,  "Stochastic Extreme",   "Stochastic Extremes: below 20 = deep oversold bounce zone. Above 80 = deep overbought. Cleaner signals than raw Stochastic in volatile markets."),
+                                ("CCI Ext.",   "ind_cciext",   True,  True,  "CCI Extreme",          "CCI Extremes: below -100 = extreme oversold, above +100 = extreme overbought. Faster at catching Saudi stock reversals than RSI."),
+                            ]),
+                            ("#F97316", "Market Regime", [
+                                ("TASI Filter",   "ind_tasifilter",   True,  False, "TASI Filter",      "TASI Filter: only take long setups when TASI index is above its 50 EMA. Trading with the market dramatically improves win rate."),
+                                ("Sector Filter", "ind_sectorfilter", True,  True,  "Sector Filter",    "Sector Filter: compares the stock's sector index against its 50 EMA. Only buy stocks in sectors that are themselves in uptrends."),
+                                ("RS vs TASI",    "ind_rstasi",       True,  True,  "RS vs TASI",       "Relative Strength vs TASI: is this stock outperforming the market? Rising RS line = market leader. Buy the leaders, avoid the laggards."),
+                                ("RS vs Sector",  "ind_rssector",     True,  True,  "RS vs Sector",     "Relative Strength vs Sector: is this stock leading its sector peers? Best setups = strong sector + stock leading within that sector."),
+                                ("Adv/Decline",   "ind_advdecline",   True,  True,  "Advance/Decline",  "Advance/Decline Line: advancing minus declining stocks across TASI. Falling while TASI rises = weak breadth — major warning sign."),
+                                ("New Hi/Lo",     "ind_newhilo",      True,  True,  "New High/Low",     "New 52-Week Highs vs Lows: new highs dominating = market expansion. New lows dominating = distribution. Check before opening new positions."),
+                            ]),
+                        ]
+
+                        # ── init session state defaults ─────────────────────────────────────
+                        # bump _IND_VER whenever defaults change to force a reset
+                        _IND_VER = "v3"
+                        if st.session_state.get("_ind_ver") != _IND_VER:
+                            for _color, _cat_lbl, _items in _ALL_CATS:
+                                for _lbl, _key, _dflt, _is_new, _mapped, _tip in _items:
+                                    st.session_state[_key] = _dflt
+                            st.session_state["_ind_ver"] = _IND_VER
+
+                        # ── render hidden real checkboxes (Streamlit state) ─────────────────
                         with st.container(key="ind_panel"):
-                            # 1. Trend Indicators
-                            st.markdown("<div class='cp-cat'><span class='cp-cat-dot' style='background:#4A9EFF;'></span><span style='color:#4A9EFF;'>Trend Indicators</span></div>", unsafe_allow_html=True)
-                            t = st.columns(6, gap="small")
-                            with t[0]: s  = st.checkbox("SMA",      value=True, key="ind_sma")
-                            with t[1]: e  = st.checkbox("EMA",      value=True, key="ind_ema")
-                            with t[2]: w  = st.checkbox("WMA",      value=True, key="ind_wma")
-                            with t[3]: p  = st.checkbox("Par.SAR",  value=True, key="ind_psar")
-                            with t[4]: ic = st.checkbox("Ichimoku", value=True, key="ind_ichimoku")
-                            with t[5]: mc = st.checkbox("MACD",     value=True, key="ind_macd")
-                            if s:  selected.append('SMA')
-                            if e:  selected.append('EMA')
-                            if w:  selected.append('WMA')
-                            if p:  selected.append('Parabolic SAR')
-                            if ic: selected.append('Ichimoku')
-                            if mc: selected.append('MACD')
+                            for _color, _cat_lbl, _items in _ALL_CATS:
+                                _cols = st.columns(len(_items), gap="small")
+                                for _ci, (_lbl, _key, _dflt, _is_new, _mapped, _tip) in enumerate(_items):
+                                    with _cols[_ci]:
+                                        st.checkbox(_lbl, key=_key, label_visibility="collapsed")
 
-                            # 2. Momentum Indicators
-                            st.markdown("<div class='cp-cat'><span class='cp-cat-dot' style='background:#F59E0B;'></span><span style='color:#F59E0B;'>Momentum Indicators</span></div>", unsafe_allow_html=True)
-                            m = st.columns(5, gap="small")
-                            with m[0]: r   = st.checkbox("RSI",   value=True, key="ind_rsi")
-                            with m[1]: st_ = st.checkbox("Stoch", value=True, key="ind_stoch")
-                            with m[2]: ro  = st.checkbox("ROC",   value=True, key="ind_roc")
-                            with m[3]: cc  = st.checkbox("CCI",   value=True, key="ind_cci")
-                            with m[4]: wl  = st.checkbox("Wm.%R", value=True, key="ind_willr")
-                            if r:   selected.append('RSI')
-                            if st_: selected.append('Stochastic')
-                            if ro:  selected.append('ROC')
-                            if cc:  selected.append('CCI')
-                            if wl:  selected.append('Williams %R')
+                        st.markdown("<div class='cp-ind-hdr'>Indicators</div>", unsafe_allow_html=True)
 
-                            # 3. Volume Indicators
-                            st.markdown("<div class='cp-cat'><span class='cp-cat-dot' style='background:#34D399;'></span><span style='color:#34D399;'>Volume Indicators</span></div>", unsafe_allow_html=True)
-                            u = st.columns(4, gap="small")
-                            with u[0]: ob = st.checkbox("OBV",  value=True, key="ind_obv")
-                            with u[1]: mf = st.checkbox("MFI",  value=True, key="ind_mfi")
-                            with u[2]: cf = st.checkbox("CMF",  value=True, key="ind_cmf")
-                            with u[3]: vw = st.checkbox("VWAP", value=True, key="ind_vwap")
-                            if ob: selected.append('OBV')
-                            if mf: selected.append('MFI')
-                            if cf: selected.append('CMF')
-                            if vw: selected.append('VWAP')
+                        selected = []
+                        for _color, _cat_lbl, _items in _ALL_CATS:
+                            # category header
+                            st.markdown(
+                                f"<div class='cp-cat'>"
+                                f"<span class='cp-cat-dot' style='background:{_color};'></span>"
+                                f"<span style='color:{_color};'>{_cat_lbl}</span>"
+                                f"</div>",
+                                unsafe_allow_html=True,
+                            )
+                            # chip row — all chips in one flex-wrap row
+                            _chips_html = "<div class='ind-row'>"
+                            for _lbl, _key, _dflt, _is_new, _mapped, _tip in _items:
+                                _active = "active" if st.session_state.get(_key, False) else ""
+                                _new_badge = "<span class='ic-new'>NEW</span>" if _is_new else ""
+                                _q_html = (f"<span class='ind-tip'>?"
+                                           f"<span class='ind-tt'>{_tip}</span></span>")
+                                _chips_html += (
+                                    f"<div class='ind-chip {_active}'>"
+                                    f"<span class='ic-lbl'>{_lbl}</span>"
+                                    f"{_new_badge}{_q_html}"
+                                    f"</div>"
+                                )
+                                if st.session_state.get(_key, False):
+                                    selected.append(_mapped)
+                            _chips_html += "</div>"
+                            st.markdown(_chips_html, unsafe_allow_html=True)
 
-                            # 4. Volatility Indicators
-                            st.markdown("<div class='cp-cat'><span class='cp-cat-dot' style='background:#A78BFA;'></span><span style='color:#A78BFA;'>Volatility Indicators</span></div>", unsafe_allow_html=True)
-                            v = st.columns(4, gap="small")
-                            with v[0]: bb = st.checkbox("Bol.Bands", value=True, key="ind_bb")
-                            with v[1]: at = st.checkbox("ATR",       value=True, key="ind_atr")
-                            with v[2]: ke = st.checkbox("Keltner",   value=True, key="ind_keltner")
-                            with v[3]: do = st.checkbox("Donchian",  value=True, key="ind_donchian")
-                            if bb: selected.append('Bollinger Bands')
-                            if at: selected.append('ATR')
-                            if ke: selected.append('Keltner Channel')
-                            if do: selected.append('Donchian Channel')
-
-                            # 7. Market Regime / Breadth Filters
-                            st.markdown("<div class='cp-cat'><span class='cp-cat-dot' style='background:#F97316;'></span><span style='color:#F97316;'>Market Regime / Breadth</span></div>", unsafe_allow_html=True)
-                            ts = st.columns([1, 2], gap="small")
-                            with ts[0]: adx_ = st.checkbox("ADX +DI/-DI", value=True, key="ind_adx")
-                            if adx_: selected.append('ADX')
                         return selected
 
                     # ── Scan parameter block ────────────────────────────────
@@ -3814,143 +3867,238 @@ def main():
                                   on_click=run_analysis_callback)
                         st.markdown("</div>", unsafe_allow_html=True)
 
-                    # ── TAB 1: Scan Market (full market OR custom symbols) ──
+                    # ── TAB 1: Scan Market ──────────────────────────────────
                     with cp_tab1:
+
+                        from market_data import SCAN_STRATEGIES, run_strategy_scan
+
+                        # ── Scope ────────────────────────────────────────────
+                        st.markdown("<div class='cp-input-label'>Stocks</div>", unsafe_allow_html=True)
                         _scan_mode = st.radio(
-                            "Scan mode",
-                            ["Full Market", "Enter Symbols"],
+                            "Stocks",
+                            ["Full Market", "Custom Symbols"],
                             horizontal=True,
                             key="scan_mode",
                             label_visibility="collapsed",
                         )
 
-                        # ── Fresh Setup filter — show only pre-move opportunities ──
+                        if _scan_mode == "Custom Symbols":
+                            st.markdown("<div class='cp-input-label'>Symbols</div>", unsafe_allow_html=True)
+                            _sym_input = st.text_input(
+                                "Symbols",
+                                value="1120, 2222, 4190, 2010, 1180",
+                                key="ma_symbols_input",
+                                label_visibility="collapsed",
+                                placeholder="e.g. 1120, 2222, 4190",
+                            )
+                            _scan_tickers = [
+                                s.strip() + ".SR" if s.strip().isdigit() else s.strip()
+                                for s in _sym_input.split(",") if s.strip()
+                            ]
+                        else:
+                            all_tadawul   = get_all_tadawul_tickers()
+                            _scan_tickers = list(all_tadawul.keys())
+
+                        # ── Strategy ─────────────────────────────────────────
                         st.markdown(
-                            "<div style='background:linear-gradient(135deg,rgba(38,166,154,0.06),rgba(38,166,154,0.01));"
-                            "border:1px solid rgba(38,166,154,0.22);border-radius:11px;padding:0.55rem 0.75rem;"
-                            "margin:0.4rem 0 0.7rem;display:flex;align-items:center;gap:0.55rem;'>"
-                            "<span style='width:3px;height:22px;background:linear-gradient(180deg,#26A69A,rgba(38,166,154,0.3));"
-                            "border-radius:2px;box-shadow:0 0 6px rgba(38,166,154,0.5);'></span>"
-                            "<div style='flex:1;'>"
-                            "<div style='font-size:0.66rem;color:#26A69A;font-weight:800;letter-spacing:0.4px;'>Fresh Setups Only</div>"
-                            "<div style='font-size:0.58rem;color:#7d848a;margin-top:1px;'>Hide stocks that already ran. Show only pre-move opportunities.</div>"
-                            "</div>"
-                            "</div>",
+                            "<div class='cp-input-label' style='display:flex;align-items:center;gap:0.35rem;'>"
+                            "Strategy"
+                            "<span class='ind-tip'>?<span class='ind-tt'>"
+                            "Each strategy looks for a different type of opportunity. "
+                            "Trend Breakout = stocks pushing higher with volume. "
+                            "Oversold Bounce = beaten-down stocks about to snap back. "
+                            "Momentum Surge = stocks accelerating fast. "
+                            "Squeeze Setup = coiling stocks ready to explode. "
+                            "Smart Money = stocks being quietly accumulated. "
+                            "All Strategies runs everything and shows the best hits."
+                            "</span></span></div>",
                             unsafe_allow_html=True,
                         )
-                        _fresh_c1, _fresh_c2 = st.columns([1, 1])
-                        with _fresh_c1:
+                        _strat_keys    = list(SCAN_STRATEGIES.keys())
+                        _strat_options = ["All Strategies"] + [v["label"] for v in SCAN_STRATEGIES.values()]
+                        _strat_sel     = st.selectbox(
+                            "Strategy",
+                            _strat_options,
+                            key="scan_strategy_sel",
+                            label_visibility="collapsed",
+                        )
+
+                        # ── Sector & Min Score ───────────────────────────────
+                        _sc1, _sc2 = st.columns(2)
+                        with _sc1:
+                            st.markdown(
+                                "<div class='cp-input-label' style='display:flex;align-items:center;gap:0.35rem;'>"
+                                "Sector"
+                                "<span class='ind-tip'>?<span class='ind-tt'>"
+                                "Filter results to one industry. Useful when you only want to trade banks, "
+                                "petrochemicals, or another specific sector you follow."
+                                "</span></span></div>",
+                                unsafe_allow_html=True,
+                            )
+                            _scan_sector = st.selectbox(
+                                "Sector",
+                                ["All Sectors", "Banks", "Petrochemicals", "Utilities",
+                                 "Telecom & Tech", "Insurance", "Cement", "Food & Agri",
+                                 "REITs", "Retail", "Healthcare", "Transport", "Other"],
+                                key="scan_sector",
+                                label_visibility="collapsed",
+                            )
+                        with _sc2:
+                            st.markdown(
+                                "<div class='cp-input-label' style='display:flex;align-items:center;gap:0.35rem;'>"
+                                "Min Signal Score"
+                                "<span class='ind-tip'>?<span class='ind-tt'>"
+                                "How many indicators must agree before a stock appears in results. "
+                                "1 = show everything. 2 = at least 2 signals confirm (recommended). "
+                                "3+ = only high-conviction setups. Higher = fewer but stronger results."
+                                "</span></span></div>",
+                                unsafe_allow_html=True,
+                            )
+                            _scan_min_score = st.selectbox(
+                                "Min Score",
+                                [1, 2, 3, 4, 5],
+                                index=1,
+                                key="scan_min_score",
+                                label_visibility="collapsed",
+                            )
+
+                        # ── Fresh setups filter ──────────────────────────────
+                        _ff1, _ff2 = st.columns([3, 2])
+                        with _ff1:
+                            st.markdown(
+                                "<div class='cp-input-label' style='display:flex;align-items:center;gap:0.35rem;'>"
+                                "Fresh Setups Only"
+                                "<span class='ind-tip'>?<span class='ind-tt'>"
+                                "Hides stocks that already made their big move. "
+                                "If a stock is up 15%+ in the last few days, you missed it — "
+                                "this filter removes it so you only see stocks where the move is still ahead."
+                                "</span></span></div>",
+                                unsafe_allow_html=True,
+                            )
                             _fresh_only = st.checkbox(
-                                "Filter exhausted moves",
+                                "Hide stocks that already ran up",
                                 value=st.session_state.get("scan_fresh_only", True),
                                 key="scan_fresh_only",
-                                help=(
-                                    "When ON, the scanner removes stocks that already rallied "
-                                    "(>5% this week, >10% this month, near 52w high, near resistance, "
-                                    "or RSI overbought). You only see stocks where the move hasn't started yet."
-                                ),
                             )
-                        with _fresh_c2:
+                        with _ff2:
+                            st.markdown(
+                                "<div class='cp-input-label' style='display:flex;align-items:center;gap:0.35rem;'>"
+                                "Strictness"
+                                "<span class='ind-tip'>?<span class='ind-tt'>"
+                                "Strict = aggressive filter, only shows stocks with very little recent movement. "
+                                "Loose = softer filter, allows stocks with moderate recent gains through."
+                                "</span></span></div>",
+                                unsafe_allow_html=True,
+                            )
                             _fresh_mode = st.selectbox(
-                                "Filter strength",
+                                "Strictness",
                                 ["Strict", "Loose"],
                                 index=0 if st.session_state.get("scan_fresh_mode", "Strict") == "Strict" else 1,
                                 key="scan_fresh_mode",
                                 label_visibility="collapsed",
-                                disabled=not _fresh_only,
+                                disabled=not st.session_state.get("scan_fresh_only", True),
                             )
 
-                        if _scan_mode == "Enter Symbols":
-                            st.markdown("<div class='cp-input-label'>Stock Symbols (comma separated)</div>", unsafe_allow_html=True)
-                            ma_symbols_input = st.text_input(
-                                "Symbols",
-                                value="1120, 2222, 4190, 2010, 1180, 7010, 2380, 4081",
-                                key="ma_symbols_input",
+                        # ── Date range ───────────────────────────────────────
+                        _dc1, _dc2 = st.columns(2)
+                        with _dc1:
+                            st.markdown("<div class='cp-input-label'>From</div>", unsafe_allow_html=True)
+                            _scan_start = st.date_input(
+                                "From",
+                                value=(datetime.now() - timedelta(days=180)).date(),
+                                key="scan_start",
                                 label_visibility="collapsed",
-                                placeholder="e.g., 1120, 2222, 4190")
-                            ma_tickers = [s.strip() + ".SR" if s.strip().isdigit() else s.strip()
-                                          for s in ma_symbols_input.split(",") if s.strip()]
-                            st.markdown(
-                                f"<div style='color:#3a4550;font-size:0.68rem;margin:0.3rem 0 0.8rem;'>"
-                                f"{len(ma_tickers)} symbols selected</div>",
-                                unsafe_allow_html=True)
+                            )
+                        with _dc2:
+                            st.markdown("<div class='cp-input-label'>To</div>", unsafe_allow_html=True)
+                            _scan_end = st.date_input(
+                                "To",
+                                value=datetime.now().date(),
+                                key="scan_end",
+                                label_visibility="collapsed",
+                            )
 
-                            ma_start_es, ma_end_es = _render_scan_params("_es")
+                        if "ma_results" not in st.session_state:
+                            st.session_state.ma_results = None
 
-                            if 'ma_results' not in st.session_state:
-                                st.session_state.ma_results = None
+                        def run_full_scan_callback():
+                            _tickers    = st.session_state.get("_scan_tickers_snap", [])
+                            _strat_sel  = st.session_state.get("scan_strategy_sel", "All Strategies")
+                            _sector     = st.session_state.get("scan_sector", "All Sectors")
+                            _min_score  = st.session_state.get("scan_min_score", 2)
+                            _fo         = st.session_state.get("scan_fresh_only", True)
+                            _fm         = "strict" if st.session_state.get("scan_fresh_mode", "Strict") == "Strict" else "loose"
+                            _sd         = st.session_state.get("scan_start", (datetime.now() - timedelta(days=180)).date())
+                            _ed         = st.session_state.get("scan_end",   datetime.now().date())
+                            if not _tickers:
+                                st.warning("No tickers to scan.")
+                                return
 
-                            def run_market_analysis_callback_es():
-                                if not ma_tickers:
-                                    st.error("No stocks selected.")
-                                    return
-                                _sd = st.session_state.get('ma_start_es', (datetime.now() - timedelta(days=365)).date())
-                                _ed = st.session_state.get('ma_end_es',   datetime.now().date())
-                                with st.spinner(f"Scanning {len(ma_tickers)} stocks…"):
-                                    res = run_market_analysis(
-                                        tuple(ma_tickers), min_score=1, start=_sd, end=_ed)
-                                    if st.session_state.get("scan_fresh_only", True):
-                                        from market_data import filter_fresh_setups
-                                        _mode = "strict" if st.session_state.get("scan_fresh_mode", "Strict") == "Strict" else "loose"
-                                        res = filter_fresh_setups(res, mode=_mode)
-                                    st.session_state.ma_results       = res
-                                    st.session_state.ma_scanned_count = len(ma_tickers)
-                                    st.session_state.ma_scan_params   = {'start': str(_sd), 'end': str(_ed)}
-                                    st.session_state.show_market_results = True
+                            if _strat_sel == "All Strategies":
+                                _run_keys = list(SCAN_STRATEGIES.keys())
+                                _lbl      = "Full Market"
+                                _col      = "#26A69A"
+                            else:
+                                _run_keys = [k for k, v in SCAN_STRATEGIES.items() if v["label"] == _strat_sel]
+                                _lbl      = _strat_sel
+                                _col      = SCAN_STRATEGIES[_run_keys[0]]["color"] if _run_keys else "#26A69A"
 
-                            st.markdown("<div class='cp-run-wrap'>", unsafe_allow_html=True)
-                            st.button("Run Scan", type="secondary", width="stretch",
-                                      on_click=run_market_analysis_callback_es, key="ma_run_btn_es")
-                            st.markdown("</div>", unsafe_allow_html=True)
+                            _all_buy, _all_sell, _all_hold = [], [], []
+                            for _sk in _run_keys:
+                                try:
+                                    _res = run_strategy_scan(
+                                        _tickers,
+                                        strategy_key=_sk,
+                                        start=_sd,
+                                        end=_ed,
+                                        fresh_only=_fo,
+                                        fresh_mode=_fm,
+                                    )
+                                    _all_buy  += _res.get("buy",  [])
+                                    _all_sell += _res.get("sell", [])
+                                    _all_hold += _res.get("hold", [])
+                                except Exception:
+                                    pass
 
-                        else:  # Full Market
-                            all_tadawul    = get_all_tadawul_tickers()
-                            ma_tickers_all = list(all_tadawul.keys())
-                            st.markdown(
-                                f"<div style='color:#26A69A;font-size:0.78rem;font-weight:600;"
-                                f"margin-bottom:0.8rem;'>"
-                                f"{len(ma_tickers_all)} Tadawul stocks ready to scan</div>",
-                                unsafe_allow_html=True)
+                            def _dedup(lst):
+                                seen, out = {}, []
+                                for s in sorted(lst, key=lambda x: x.get("consensus", 0), reverse=True):
+                                    if s["ticker"] not in seen:
+                                        seen[s["ticker"]] = True
+                                        out.append(s)
+                                return out
 
-                            _fmd1, _fmd2 = st.columns(2)
-                            with _fmd1:
-                                st.markdown("<div class='cp-input-label'>From</div>", unsafe_allow_html=True)
-                                _fm_start = st.date_input("From",
-                                    value=(datetime.now() - timedelta(days=180)).date(),
-                                    min_value=datetime(2002, 1, 1).date(),
-                                    key="scr_fm_start",
-                                    label_visibility="collapsed")
-                            with _fmd2:
-                                st.markdown("<div class='cp-input-label'>To</div>", unsafe_allow_html=True)
-                                _fm_end = st.date_input("To",
-                                    value=datetime.now().date(),
-                                    min_value=datetime(2002, 1, 1).date(),
-                                    key="scr_fm_end",
-                                    label_visibility="collapsed")
-                            st.markdown(
-                                "<div style='color:#3a4550;font-size:0.68rem;margin:0.3rem 0 0.8rem;'>"
-                                "Full market scan — may take 1-2 minutes.</div>",
-                                unsafe_allow_html=True)
+                            _buy_all  = _dedup(_all_buy)
+                            _sell_all = _dedup(_all_sell)
+                            _hold_all = _dedup(_all_hold)
 
-                            def run_market_analysis_callback_all():
-                                _sd = st.session_state.get("scr_fm_start", (datetime.now() - timedelta(days=180)).date())
-                                _ed = st.session_state.get("scr_fm_end", datetime.now().date())
-                                with st.spinner(f"Scanning {len(ma_tickers_all)} stocks…"):
-                                    res = run_market_analysis(
-                                        tuple(ma_tickers_all), min_score=1, start=_sd, end=_ed)
-                                    if st.session_state.get("scan_fresh_only", True):
-                                        from market_data import filter_fresh_setups
-                                        _mode = "strict" if st.session_state.get("scan_fresh_mode", "Strict") == "Strict" else "loose"
-                                        res = filter_fresh_setups(res, mode=_mode)
-                                    st.session_state.ma_results          = res
-                                    st.session_state.ma_scanned_count    = len(ma_tickers_all)
-                                    st.session_state.ma_scan_params      = {'start': str(_sd), 'end': str(_ed)}
-                                    st.session_state.show_market_results = True
+                            # Apply sector filter
+                            if _sector and _sector != "All Sectors":
+                                _buy_all  = [s for s in _buy_all  if s.get("sector", "") == _sector]
+                                _sell_all = [s for s in _sell_all if s.get("sector", "") == _sector]
+                                _hold_all = [s for s in _hold_all if s.get("sector", "") == _sector]
 
-                            st.markdown("<div class='cp-run-wrap'>", unsafe_allow_html=True)
-                            st.button("Run Full Market Scan", type="secondary", width="stretch",
-                                      on_click=run_market_analysis_callback_all, key="ma_run_btn_all")
-                            st.markdown("</div>", unsafe_allow_html=True)
+                            # Apply min score filter
+                            _buy_all  = [s for s in _buy_all  if s.get("score", 0) >= _min_score]
+                            _sell_all = [s for s in _sell_all if s.get("score", 0) >= _min_score]
+                            _hold_all = [s for s in _hold_all if s.get("score", 0) >= _min_score]
+
+                            st.session_state.ma_results          = {"buy": _buy_all, "sell": _sell_all, "hold": _hold_all}
+                            st.session_state.ma_scanned_count    = len(_tickers)
+                            st.session_state.ma_scan_params      = {"strategy_label": _lbl, "strategy_color": _col}
+                            st.session_state.show_market_results = True
+
+                        st.session_state["_scan_tickers_snap"] = _scan_tickers
+
+                        st.markdown("<div class='cp-run-wrap'>", unsafe_allow_html=True)
+                        st.button(
+                            "Scan Market",
+                            type="secondary",
+                            width="stretch",
+                            on_click=run_full_scan_callback,
+                            key="ma_run_btn_strat",
+                        )
+                        st.markdown("</div>", unsafe_allow_html=True)
 
     elif st.session_state.show_champions_vault:
 
@@ -4137,8 +4285,11 @@ def main():
         best_conv     = max((s.get('conviction', 0) for s in all_buy), default=0)
 
         # ── Hero card matching single-stock analysis style ───────────────────
-        _period_info = params.get('period', params.get('start', ''))
-        _period_disp = f"Period: {_period_info}" if _period_info else ""
+        _period_info    = params.get('period', params.get('start', ''))
+        _period_disp    = f"Period: {_period_info}" if _period_info else ""
+        _strat_lbl_hdr  = params.get('strategy_label', '')
+        _strat_col_hdr  = params.get('strategy_color', '')
+        _scan_title     = f"{_strat_lbl_hdr} Scan Results" if _strat_lbl_hdr else "Market Scan Results"
 
         def _msr_tile(label, value, accent, sub="", val_color=None):
             vc = val_color or "#ffffff"
@@ -4393,9 +4544,10 @@ def main():
                 f'</div>'
             )
 
+        _hdr_accent = _strat_col_hdr or _mcolor
         st.markdown(
             # ── outer container ──
-            f'<div style="border:1px solid #222;border-left:4px solid {_mcolor};'
+            f'<div style="border:1px solid #222;border-left:4px solid {_hdr_accent};'
             f'border-radius:14px;background:#141414;padding:1.6rem 1.8rem;'
             f'margin-bottom:1.2rem;box-shadow:0 6px 40px #00000060;">'
 
@@ -4405,9 +4557,15 @@ def main():
             f'<div>'
             f'<div style="font-size:1.5rem;font-weight:900;color:#f2f2f2;'
             f'letter-spacing:-0.5px;line-height:1.1;margin-bottom:0.45rem;">'
-            f'Market Scan Results</div>'
+            f'{_scan_title}</div>'
             f'<div style="display:flex;flex-wrap:wrap;gap:0.55rem;align-items:center;">'
-            f'<span style="font-size:0.77rem;color:#444;">{scanned} tickers &middot; {_period_disp}</span>'
+            f'<span style="font-size:0.77rem;color:#444;">{scanned} tickers</span>'
+            + (
+                f'<span style="background:{_strat_col_hdr}18;color:{_strat_col_hdr};'
+                f'border:1px solid {_strat_col_hdr}38;font-size:0.77rem;font-weight:800;'
+                f'padding:0.2rem 0.7rem;border-radius:6px;">{_strat_lbl_hdr}</span>'
+                if _strat_col_hdr else f'<span style="font-size:0.77rem;color:#444;">{_period_disp}</span>'
+            ) +
             f'<span style="background:#FFD70012;color:#FFD700;border:1px solid #FFD70028;'
             f'font-size:0.77rem;font-weight:800;padding:0.2rem 0.7rem;border-radius:6px;">'
             f'{len(_perfect_list)} Perfect Setups</span>'
@@ -4492,6 +4650,24 @@ def main():
             'Stoch Reversal': 'Stochastic oversold — reversal expected',
             'Volume Spike': 'Unusual buying volume — big institutional interest',
         }
+
+        def _analyse_btn(stock, btn_key_suffix):
+            """Compact 'Deep Analyse' button — navigates to single-stock view with scan context."""
+            sym    = stock['ticker'].replace('.SR', '')
+            score  = stock.get('score', '')
+            conv   = stock.get('conviction', '')
+            setup  = stock.get('setup_type', '')
+            _bcol1, _bcol2 = st.columns([5, 1], gap="small")
+            with _bcol2:
+                if st.button(f"Deep Analyse →", key=f"ab_{sym}_{btn_key_suffix}",
+                             type="secondary", use_container_width=True):
+                    st.session_state["symbol_input"]      = sym
+                    st.session_state["screener_auto_analyze"] = True
+                    st.session_state["scan_context"]      = {
+                        "score": str(score), "conviction": str(conv), "setup": setup
+                    }
+                    st.session_state.show_market_results  = False
+                    st.rerun()
 
         def _render_card(stock, side, tier_color=None, rank_num=None, is_perfect=False):
             sym    = stock['ticker'].replace('.SR', '')
@@ -4948,9 +5124,35 @@ def main():
                     f'padding:0.2rem 0.65rem;border-radius:5px;'
                     f'background:{_eq_bg};color:{_eq_col};'
                     f'border:1px solid {_eq_bdr};white-space:nowrap;">{_eq_label}</span>'
+                ) + (
+                    # Strategy consensus badge — only shown for strategy scan results
+                    (lambda _sc=stock.get('strategy_color',''), _cons=stock.get('consensus',0),
+                             _ctot=stock.get('consensus_total',0), _slbl=stock.get('strategy_label',''):
+                        f'<span style="font-size:0.7rem;font-weight:800;'
+                        f'padding:0.2rem 0.65rem;border-radius:5px;'
+                        f'background:{_sc}20;color:{_sc};'
+                        f'border:1px solid {_sc}50;white-space:nowrap;">'
+                        f'{_slbl} {_cons}/{_ctot}</span>'
+                        if _sc else ''
+                    )()
                 ) +
                 f'</div>'  # end pills
-
+                + (
+                    # Strategy signal tags row — only shown for strategy scan results
+                    (lambda _sigs=stock.get('strategy_signals',[]),
+                             _sc=stock.get('strategy_color','#26A69A'):
+                        f'<div style="display:flex;flex-wrap:wrap;gap:0.22rem;margin-top:0.35rem;">'
+                        + ''.join(
+                            f'<span style="font-size:0.6rem;font-weight:600;'
+                            f'padding:0.1rem 0.42rem;border-radius:4px;'
+                            f'background:{_sc}12;color:{_sc}cc;'
+                            f'border:1px solid {_sc}30;white-space:nowrap;">{sig}</span>'
+                            for sig in _sigs
+                        )
+                        + '</div>'
+                        if _sigs else ''
+                    )()
+                ) +
                 f'</div>'  # end left col
 
                 # RIGHT — 3 boxes, stretch to full row height
@@ -5486,6 +5688,7 @@ def main():
                     _rc       = _rank_colors[_i] if _i < 3 else "#10a37f"
                     _rank_num = ["#1", "#2", "#3"][_i] if _i < 3 else f"#{_i+1}"
                     _render_card(s, 'buy', tier_color=_rc, rank_num=_rank_num, is_perfect=True)
+                    _analyse_btn(s, f"ps{_i}")
 
         with tab_buy:
             filtered_buy = _f_all_buy
@@ -5551,8 +5754,9 @@ def main():
                         f'<span class="msr-sec-count">{len(_t1)} stocks</span>'
                         f'</div>',
                         unsafe_allow_html=True)
-                    for s in _t1:
+                    for _ti, s in enumerate(_t1):
                         _render_card(s, 'buy', tier_color='#10a37f')
+                        _analyse_btn(s, f"t1_{_ti}")
 
                 # ── Tier 2: BUY ─────────────────────────────────────────────
                 if _t2:
@@ -5565,8 +5769,9 @@ def main():
                         f'<span class="msr-sec-count">{len(_t2)} stocks</span>'
                         f'</div>',
                         unsafe_allow_html=True)
-                    for s in _t2:
+                    for _ti, s in enumerate(_t2):
                         _render_card(s, 'buy', tier_color='#4A9EFF')
+                        _analyse_btn(s, f"t2_{_ti}")
 
                 # ── Tier 3: WATCHLIST ────────────────────────────────────────
                 if _t3:
@@ -5579,8 +5784,9 @@ def main():
                         f'<span class="msr-sec-count">{len(_t3)} stocks</span>'
                         f'</div>',
                         unsafe_allow_html=True)
-                    for s in _t3:
+                    for _ti, s in enumerate(_t3):
                         _render_card(s, 'buy', tier_color='#fbbf24')
+                        _analyse_btn(s, f"t3_{_ti}")
 
         with tab_acpts:
             from acpts_tab_v2 import _render_institutional_card, _render_watch_card, _render_reject_table, _render_rules_section, _render_portfolio_summary
@@ -5927,50 +6133,27 @@ def main():
 
         _period_label = df.iloc[0]['Date'].strftime('%b %Y') + " — " + df.iloc[-1]['Date'].strftime('%b %Y')
 
-        # ── Premium card builder ─────────────────────────────────────────────
-        # Each card: top accent bar + label + value + delta pill
+        # ── Card builder ─────────────────────────────────────────────────────
         def _card(label, value, value_color, delta_text, delta_val,
                   unit="", icon_arrow=True):
-            """
-            value_color : hex   - color of the main value
-            delta_text  : text shown in the bottom delta pill
-            delta_val   : numeric — sign drives pill color and arrow
-            unit        : tiny faded suffix next to value (e.g. 'SAR')
-            """
-            dc      = _chg_color(delta_val) if delta_val is not None else "#7a8088"
-            arrow   = ("&#9650;" if delta_val >= 0 else "&#9660;") if (icon_arrow and delta_val is not None) else ""
-            rgb_v   = _hex2rgb(value_color)
-            rgb_d   = _hex2rgb(dc)
-            unit_h  = (f"<span style='font-size:0.7rem;color:#5a6068;font-weight:700;"
-                       f"margin-left:0.25rem;'>{unit}</span>") if unit else ""
+            dc    = _chg_color(delta_val) if delta_val is not None else "#555"
+            arrow = ("▲ " if delta_val >= 0 else "▼ ") if (icon_arrow and delta_val is not None) else ""
+            unit_h = (f"<span style='font-size:0.68rem;color:#444;font-weight:600;"
+                      f"margin-left:0.2rem;'>{unit}</span>") if unit else ""
             return (
-                f"<div style='position:relative;background:#1b1b1b;"
-                f"border:1px solid #272727;border-radius:14px;padding:0.95rem 1rem 0.85rem;"
-                f"overflow:hidden;min-height:120px;display:flex;flex-direction:column;justify-content:space-between;'>"
-                # Top accent line
-                f"<div style='position:absolute;top:0;left:0;right:0;height:2px;"
-                f"background:linear-gradient(90deg,{value_color},rgba({rgb_v},0));border-radius:14px 14px 0 0;'></div>"
-                # Soft glow corner
-                f"<div style='position:absolute;top:-30px;right:-30px;width:80px;height:80px;"
-                f"background:radial-gradient(circle,rgba({rgb_v},0.10) 0%,transparent 70%);'></div>"
-                # Label
-                f"<div style='font-size:0.6rem;color:#606060;font-weight:700;text-transform:uppercase;"
-                f"letter-spacing:1.2px;'>{label}</div>"
-                # Value
-                f"<div style='display:flex;align-items:baseline;margin-top:0.5rem;'>"
-                f"<span style='font-size:1.55rem;font-weight:900;color:{value_color};"
+                f"<div style='background:#181818;border:1px solid #242424;"
+                f"border-top:2px solid {value_color};border-radius:10px;"
+                f"padding:0.9rem 1rem 0.8rem;"
+                f"display:flex;flex-direction:column;justify-content:space-between;'>"
+                f"<div style='font-size:0.58rem;color:#505050;font-weight:700;text-transform:uppercase;"
+                f"letter-spacing:1px;'>{label}</div>"
+                f"<div style='display:flex;align-items:baseline;margin-top:0.55rem;'>"
+                f"<span style='font-size:1.45rem;font-weight:900;color:{value_color};"
                 f"letter-spacing:-0.5px;line-height:1;'>{value}</span>"
                 f"{unit_h}"
                 f"</div>"
-                # Delta pill
-                f"<div style='margin-top:0.7rem;'>"
-                f"<span style='display:inline-flex;align-items:center;gap:0.3rem;"
-                f"font-size:0.62rem;font-weight:800;padding:0.22rem 0.6rem;border-radius:999px;"
-                f"background:rgba({rgb_d},0.12);color:{dc};border:1px solid rgba({rgb_d},0.25);"
-                f"letter-spacing:0.3px;'>"
-                f"<span style='font-size:0.55rem;'>{arrow}</span>{delta_text}"
-                f"</span>"
-                f"</div>"
+                f"<div style='margin-top:0.55rem;font-size:0.65rem;font-weight:700;"
+                f"color:{dc};letter-spacing:0.2px;'>{arrow}{delta_text}</div>"
                 f"</div>"
             )
 
@@ -6104,16 +6287,18 @@ def main():
         from smc_tab import smc_tab
         from elliott_wave_tab import elliott_wave_tab
         from strategy_lab_tab import strategy_lab_tab
+        from classical_ta_tab import classical_ta_tab
 
-        tab_dec, tab0, tab1, tab2, tab_vp, tab_smc, tab_ew, tab_lab = st.tabs([
+        tab_dec, tab0, tab2, tab_vp, tab_smc, tab_ew, tab_cta, tab_lab, tab1 = st.tabs([
             "Decision",
             "Regime",
-            "Signals",
             "Patterns & Price Action",
             "Volume Profile",
             "SMC",
             "Elliott Wave",
-            "Strategy Lab",
+            "Classical TA",
+            "AI Analysis",
+            "Signals",
         ])
 
         with tab_dec:
@@ -6148,6 +6333,10 @@ def main():
             elliott_wave_tab(_df, _cp)
 
         @st.fragment
+        def _frag_cta(_df=df, _cp=current_price):
+            classical_ta_tab(_df, _cp)
+
+        @st.fragment
         def _frag_lab(_args=_lab_args):
             strategy_lab_tab(*_args)
 
@@ -6159,6 +6348,9 @@ def main():
 
         with tab_ew:
             _frag_ew()
+
+        with tab_cta:
+            _frag_cta()
 
         with tab_lab:
             _frag_lab()

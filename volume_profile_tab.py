@@ -401,6 +401,108 @@ def volume_profile_tab(df, current_price):
     sig = _vp_signal(vp, current_price, df)
     poc = vp["poc"];  vah = vp["vah"];  val = vp["val"];  vwap = vp["vwap"]
 
+    # ── DECISION BOX ─────────────────────────────────────────────────────────
+    _vp_verdict = sig["signal"]  # "BUY", "WATCH", or "NO TRADE"
+    _vp_vc      = BULL if _vp_verdict == "BUY" else (NEUT if _vp_verdict == "WATCH" else "#555")
+    _vp_conf    = sig.get("score", 0)
+    _vp_sub     = sig.get("zone", "")
+    _vp_reasons = (sig.get("reasons") or [])[:3]
+    _vp_reasons_html = "".join(
+        f"<div style='display:flex;align-items:flex-start;gap:0.4rem;margin-bottom:0.3rem;'>"
+        f"<span style='color:{_vp_vc};font-size:0.65rem;flex-shrink:0;margin-top:0.05rem;'>▸</span>"
+        f"<span style='font-size:0.68rem;color:#aaa;line-height:1.4;'>{_r}</span></div>"
+        for _r in _vp_reasons
+    )
+    _vp_ladder = ""
+    if sig["signal"] in ("BUY", "WATCH"):
+        try:
+            from _levels import price_ladder_html as _vp_plh
+            _vp_stop = sig.get("stop", current_price * 0.97)
+            _vp_t1   = sig.get("t1",   current_price * 1.05)
+            _vp_t2   = sig.get("t2",   current_price * 1.09)
+            _vp_R    = abs(current_price - _vp_stop)
+            _vp_t3   = round(current_price + 5.0 * _vp_R, 2)
+            _vp_ladder = _vp_plh(current_price, _vp_stop, _vp_t1, _vp_t2, _vp_t3, True)
+        except Exception:
+            pass
+
+    # ── Tooltip CSS + helper ──────────────────────────────────────────────────
+    st.markdown("""<style>
+    .vp-tip-w{position:relative;display:inline-flex;align-items:center;cursor:help;margin-left:0.3rem}
+    .vp-tip-w .vp-tt{visibility:hidden;opacity:0;position:absolute;bottom:130%;left:50%;
+        transform:translateX(-50%);background:#1e1e1e;color:#ccc;border:1px solid #333;
+        border-radius:6px;padding:0.45rem 0.6rem;font-size:0.7rem;font-weight:500;
+        line-height:1.5;white-space:normal;width:220px;text-align:left;z-index:200;
+        pointer-events:none;transition:opacity .15s;box-shadow:0 4px 14px rgba(0,0,0,.5);
+        text-transform:none;letter-spacing:0}
+    .vp-tip-w .vp-tt::after{content:'';position:absolute;top:100%;left:50%;
+        transform:translateX(-50%);border:5px solid transparent;border-top-color:#333}
+    .vp-tip-w:hover .vp-tt{visibility:visible;opacity:1}
+    </style>""", unsafe_allow_html=True)
+
+    def _vptip(text):
+        return (
+            f"<span class='vp-tip-w'>"
+            f"<span style='display:inline-flex;align-items:center;justify-content:center;"
+            f"width:13px;height:13px;border-radius:50%;border:1px solid #3a3a3a;"
+            f"font-size:0.48rem;color:#666;font-weight:700;'>?</span>"
+            f"<span class='vp-tt'>{text}</span></span>"
+        )
+
+    _vp_metric_tooltips = {
+        "VAL — Demand Floor":   "Value Area Low — the bottom of the zone where 70% of volume traded. Price at or below VAL is in the 'discount zone' — institutions often step in here to buy.",
+        "POC — Max Volume":     "Point of Control — the single price where the most volume traded in the entire session. Acts like a magnet — price gravitates back to POC when it strays far.",
+        "VAH — Supply Ceiling": "Value Area High — the top of the 70% volume zone. Price at or above VAH is in the 'premium zone' — sellers tend to show up here.",
+        "VWAP — Fair Value":    "Volume-Weighted Average Price — the average price weighted by volume. Big institutions use this as their benchmark. Above VWAP = buyers in control. Below = sellers.",
+    }
+
+    _vp_metrics_html = "".join([
+        f"<div style='padding:0.85rem 1.1rem;border-right:1px solid #222;'>"
+        f"<div style='display:flex;align-items:center;margin-bottom:0.3rem;'>"
+        f"<div style='font-size:0.72rem;color:#ccc;text-transform:uppercase;"
+        f"letter-spacing:0.8px;font-weight:700;'>{_mn}</div>"
+        + _vptip(_vp_metric_tooltips.get(_mn, ""))
+        + f"</div>"
+        f"<div style='font-size:1rem;font-weight:800;color:{_mc};'>{_mv:.2f}</div>"
+        f"<div style='font-size:0.75rem;color:#aaa;margin-top:0.15rem;'>{_ms}</div>"
+        f"</div>"
+        for _mn, _mv, _mc, _ms in [
+            ("VAL — Demand Floor",   val,  BULL,      f"{(val  / current_price - 1)*100:+.2f}% from price"),
+            ("POC — Max Volume",     poc,  "#FFD700", f"{(poc  / current_price - 1)*100:+.2f}% from price"),
+            ("VAH — Supply Ceiling", vah,  BEAR,      f"{(vah  / current_price - 1)*100:+.2f}% from price"),
+            ("VWAP — Fair Value",    vwap, PURP,      f"{(vwap / current_price - 1)*100:+.2f}% from price"),
+        ]
+    ])
+
+    st.markdown(
+        f"<div style='background:#181818;border:1px solid #232323;"
+        f"border-top:3px solid {_vp_vc};border-radius:14px;overflow:hidden;margin-bottom:1.4rem;'>"
+        f"<div style='padding:1.4rem 1.8rem;border-bottom:1px solid #222;'>"
+        f"<div style='font-size:0.72rem;color:#bbb;font-weight:700;"
+        f"text-transform:uppercase;letter-spacing:1px;margin-bottom:0.4rem;'>Volume Profile Decision</div>"
+        f"<div style='display:flex;align-items:center;gap:1.2rem;'>"
+        f"<div style='font-size:2.4rem;font-weight:900;color:{_vp_vc};"
+        f"line-height:1;letter-spacing:-1px;'>{_vp_verdict}</div>"
+        f"<div style='flex:1;'>"
+        f"<div style='font-size:0.82rem;color:#bbb;line-height:1.5;'>{_vp_sub}</div>"
+        f"</div>"
+        f"<div style='text-align:center;background:#141414;border:1px solid #232323;"
+        f"border-radius:8px;padding:0.6rem 1rem;flex-shrink:0;'>"
+        f"<div style='font-size:1.4rem;font-weight:900;color:{_vp_vc};line-height:1;'>{_vp_conf}</div>"
+        f"<div style='display:flex;align-items:center;justify-content:center;gap:0.25rem;margin-top:0.2rem;'>"
+        f"<div style='font-size:0.65rem;color:#bbb;text-transform:uppercase;letter-spacing:0.5px;'>Score</div>"
+        + _vptip("Volume Profile confidence score (0–100). Based on how clearly price is positioned relative to VAL, POC, VAH, and VWAP. Above 65 = strong setup. Below 40 = no clear volume edge.")
+        + f"</div></div></div>"
+        + (f"<div style='margin-top:0.8rem;'>{_vp_reasons_html}</div>" if _vp_reasons_html else "")
+        + f"</div>"
+        f"<div style='display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid #222;'>"
+        + _vp_metrics_html +
+        f"</div>"
+        + _vp_ladder
+        + f"</div>",
+        unsafe_allow_html=True,
+    )
+
     # ── Educational Insight Toggle ──
     insight_toggle(
         "vp_what_is",
@@ -448,76 +550,7 @@ def volume_profile_tab(df, current_price):
         "</ul>"
     )
 
-    if sig["signal"] == "BUY":
-        sig_col = BULL;  sig_left = BULL;  sig_icon = "▲ BUY"
-    elif sig["signal"] == "WATCH":
-        sig_col = NEUT;  sig_left = NEUT;  sig_icon = "◆ WATCH"
-    else:
-        sig_col = "#555"; sig_left = "#444"; sig_icon = "⚫ NO TRADE"
-
-    score_c = BULL if sig["score"] >= 60 else NEUT if sig["score"] >= 40 else "#555"
-
-    # ══ 1. HERO ═══════════════════════════════════════════════════════════════
-    st.markdown(
-        f"<div style='background:#1b1b1b;border:1px solid #272727;"
-        f"border-radius:14px;overflow:hidden;margin-bottom:1.2rem;"
-        f"box-shadow:0 4px 24px rgba(0,0,0,0.3);'>"
-        f"<div style='padding:1.6rem 2rem;"
-        f"background:linear-gradient(135deg,rgba({','.join(str(int(sig_col[i:i+2],16)) for i in (1,3,5)) if sig_col.startswith('#') and len(sig_col)==7 else '85,85,85'},0.07),transparent);'>"
-        f"<div style='margin-bottom:1.4rem;'>"
-        f"<div style='font-size:0.62rem;color:#606060;text-transform:uppercase;"
-        f"letter-spacing:1.2px;margin-bottom:0.5rem;font-weight:700;'>"
-        f"Volume Profile Signal</div>"
-        f"<div style='font-size:2.4rem;font-weight:900;color:{sig_col};"
-        f"line-height:1;letter-spacing:-1px;text-shadow:0 0 20px {sig_col}33;'>{sig_icon}</div>"
-        f"<div style='font-size:0.82rem;color:#888;margin-top:0.6rem;'>"
-        f"{sig['zone']}</div>"
-        f"</div>"
-        f"<div style='margin-bottom:1rem;'>"
-        f"<div style='display:flex;justify-content:space-between;margin-bottom:0.3rem;'>"
-        f"<span style='font-size:0.62rem;color:#606060;text-transform:uppercase;"
-        f"letter-spacing:0.8px;font-weight:700;'>Confluence Score</span>"
-        f"<span style='font-size:0.82rem;font-weight:800;color:{score_c};'>{sig['score']}/100</span>"
-        f"</div>"
-        + _glowbar(sig["score"], score_c, "5px") +
-        f"</div>"
-        f"</div>"
-        f"<div style='display:grid;grid-template-columns:repeat(4,1fr);"
-        f"border-top:1px solid #272727;padding:1.1rem 2rem;gap:0.75rem;'>"
-        + "".join([
-            f"<div style='background:#161616;border:1px solid #272727;border-radius:8px;"
-            f"padding:0.7rem 0.8rem;'>"
-            f"<div style='font-size:0.62rem;color:#606060;text-transform:uppercase;"
-            f"letter-spacing:0.8px;margin-bottom:0.35rem;font-weight:700;'>{ln}</div>"
-            f"<div style='font-size:1.3rem;font-weight:800;color:{lc};'>${lv:.2f}</div>"
-            f"<div style='font-size:0.68rem;color:#555;margin-top:0.2rem;'>{ls}</div>"
-            f"</div>"
-            for ln, lv, lc, ls in [
-                ("VAL — Demand Floor",    val,  BULL,      f"{(val  / current_price - 1)*100:+.2f}% from price"),
-                ("POC — Max Volume",      poc,  "#FFD700", f"{(poc  / current_price - 1)*100:+.2f}% from price"),
-                ("VAH — Supply Ceiling",  vah,  BEAR,      f"{(vah  / current_price - 1)*100:+.2f}% from price"),
-                ("VWAP — Fair Value",     vwap, PURP,      f"{(vwap / current_price - 1)*100:+.2f}% from price"),
-            ]
-        ]) +
-        f"</div>"
-        f"</div>",
-        unsafe_allow_html=True,
-    )
-
-    # ── Price Ladder (BUY only) ──────────────────────────────────────────────
-    if sig["signal"] == "BUY":
-        try:
-            from _levels import price_ladder_html as _plh
-            _vp_stop = sig.get("stop", current_price * 0.97)
-            _vp_t1   = sig.get("t1",   current_price * 1.05)
-            _vp_t2   = sig.get("t2",   current_price * 1.09)
-            _vp_R    = abs(current_price - _vp_stop)
-            _vp_t3   = round(current_price + 5.0 * _vp_R, 2)
-            st.markdown(_plh(current_price, _vp_stop, _vp_t1, _vp_t2, _vp_t3, True), unsafe_allow_html=True)
-        except Exception:
-            pass
-
-    # ══ 2. KEY PRICE LEVELS — Volume Based ═══════════════════════════════════
+    # ══ KEY PRICE LEVELS — Volume Based ═════════════════════════════════════
     st.markdown(_sec("Key Price Levels — Volume Based", PURP), unsafe_allow_html=True)
     insight_toggle(
         "vp_levels",
@@ -553,7 +586,7 @@ def volume_profile_tab(df, current_price):
                 st.markdown(
                     f"<div style='background:#1b1b1b;border:1px solid #272727;"
                     f"border-radius:10px;padding:0.9rem 0.7rem;text-align:center;'>"
-                    f"<div style='font-size:0.62rem;color:#606060;text-transform:uppercase;"
+                    f"<div style='font-size:0.75rem;color:#999;text-transform:uppercase;"
                     f"letter-spacing:0.8px;margin-bottom:0.4rem;font-weight:700;'>{label}</div>"
                     f"<div style='font-size:1.2rem;font-weight:800;color:#444;'>—</div>"
                     f"<div style='font-size:0.60rem;color:#444;margin-top:0.2rem;'>{desc}</div>"
@@ -565,10 +598,10 @@ def volume_profile_tab(df, current_price):
                 st.markdown(
                     f"<div style='background:#1b1b1b;border:1px solid #272727;"
                     f"border-radius:10px;padding:0.9rem 0.7rem;text-align:center;'>"
-                    f"<div style='font-size:0.62rem;color:#606060;text-transform:uppercase;"
+                    f"<div style='font-size:0.75rem;color:#999;text-transform:uppercase;"
                     f"letter-spacing:0.8px;margin-bottom:0.4rem;font-weight:700;'>{label}</div>"
                     f"<div style='font-size:1.2rem;font-weight:800;color:{color};'>${price:.2f}</div>"
-                    f"<div style='font-size:0.72rem;color:#555;margin-top:0.2rem;'>{dist}</div>"
+                    f"<div style='font-size:0.78rem;color:#aaa;margin-top:0.2rem;'>{dist}</div>"
                     f"<div style='font-size:0.60rem;color:#444;margin-top:0.1rem;'>{desc}</div>"
                     f"</div>",
                     unsafe_allow_html=True,
@@ -634,7 +667,7 @@ def volume_profile_tab(df, current_price):
     )
 
     st.markdown(
-        f"<div style='font-size:0.72rem;color:#555;margin-top:1.5rem;"
+        f"<div style='font-size:0.78rem;color:#aaa;margin-top:1.5rem;"
         f"padding:0.75rem 1rem;background:#1b1b1b;border-radius:8px;border:1px solid #272727;'>"
         f"Volume Profile is computed from the full selected date range. "
         f"POC, VAH, and VAL shift as new data is added. Not financial advice."

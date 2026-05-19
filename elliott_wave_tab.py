@@ -799,6 +799,85 @@ def _ew_compute(cache_key, _df_slice, pct_threshold, current_price, show_fib):
     )
 
 
+def get_ew_signal(df, cp):
+    """Return a signal dict for the Decision Tab aggregator, or None if no clear setup."""
+    if df is None or len(df) < 50:
+        return None
+    try:
+        import pandas as _pd
+        n_bars = min(200, len(df))
+        df_slice = df.iloc[-n_bars:].copy().reset_index(drop=False)
+        if "Date" in df_slice.columns:
+            df_slice = df_slice.set_index("Date")
+
+        _ew = _ew_compute(
+            f"ew_sig_{len(df)}_{round(float(cp),2)}",
+            df_slice, 0.03, float(cp), False,
+        )
+        if _ew is None:
+            return None
+
+        wave_result = _ew["wave_result"]
+        is_bull  = wave_result["is_bull"]
+        wscore   = wave_result["score"]
+        waves    = wave_result["waves"]
+        wtype    = wave_result["type"]
+        projection = _ew.get("projection") or {}
+
+        # Only surface bullish setups with decent wave score
+        if not is_bull or wscore < 45:
+            return None
+
+        cur_wave = waves[-1]["label"] if waves else "?"
+        # Wave 2 or 4 pullback in a bullish impulse = ideal buy zone
+        # Wave 3 or 5 ongoing = good momentum
+        # ABC corrective bullish = potential reversal
+        if cur_wave in ("2", "4"):
+            conf = min(80, wscore + 10)
+            phase_note = f"Wave {cur_wave} pullback — ideal entry before next impulse leg"
+        elif cur_wave in ("3", "5"):
+            conf = min(75, wscore)
+            phase_note = f"Wave {cur_wave} in progress — momentum favors longs"
+        elif cur_wave in ("A", "B", "C") and is_bull:
+            conf = min(65, wscore - 5)
+            phase_note = f"Corrective Wave {cur_wave} (bullish structure)"
+        else:
+            conf = min(60, wscore - 10)
+            phase_note = f"Wave {cur_wave} — {wtype}"
+
+        if conf < 45:
+            return None
+
+        reasons = [
+            f"Elliott Wave: {wtype} — Wave {cur_wave} (score {wscore}/100)",
+            phase_note,
+        ]
+
+        proj_t1 = projection.get("t1") or projection.get("target1") or None
+        proj_t2 = projection.get("t2") or projection.get("target2") or None
+
+        atr_ser = (df["High"] - df["Low"]).rolling(14, min_periods=1).mean()
+        atr = max(float(atr_ser.iloc[-1]), float(cp) * 0.01)
+        swing_lo = float(df["Low"].tail(20).min())
+        _stop = max(swing_lo - atr * 0.3, float(cp) * 0.93)
+        _risk = max(float(cp) - _stop, 0.001)
+
+        return dict(
+            color="#9c27b0",
+            verdict_text="▲ BUY",
+            sublabel=f"Elliott Wave — {wtype}",
+            conf=int(conf),
+            reasons=reasons,
+            entry=float(cp),
+            stop=round(_stop, 2),
+            t1=proj_t1 if proj_t1 else round(float(cp) + _risk * 1.618, 2),
+            t2=proj_t2 if proj_t2 else round(float(cp) + _risk * 2.618, 2),
+            t3=round(float(cp) + _risk * 4.236, 2),
+        )
+    except Exception:
+        return None
+
+
 def elliott_wave_tab(df, current_price):
     """Render the Elliott Wave analysis tab."""
 
@@ -964,70 +1043,11 @@ def elliott_wave_tab(df, current_price):
     .ew-ctrl-tip:hover > .ew-tip { visibility: visible; opacity: 1; }
     </style>""", unsafe_allow_html=True)
 
-    # ── Educational Insight Toggle ──
-    insight_toggle(
-        "elliott_wave_edu",
-        "How to use this Elliott Wave tool",
-        "<p><strong>1. Start with the setup block.</strong> It tells you what kind of move Elliott is mapping right now: continuation, pullback, or correction.</p>"
-        "<p><strong>2. Use the trade map.</strong> The stop comes from the invalidation pivot that would break the count. The targets come from Fibonacci levels for the next expected wave.</p>"
-        "<p><strong>3. Check trust before acting.</strong> If Elliott rules are broken, the ladder becomes a rough sketch, not a trade plan.</p>"
-        "<p>This tab is best for <strong>timing entries</strong>, <strong>managing exits</strong>, and <strong>mapping the next move</strong>. It should support your trade plan, not replace it.</p>"
-    )
+    # Fixed settings — no controls needed
+    pct_threshold = 5.0
+    show_fib = "Both"
 
-    # ── Controls ──
-    c1, c2, c3 = st.columns([2, 2, 2])
-    with c1:
-        st.markdown(
-            "<div style='font-size:0.6rem;color:#606060;text-transform:uppercase;"
-            "letter-spacing:0.8px;font-weight:700;margin-bottom:0.25rem;display:flex;align-items:center;'>"
-            "Sensitivity"
-            "<span class='ew-ctrl-tip'>?"
-            "<span class='ew-tip'>How many waves to detect. <b>Low</b> = only big moves. "
-            "<b>High/Ultra</b> = catches smaller swings too. Start with Medium.</span>"
-            "</span></div>",
-            unsafe_allow_html=True,
-        )
-        sensitivity = st.select_slider(
-            "Sensitivity", options=["Low", "Medium", "High", "Ultra"],
-            value="Medium", label_visibility="collapsed", key="ew_sensitivity",
-        )
-    with c2:
-        st.markdown(
-            "<div style='font-size:0.6rem;color:#606060;text-transform:uppercase;"
-            "letter-spacing:0.8px;font-weight:700;margin-bottom:0.25rem;display:flex;align-items:center;'>"
-            "Lookback Period"
-            "<span class='ew-ctrl-tip'>?"
-            "<span class='ew-tip'>How far back to look. <b>100 bars</b> = recent moves only. "
-            "<b>500+ bars</b> = bigger, longer-term wave patterns.</span>"
-            "</span></div>",
-            unsafe_allow_html=True,
-        )
-        lookback = st.selectbox(
-            "Lookback", ["Last 100 bars", "Last 200 bars", "Last 500 bars", "All data"],
-            index=1, label_visibility="collapsed", key="ew_lookback",
-        )
-    with c3:
-        st.markdown(
-            "<div style='font-size:0.6rem;color:#606060;text-transform:uppercase;"
-            "letter-spacing:0.8px;font-weight:700;margin-bottom:0.25rem;display:flex;align-items:center;'>"
-            "Show Fibonacci"
-            "<span class='ew-ctrl-tip'>?"
-            "<span class='ew-tip'>Fibonacci lines show key price levels where waves often reverse. "
-            "<b>Retracements</b> = pullback levels. <b>Extensions</b> = target levels.</span>"
-            "</span></div>",
-            unsafe_allow_html=True,
-        )
-        show_fib = st.selectbox(
-            "Fibonacci", ["Retracements", "Extensions", "Both", "None"],
-            index=2, label_visibility="collapsed", key="ew_fib_mode",
-        )
-
-    # Map settings
-    pct_map = {"Low": 8.0, "Medium": 5.0, "High": 3.0, "Ultra": 1.5}
-    pct_threshold = pct_map[sensitivity]
-
-    bars_map = {"Last 100 bars": 100, "Last 200 bars": 200, "Last 500 bars": 500, "All data": len(df)}
-    n_bars = min(bars_map[lookback], len(df))
+    n_bars = min(200, len(df))
     df_slice = df.iloc[-n_bars:].copy().reset_index(drop=True)
 
     if len(df_slice) < 20:
@@ -1143,337 +1163,256 @@ def elliott_wave_tab(df, current_price):
     _hc = hero_color.lstrip("#")
     _hr, _hg, _hb = int(_hc[:2], 16), int(_hc[2:4], 16), int(_hc[4:], 16)
 
-    st.markdown(
-        f"<div class='ew-hero'>"
+    # ── DECISION BOX ─────────────────────────────────────────────────────────
+    if trade_tool and trade_tool.get("t1"):
+        _ew_entry = float(trade_tool.get("entry", current_price))
+        _ew_stop  = float(trade_tool.get("stop",  _ew_entry * 0.95))
+        _ew_t1    = float(trade_tool["t1"])
+        _ew_t2    = float(trade_tool.get("t2", _ew_t1))
+        _ew_t3    = float(trade_tool.get("t3", _ew_t2))
+        _ew_is_b  = bool(trade_tool.get("trade_is_bull", is_bull))
 
-        # ── HEADER STRIP — Verdict + Score ──
-        f"<div class='ew-hero-header' style='"
-        f"background:linear-gradient(135deg,rgba({_hr},{_hg},{_hb},0.07),transparent);'>"
+        if _ew_is_b and current_price > _ew_stop:
+            _ew_dv   = "BUY"
+            _ew_dcol = BULL
+            _ew_dsub = f"Wave structure supports a long. Currently in {phase_detail}. Wave score {wscore}/100."
+        else:
+            _ew_dv   = "WAIT"
+            _ew_dcol = NEUT
+            _ew_dsub = f"Wave structure is not yet clear enough for a high-confidence entry. Score {wscore}/100 — wait for confirmation."
 
-        f"<div style='display:flex;align-items:center;gap:0.9rem;'>"
-        f"<div style='width:44px;height:44px;border-radius:12px;"
-        f"background:rgba({_hr},{_hg},{_hb},0.12);"
-        f"display:flex;align-items:center;justify-content:center;"
-        f"font-size:1.3rem;color:{hero_color};'>{'&#9650;' if is_bull else '&#9660;'}</div>"
-        f"<div>"
-        f"<div style='font-size:1.6rem;font-weight:900;color:{hero_color};letter-spacing:-0.5px;"
-        f"line-height:1;'>{wtype}</div>"
-        f"<div style='font-size:0.68rem;color:#888;margin-top:0.25rem;font-weight:500;'>"
-        f"{phase_detail}</div>"
-        f"</div></div>"
+        _ew_rgb = {"BUY": "76,175,80", "WAIT": "255,152,0"}.get(_ew_dv, "255,152,0")
 
-        f"<div style='text-align:right;'>"
-        f"<div style='font-size:1.6rem;font-weight:900;color:{score_color};line-height:1;'>"
-        f"{wscore}<span style='font-size:0.65rem;color:#555;font-weight:600;'>/100</span></div>"
-        f"<div style='font-size:0.6rem;color:#666;margin-top:0.15rem;font-weight:600;"
-        f"text-transform:uppercase;letter-spacing:0.5px;display:flex;align-items:center;"
-        f"justify-content:flex-end;gap:0.25rem;'>Wave Score"
-        f"<span class='ew-ctrl-tip'>?"
-        f"<span class='ew-tip'>How reliable this wave count is (0–100). "
-        f"Higher = more rules pass and more Fibonacci levels line up. "
-        f"Above 70 is good, below 40 is weak.</span></span></div>"
-        f"</div></div>"
+        _ew_ladder = ""
+        if _ew_dv == "BUY":
+            try:
+                from _levels import price_ladder_html as _ew_plh
+                _ew_ladder = _ew_plh(_ew_entry, _ew_stop, _ew_t1, _ew_t2, _ew_t3, True)
+            except Exception:
+                pass
 
-        # ── BODY ──
-        f"<div class='ew-hero-body'>"
+        def _ew_tip(text):
+            return (
+                f"<span style='position:relative;display:inline-flex;align-items:center;"
+                f"cursor:help;margin-left:0.3rem;'>"
+                f"<span style='display:inline-flex;align-items:center;justify-content:center;"
+                f"width:13px;height:13px;border-radius:50%;border:1px solid #3a3a3a;"
+                f"font-size:0.48rem;color:#666;font-weight:700;'>?</span>"
+                f"<span class='ew-tip' style='width:220px;font-size:0.7rem;line-height:1.5;'>"
+                f"{text}</span></span>"
+            )
 
-        # Tags row
-        f"<div style='display:flex;gap:0.4rem;margin-bottom:1rem;flex-wrap:wrap;'>"
-        f"<span style='font-size:0.55rem;padding:0.18rem 0.55rem;border-radius:4px;"
-        f"background:{_hex_rgba(degree_color, 0.12)};color:{degree_color};"
-        f"font-weight:700;text-transform:uppercase;letter-spacing:0.5px;'>{degree_name} Degree</span>"
-        f"<span style='font-size:0.55rem;padding:0.18rem 0.55rem;border-radius:4px;"
-        f"background:{_hex_rgba(score_color, 0.1)};color:{score_color};"
-        f"font-weight:700;'>{_sq} Quality</span>"
-        f"<span style='font-size:0.55rem;padding:0.18rem 0.55rem;border-radius:4px;"
-        f"background:{_hex_rgba(BULL if not _n_viols else BEAR, 0.1)};"
-        f"color:{BULL if not _n_viols else BEAR};"
-        f"font-weight:700;'>{_n_viols} Violations</span>"
-        f"</div>"
-
-        # Score bar
-        + _glowbar(wscore, score_color)
-
-        + "<div class='ew-divider'></div>"
-
-        # ── Stats grid — 5 columns ──
-        f"<div style='display:grid;grid-template-columns:repeat(5,1fr);gap:0.6rem;"
-        f"margin-bottom:1.1rem;'>"
-        + _stat_pill("Waves", str(n_waves_detected), INFO, tip="Number of waves detected in the current pattern")
-        + _stat_pill("Pivots", str(len(pivots)), CYAN, tip="Turning points found in the price. More pivots = more detailed wave count")
-        + _stat_pill("Fib Hits", str(wave_result["fib_hits"]), GOLD, tip="How many waves line up with Fibonacci ratios. More hits = stronger pattern")
-        + _stat_pill("Phase", phase.split()[0], hero_color, tip="Are we in the trending part (Impulse) or the pullback part (Corrective)?")
-        + _stat_pill("Price", f"${current_price:.2f}", hero_color)
-        + f"</div>"
-
-        + "<div class='ew-divider'></div>"
-
-        # ── Wave Sequence label + timeline ──
-        f"<div style='font-size:0.5rem;color:#444;text-transform:uppercase;"
-        f"letter-spacing:1px;font-weight:700;margin-bottom:0.4rem;'>Wave Sequence</div>"
-        + _tl
-
-        + f"</div></div>",
-        unsafe_allow_html=True,
-    )
-
-    # ══════════════════════════════════════════════════════════════════════════
-    # TRADE MAP — projection-driven ladder
-    # ══════════════════════════════════════════════════════════════════════════
-    if projection and projection["targets"]:
-        st.markdown(_sec("Trade Map", GOLD), unsafe_allow_html=True)
         st.markdown(
-            f"<div class='ew-note'>"
-            f"<div style='font-size:0.82rem;font-weight:800;color:#e0e0e0;'>Why these ladder levels exist</div>"
-            f"<div style='font-size:0.72rem;color:#9a9a9a;line-height:1.6;margin-top:0.25rem;'>"
-            f"{trade_tool['target_basis']} {trade_tool['stop_basis']}"
-            f"</div></div>",
-            unsafe_allow_html=True,
-        )
-
-        from _levels import price_ladder_html as _plh
-        st.markdown(
-            _plh(
-                current_price,
-                trade_tool["stop"],
-                trade_tool["t1"],
-                trade_tool["t2"],
-                trade_tool["t3"],
-                trade_tool["trade_is_bull"],
-            ),
+            f"<div style='background:#181818;border:1px solid #232323;"
+            f"border-top:3px solid {_ew_dcol};border-radius:14px;overflow:hidden;margin-bottom:1.4rem;'>"
+            f"<div style='padding:1.6rem 2rem 1.3rem;border-bottom:1px solid #222;'>"
+            f"<div style='font-size:0.72rem;color:#bbb;text-transform:uppercase;"
+            f"letter-spacing:1px;font-weight:700;margin-bottom:0.5rem;'>Elliott Wave Decision</div>"
+            f"<div style='font-size:3rem;font-weight:900;color:{_ew_dcol};"
+            f"letter-spacing:-1.5px;line-height:1;'>{_ew_dv}</div>"
+            f"<div style='font-size:0.85rem;color:#bbb;margin-top:0.6rem;"
+            f"font-weight:500;line-height:1.6;'>{_ew_dsub}</div>"
+            f"</div>"
+            f"<div style='display:grid;grid-template-columns:repeat(3,1fr);"
+            f"border-bottom:1px solid #222;'>"
+            f"<div style='padding:0.9rem 1.4rem;border-right:1px solid #222;'>"
+            f"<div style='display:flex;align-items:center;margin-bottom:0.3rem;'>"
+            f"<div style='font-size:0.72rem;color:#ccc;text-transform:uppercase;"
+            f"letter-spacing:0.8px;font-weight:700;'>Wave Type</div>"
+            + _ew_tip("Impulse = a 5-wave directional move (1-2-3-4-5). "
+                      "Corrective = a 3-wave counter-move (A-B-C). "
+                      "Impulse waves are the tradeable legs; corrective waves are the pauses.")
+            + f"</div>"
+            f"<div style='font-size:1rem;font-weight:800;color:{hero_color};'>{wtype}</div>"
+            f"<div style='font-size:0.75rem;color:#aaa;margin-top:0.15rem;'>{phase}</div>"
+            f"</div>"
+            f"<div style='padding:0.9rem 1.4rem;border-right:1px solid #222;'>"
+            f"<div style='display:flex;align-items:center;margin-bottom:0.3rem;'>"
+            f"<div style='font-size:0.72rem;color:#ccc;text-transform:uppercase;"
+            f"letter-spacing:0.8px;font-weight:700;'>Wave Score</div>"
+            + _ew_tip("How well this wave count follows Elliott Wave rules (0–100). "
+                      "Starts at 100 and loses points for each rule violation. "
+                      "Gains points for Fibonacci alignment. "
+                      "80+ = excellent. 60–79 = good. 40–59 = fair. Below 40 = weak count, treat with caution.")
+            + f"</div>"
+            f"<div style='font-size:1rem;font-weight:800;color:{score_color};'>{wscore}/100</div>"
+            f"<div style='font-size:0.75rem;color:#aaa;margin-top:0.15rem;'>{_sq} count</div>"
+            f"</div>"
+            f"<div style='padding:0.9rem 1.4rem;'>"
+            f"<div style='display:flex;align-items:center;margin-bottom:0.3rem;'>"
+            f"<div style='font-size:0.72rem;color:#ccc;text-transform:uppercase;"
+            f"letter-spacing:0.8px;font-weight:700;'>Current Wave</div>"
+            + _ew_tip("Which wave the price is currently in. "
+                      "Waves 1, 3, 5 are bullish impulse legs — good for longs. "
+                      "Waves 2, 4 are pullbacks — can be buying opportunities. "
+                      "Waves A, B, C are corrective and usually less reliable for entries.")
+            + f"</div>"
+            f"<div style='font-size:1rem;font-weight:800;color:{_wc(waves[-1]) if waves else NEUT};'>"
+            f"Wave {current_wave_label}</div>"
+            f"<div style='font-size:0.75rem;color:#aaa;margin-top:0.15rem;'>{phase_detail}</div>"
+            f"</div>"
+            f"</div>"
+            + (_ew_ladder if _ew_ladder else "")
+            + f"</div>",
             unsafe_allow_html=True,
         )
 
     # ══════════════════════════════════════════════════════════════════════════
     # INTERACTIVE CHART
-    # ══════════════════════════════════════════════════════════════════════════
-    st.markdown(_sec("Wave Chart with Fibonacci"), unsafe_allow_html=True)
-
+    # ── WAVE CHART ────────────────────────────────────────────────────────────
     st.plotly_chart(_ew["fig"], use_container_width=True, config={"displayModeBar": False})
 
-    # ══════════════════════════════════════════════════════════════════════════
-    # FULL WAVE MAP — optional detail
-    # ══════════════════════════════════════════════════════════════════════════
-    st.markdown(_sec("Full Wave Map (Optional)", GOLD), unsafe_allow_html=True)
-    st.markdown(
-        "<div class='ew-note'><strong style='color:#e0e0e0;'>This is the raw structure behind the trade map.</strong> "
-        "If the setup, ladder, and trust blocks above are enough, you can ignore the detailed wave-by-wave cards below.</div>",
-        unsafe_allow_html=True,
-    )
+    # ── WAVE INTEL — one unified block ────────────────────────────────────────
+    # Trust status
+    _trust_lbl   = trade_tool["trust_label"]
+    _trust_col   = trade_tool["trust_color"]
+    _trust_note  = trade_tool["trust_note"]
+    _hard_breaks = len(trade_tool["hard_violations"])
+    _alt_lbl     = "Yes" if alternates else "No"
+    _alt_col     = BULL if alternates else "#555"
 
-    with st.expander("Open full wave-by-wave structure"):
-        for i in range(1, len(waves)):
-            prev = waves[i - 1]
-            curr = waves[i]
-            w_label = curr["label"]
-            w_move = curr["price"] - prev["price"]
-            w_pct = (w_move / prev["price"] * 100) if prev["price"] != 0 else 0
-            w_is_up = w_move > 0
-            w_color = _wc(curr)
-
-            if w_label.isdigit():
-                _wnum = int(w_label)
-                if _wnum % 2 == 1:
-                    _wtype = "Trend Move"
-                    _wdesc = {1: "The start of a new trend", 3: "The strongest move — big momentum", 5: "The final push before a reversal"}.get(_wnum, "Trend wave")
-                else:
-                    _wtype = "Pullback"
-                    _wdesc = {2: "Normal pullback after Wave 1", 4: "A pause before the final wave"}.get(_wnum, "Correction wave")
-            else:
-                _wtype = "Correction"
-                _wdesc = {"A": "Start of the correction", "B": "A bounce within the correction", "C": "Final leg of the correction"}.get(w_label, "Corrective wave")
-
-            st.markdown(
-                f"<div class='ew-wcard'>"
-                f"<div style='height:3px;background:linear-gradient(90deg,{w_color},{w_color}88,transparent);'></div>"
-                f"<div class='ew-wcard-body'>"
-                f"<div style='display:flex;align-items:center;justify-content:space-between;'>"
-                f"<div style='display:flex;align-items:center;gap:0.8rem;'>"
-                f"<div class='ew-wave-badge' style='color:{w_color};border-color:{w_color};"
-                f"background:{_hex_rgba(w_color, 0.1)};'>{w_label}</div>"
-                f"<div>"
-                f"<div style='font-size:0.82rem;font-weight:800;color:#e0e0e0;'>"
-                f"Wave {w_label} &middot; {_wtype}</div>"
-                f"<div style='font-size:0.62rem;color:#777;margin-top:0.15rem;'>{_wdesc}</div>"
-                f"</div></div>"
-                f"<div style='text-align:right;'>"
-                f"<div style='font-size:1.4rem;font-weight:900;color:{BULL if w_is_up else BEAR};line-height:1;'>"
-                f"{w_pct:+.1f}%</div>"
-                f"<div style='font-size:0.58rem;color:#555;margin-top:0.15rem;'>${prev['price']:.2f} &rarr; ${curr['price']:.2f}</div>"
-                f"</div></div>"
-                f"</div></div>",
-                unsafe_allow_html=True,
-            )
-
-    # ══════════════════════════════════════════════════════════════════════════
-    # NEXT MOVE MAP — projection translated into trading language
-    # ══════════════════════════════════════════════════════════════════════════
-    st.markdown(_sec("Next Move Map", PURP), unsafe_allow_html=True)
-
-    insight_toggle(
-        "ew_projection_edu",
-        "How to use the next move map",
-        "<p style='margin:0 0 0.6rem 0;'>This block answers one practical question: <strong>what is the next wave likely trying to do?</strong></p>"
-        "<ul style='font-size:0.75rem;line-height:1.8;'>"
-        "<li><strong>Extension</strong> means the trend may continue.</li>"
-        "<li><strong>Retracement</strong> means price may pull back before the bigger trend resumes.</li>"
-        "<li><strong>Reversal</strong> means the prior 5-wave run may be done and a larger correction is taking over.</li>"
-        "</ul>"
-        "<p style='font-size:0.72rem;color:#aaa;'><strong>Important:</strong> These target zones are planning areas, not promises. Use them with confirmation and risk control.</p>"
-    )
-
+    # Projection
     if projection:
-        proj_color = BULL if projection["direction"] == "Extension" else BEAR if projection["direction"] == "Reversal" else NEUT
-        # Simple explanation of what's expected
-        if projection["direction"] == "Extension":
-            _proj_explain = "Price is expected to <strong>continue moving</strong> in the trend direction. Use this for continuation planning, not blind chasing."
-        elif projection["direction"] == "Reversal":
-            _proj_explain = "The 5-wave move looks mature. Price is expected to <strong>pull back or reverse</strong>, so profit protection matters more than chasing the old move."
-        else:
-            _proj_explain = "Price is expected to <strong>pull back</strong> before the next move. Treat it as a correction map first."
-
-        st.markdown(
-            f"<div style='background:{CARD};border:1px solid {BDR};border-radius:14px;"
-            f"overflow:hidden;margin-bottom:1rem;'>"
-            f"<div style='height:4px;background:linear-gradient(90deg,{proj_color},{proj_color}88,transparent);'></div>"
-            f"<div style='padding:1.4rem 1.6rem;'>"
-            f"<div style='display:flex;align-items:center;justify-content:space-between;margin-bottom:0.6rem;'>"
-            f"<div>"
-            f"<div style='font-size:1.1rem;font-weight:900;color:#e0e0e0;'>"
-            f"Next wave to watch: {projection['next_wave']}</div>"
-            f"<div style='font-size:0.72rem;color:#999;margin-top:0.2rem;line-height:1.5;'>"
-            f"{_proj_explain}</div></div>"
-            f"<div style='padding:0.3rem 0.8rem;border-radius:6px;"
-            f"background:{_hex_rgba(proj_color, 0.12)};border:1px solid {_hex_rgba(proj_color, 0.3)};"
-            f"font-size:0.7rem;font-weight:700;color:{proj_color};'>"
-            f"{'&#9650; Up' if projection['direction'] == 'Extension' else '&#9660; Down'}</div>"
-            f"</div>"
-            f"<div style='display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0.5rem;margin-bottom:0.8rem;'>"
-            f"<div class='ew-target'><div style='font-size:0.55rem;color:{MUTED};text-transform:uppercase;letter-spacing:0.7px;font-weight:700;margin-bottom:0.3rem;'>Use Now</div><div style='font-size:0.72rem;color:#aaa;line-height:1.55;'>{trade_tool['use_now']}</div></div>"
-            f"<div class='ew-target'><div style='font-size:0.55rem;color:{MUTED};text-transform:uppercase;letter-spacing:0.7px;font-weight:700;margin-bottom:0.3rem;'>Confirmation</div><div style='font-size:0.72rem;color:#aaa;line-height:1.55;'>{trade_tool['confirmation']}</div></div>"
-            f"<div class='ew-target'><div style='font-size:0.55rem;color:{MUTED};text-transform:uppercase;letter-spacing:0.7px;font-weight:700;margin-bottom:0.3rem;'>Do Not Do</div><div style='font-size:0.72rem;color:#aaa;line-height:1.55;'>{trade_tool['avoid_now']}</div></div>"
-            f"</div>"
-            f"<div style='font-size:0.62rem;color:#666;margin-bottom:0.5rem;font-weight:600;"
-            f"text-transform:uppercase;letter-spacing:0.6px;'>Price Targets (areas to watch)</div>",
-            unsafe_allow_html=True,
-        )
-
-        # Target levels
-        _ncols = min(len(projection['targets']), 4)
-        targets_html = (
-            f"<div style='display:grid;grid-template-columns:repeat({_ncols},1fr);"
-            f"gap:0.5rem;'>"
-        )
-        for fib_label, target_price in projection["targets"].items():
-            t_dist = (target_price - current_price) / current_price * 100
-            t_color = BULL if t_dist > 0 else BEAR
-            targets_html += (
-                f"<div class='ew-target'>"
-                f"<div style='font-size:0.52rem;color:{MUTED};text-transform:uppercase;"
-                f"letter-spacing:0.7px;font-weight:700;margin-bottom:0.35rem;'>Target ({fib_label})</div>"
-                f"<div style='font-size:1.25rem;font-weight:900;color:{t_color};line-height:1;'>"
-                f"${target_price:.2f}</div>"
-                f"<div style='font-size:0.6rem;color:{t_color};margin-top:0.25rem;font-weight:600;'>"
-                f"{t_dist:+.1f}% from now</div></div>"
-            )
-        targets_html += "</div>"
-        st.markdown(targets_html + "</div></div>", unsafe_allow_html=True)
+        _pdir      = projection["direction"]
+        _pnext     = projection["next_wave"]
+        _pcol      = BULL if _pdir == "Extension" else BEAR if _pdir == "Reversal" else NEUT
+        _pdir_lbl  = {"Extension": "Trend continues", "Reversal": "Correction expected", "Retracement": "Pullback first"}.get(_pdir, _pdir)
     else:
-        st.markdown(
-            f"<div style='background:{CARD};border:1px solid {BDR};border-radius:12px;"
-            f"padding:1.2rem;text-align:center;'>"
-            f"<div style='font-size:0.8rem;color:#666;'>Not enough wave data to project the next move yet.</div></div>",
-            unsafe_allow_html=True,
+        _pdir = _pnext = _pdir_lbl = "—"
+        _pcol = "#555"
+
+    # Momentum
+    _div_lbl = "—"
+    _div_col = "#555"
+    if divergences:
+        _d = divergences[0]
+        _div_lbl = _d["type"].replace(" Divergence", "").replace(" Confirmation", " ✓")
+        _div_col = _d["color"]
+
+    def _ew_tip(text):
+        return (
+            f"<span style='position:relative;display:inline-flex;align-items:center;"
+            f"cursor:help;margin-left:0.3rem;'>"
+            f"<span style='display:inline-flex;align-items:center;justify-content:center;"
+            f"width:13px;height:13px;border-radius:50%;border:1px solid #3a3a3a;"
+            f"font-size:0.48rem;color:#666;font-weight:700;'>?</span>"
+            f"<span class='ew-tip' style='width:220px;font-size:0.7rem;line-height:1.5;'>"
+            f"{text}</span></span>"
         )
 
-    # ══════════════════════════════════════════════════════════════════════════
-    # TRUST CHECK — why the count is or is not usable
-    # ══════════════════════════════════════════════════════════════════════════
-    st.markdown(_sec("Can You Trust This Count?", INFO), unsafe_allow_html=True)
-
-    insight_toggle(
-        "ew_health_edu",
-        "Why this matters for trading",
-        "<p style='margin:0 0 0.5rem 0;'>This block tells you whether the Elliott count is solid enough to use for money decisions.</p>"
-        "<p style='margin:0 0 0.5rem 0;'>If a hard Elliott rule is broken, the count is likely wrong, which means the ladder and targets become much less trustworthy.</p>"
-        "<p style='font-size:0.72rem;color:#aaa;'><strong>Simple rule:</strong> clean count = usable planning tool. Broken count = step back and trust price action more than the wave labels.</p>"
-    )
+    def _ew_label(text, tooltip=""):
+        return (
+            f"<div style='display:flex;align-items:center;margin-bottom:0.3rem;'>"
+            f"<div style='font-size:0.72rem;color:#ccc;text-transform:uppercase;"
+            f"letter-spacing:0.8px;font-weight:700;'>{text}</div>"
+            + (_ew_tip(tooltip) if tooltip else "")
+            + f"</div>"
+        )
 
     st.markdown(
-        f"<div style='display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0.5rem;margin-bottom:0.8rem;'>"
-        f"{_stat_pill('Trust', trade_tool['trust_label'], trade_tool['trust_color'], tip='Overall usability of the wave count as a planning tool.') }"
-        f"{_stat_pill('Hard Rule Breaks', str(len(trade_tool['hard_violations'])), BEAR if trade_tool['hard_violations'] else BULL, tip='Hard Elliott rule violations. Any non-zero count means the structure is suspect.') }"
-        f"{_stat_pill('Alternation', 'Yes' if alternates else 'No' if alternates is not None else '--', BULL if alternates else NEUT, tip='Textbook impulse counts often show different shapes in Waves 2 and 4.') }"
-        f"</div>",
+        f"<div style='background:#181818;border:1px solid #232323;border-top:3px solid {GOLD};"
+        f"border-radius:14px;overflow:hidden;margin-bottom:1.2rem;'>"
+
+        # ── Row 1: 5 stat cells ───────────────────────────────────────────────
+        f"<div style='display:grid;grid-template-columns:repeat(5,1fr);border-bottom:1px solid #222;'>"
+
+        # Trust
+        f"<div style='padding:0.85rem 1rem;border-right:1px solid #222;'>"
+        + _ew_label("Trust",
+            "Overall reliability of this wave count. High = few or no rule violations and good Fibonacci alignment. "
+            "Low = the count has issues — treat targets with skepticism.")
+        + f"<div style='font-size:0.95rem;font-weight:800;color:{_trust_col};'>{_trust_lbl}</div>"
+        f"</div>"
+
+        # Rule breaks
+        f"<div style='padding:0.85rem 1rem;border-right:1px solid #222;'>"
+        + _ew_label("Rule Breaks",
+            "How many of the 3 hard Elliott Wave rules this count violates. "
+            "The rules: Wave 2 never retraces more than 100% of Wave 1. "
+            "Wave 3 is never the shortest impulse wave. "
+            "Wave 4 never enters Wave 1's price territory. "
+            "0 breaks = textbook count. Any break = treat with caution.")
+        + f"<div style='font-size:0.95rem;font-weight:800;color:{BEAR if _hard_breaks else BULL};'>{_hard_breaks}</div>"
+        f"</div>"
+
+        # Next wave
+        f"<div style='padding:0.85rem 1rem;border-right:1px solid #222;'>"
+        + _ew_label("Next Wave",
+            "The projected next wave based on where we are in the cycle. "
+            "Extension = the trend continues in the same direction. "
+            "Retracement = a pullback is expected before the next leg. "
+            "Reversal = the full move may be over and a counter-trend move is likely.")
+        + f"<div style='font-size:0.95rem;font-weight:800;color:{_pcol};'>{_pnext}</div>"
+        f"<div style='font-size:0.75rem;color:#aaa;margin-top:0.1rem;'>{_pdir_lbl}</div>"
+        f"</div>"
+
+        # Alternation
+        f"<div style='padding:0.85rem 1rem;border-right:1px solid #222;'>"
+        + _ew_label("Alternation",
+            "Elliott Wave guideline: corrective waves tend to alternate in shape. "
+            "If Wave 2 was a sharp correction, Wave 4 is usually flat (sideways), and vice versa. "
+            "When alternation is present, the pattern is more reliable.")
+        + f"<div style='font-size:0.95rem;font-weight:800;color:{_alt_col};'>{_alt_lbl}</div>"
+        f"<div style='font-size:0.75rem;color:#aaa;margin-top:0.1rem;'>W2 vs W4 shape</div>"
+        f"</div>"
+
+        # Momentum
+        f"<div style='padding:0.85rem 1rem;'>"
+        + _ew_label("Momentum",
+            "RSI momentum check relative to each wave's price action. "
+            "Bullish divergence = price made a lower low but RSI made a higher low — signals exhaustion in selling, potential reversal. "
+            "Bearish divergence = price made a higher high but RSI made a lower high — signals buying momentum fading. "
+            "Confirmation = momentum aligns with the wave direction, adding conviction.")
+        + f"<div style='font-size:0.95rem;font-weight:800;color:{_div_col};'>{_div_lbl}</div>"
+        f"</div>"
+
+        f"</div>"  # end grid
+
+        # ── Row 2: trust note + violation list OR targets ─────────────────────
+        + (
+            (
+                f"<div style='padding:0.85rem 1.2rem;border-bottom:1px solid #222;'>"
+                + _ew_label("Fibonacci Targets",
+                    "Price projections based on Fibonacci extension ratios from the current wave structure. "
+                    "These are common reversal zones where Elliott Wave theory suggests the next wave may end. "
+                    "The most watched levels are 1.618× and 2.618× the prior wave's length.")
+                + f"<div style='display:flex;gap:0.6rem;flex-wrap:wrap;'>"
+                + "".join(
+                    f"<div style='background:#141414;border:1px solid #232323;"
+                    f"border-top:2px solid {BULL if (tp - current_price) > 0 else BEAR};"
+                    f"border-radius:6px;padding:0.5rem 0.8rem;text-align:center;min-width:90px;'>"
+                    f"<div style='font-size:0.72rem;color:#bbb;font-weight:700;"
+                    f"text-transform:uppercase;margin-bottom:0.2rem;'>{fl}</div>"
+                    f"<div style='font-size:1rem;font-weight:900;color:#ebebeb;'>{tp:.2f}</div>"
+                    f"<div style='font-size:0.62rem;font-weight:700;"
+                    f"color:{BULL if (tp - current_price) > 0 else BEAR};'>"
+                    f"{(tp / current_price - 1)*100:+.1f}%</div>"
+                    f"</div>"
+                    for fl, tp in list(projection["targets"].items())[:5]
+                )
+                + f"</div></div>"
+            ) if (projection and projection.get("targets")) else ""
+        )
+
+        # ── Row 3: violations or clean note ──────────────────────────────────
+        + (
+            f"<div style='padding:0.85rem 1.2rem;'>"
+            + (
+                "".join(
+                    f"<div style='display:flex;align-items:flex-start;gap:0.5rem;margin-bottom:0.4rem;'>"
+                    f"<span style='color:{BEAR if 'violation' in v.lower() else NEUT};"
+                    f"font-size:0.7rem;flex-shrink:0;margin-top:0.05rem;'>"
+                    f"{'✕' if 'violation' in v.lower() else '⚠'}</span>"
+                    f"<span style='font-size:0.7rem;color:#aaa;line-height:1.4;'>{v}</span>"
+                    f"</div>"
+                    for v in violations[:4]
+                ) if violations else
+                f"<div style='font-size:0.7rem;color:{BULL};font-weight:600;'>"
+                f"✓ &nbsp;{_trust_note}</div>"
+            )
+            + f"</div>"
+        )
+
+        + f"</div>",
         unsafe_allow_html=True,
     )
-
-    if not violations:
-        st.markdown(
-            f"<div style='background:{_hex_rgba(BULL, 0.05)};border:1px solid {_hex_rgba(BULL, 0.2)};"
-            f"border-radius:14px;padding:1.4rem 1.2rem;text-align:center;'>"
-            f"<div style='font-size:1.5rem;margin-bottom:0.4rem;color:{BULL};'>&#10003;</div>"
-            f"<div style='font-size:0.88rem;font-weight:800;color:{BULL};'>Count is usable</div>"
-            f"<div style='font-size:0.68rem;color:#666;margin-top:0.25rem;'>"
-            f"{trade_tool['trust_note']}</div></div>",
-            unsafe_allow_html=True,
-        )
-    else:
-        for v in violations:
-            is_hard = "violation" in v.lower()
-            v_color = BEAR if is_hard else NEUT
-            v_icon = "&#10007;" if is_hard else "&#9888;"
-            v_explain = "Rule Broken — this wave count may be invalid" if is_hard else "Minor warning — not a rule break but something to watch"
-            st.markdown(
-                f"<div class='ew-diag' style='border-left:3px solid {v_color};'>"
-                f"<div style='display:flex;align-items:center;gap:0.7rem;'>"
-                f"<span style='font-size:0.95rem;color:{v_color};'>{v_icon}</span>"
-                f"<div>"
-                f"<div style='font-size:0.78rem;font-weight:700;color:#e0e0e0;'>{v}</div>"
-                f"<div style='font-size:0.58rem;color:#555;margin-top:0.12rem;'>{v_explain}</div>"
-                f"</div></div></div>",
-                unsafe_allow_html=True,
-            )
-
-    # ══════════════════════════════════════════════════════════════════════════
-    # MOMENTUM SIGNALS — divergences in simple language
-    # ══════════════════════════════════════════════════════════════════════════
-    if divergences:
-        st.markdown(_sec("Momentum Signals", NEUT), unsafe_allow_html=True)
-
-        insight_toggle(
-            "ew_divergence_edu",
-            "What are momentum signals?",
-            "<p style='margin:0 0 0.5rem 0;'>Momentum measures <strong>how strong a price move is</strong>. "
-            "Sometimes price makes a new high, but the momentum (energy) behind it is weaker. "
-            "This is called a <strong>divergence</strong> — and it often warns that the trend is getting tired.</p>"
-            "<ul style='font-size:0.75rem;line-height:1.8;'>"
-            "<li><strong style='color:#f44336;'>Bearish Divergence:</strong> Price goes higher, but momentum gets weaker "
-            "— warning sign that the uptrend may be ending</li>"
-            "<li><strong style='color:#4caf50;'>Bullish Divergence:</strong> Price goes lower, but momentum gets stronger "
-            "— hint that the downtrend may be ending</li>"
-            "<li><strong style='color:#4caf50;'>Momentum Confirmation:</strong> Price and momentum agree "
-            "— the trend is healthy and strong</li>"
-            "</ul>"
-        )
-
-        for div in divergences:
-            # Simple language for each divergence
-            if "bearish" in div["type"].lower():
-                _simple = "The price went up but the energy behind the move got weaker — the trend may be running out of steam."
-            elif "bullish" in div["type"].lower():
-                _simple = "The price went down but the energy behind the selling got weaker — buyers may be stepping in soon."
-            else:
-                _simple = "The momentum confirms the price move — the trend looks strong and healthy."
-
-            st.markdown(
-                f"<div class='ew-diag' style='border-left:3px solid {div['color']};'>"
-                f"<div style='display:flex;align-items:center;justify-content:space-between;'>"
-                f"<div style='font-size:0.82rem;font-weight:800;color:#e0e0e0;'>{div['type']}</div>"
-                f"<span style='font-size:0.56rem;padding:0.12rem 0.5rem;border-radius:4px;"
-                f"background:{_hex_rgba(div['color'], 0.1)};color:{div['color']};"
-                f"font-weight:700;'>{div['severity']}</span></div>"
-                f"<div style='font-size:0.7rem;color:#999;margin-top:0.3rem;line-height:1.5;'>"
-                f"{_simple}</div></div>",
-                unsafe_allow_html=True,
-            )

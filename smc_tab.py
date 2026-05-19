@@ -48,7 +48,7 @@ def _kv_row(label, value, vcolor="#ffffff"):
     return (
         f"<div style='display:flex;justify-content:space-between;align-items:center;"
         f"padding:0.32rem 0;border-bottom:1px solid #272727;'>"
-        f"<span style='font-size:0.62rem;color:#606060;text-transform:uppercase;"
+        f"<span style='font-size:0.75rem;color:#999;text-transform:uppercase;"
         f"letter-spacing:0.8px;font-weight:700;'>{label}</span>"
         f"<span style='font-size:0.82rem;font-weight:800;color:{vcolor};'>{value}</span>"
         f"</div>"
@@ -651,11 +651,25 @@ def smc_tab(df, current_price):
     trend_color = BULL if trend == "UPTREND" else BEAR if trend == "DOWNTREND" else NEUT
     rr_color    = BULL if plan["rr"] >= 2 else NEUT if plan["rr"] >= 1 else BEAR
 
-    # ── HERO ─────────────────────────────────────────────────────────────────
-    bias_glow   = bias_color + "22"
-    bias_border = bias_color + "44"
-
-    # 5 quick-stat tiles for the hero bottom row
+    # ── DECISION BOX ─────────────────────────────────────────────────────────
+    _smc_verdict = bias  # "BUY", "WAIT", or "SHORT"
+    _smc_vc      = bias_color
+    _smc_sub     = (
+        f"Smart money structure confirms a long setup — {conf}% confidence"
+        if bias == "BUY" else
+        f"No high-probability institutional entry detected — {conf}% confidence"
+    )
+    _smc_reasons = []
+    if sweep:   _smc_reasons.append(f"{sweep['type']} detected — liquidity grabbed, reversal zone active")
+    if choch:   _smc_reasons.append(f"{choch['type']} {choch['direction']} — market structure shifted")
+    if ob:      _smc_reasons.append(f"{ob['direction']} Order Block at {ob.get('level', 0):.2f} — institutional demand zone")
+    _smc_reasons = _smc_reasons[:3]
+    _smc_reasons_html = "".join(
+        f"<div style='display:flex;align-items:flex-start;gap:0.4rem;margin-bottom:0.3rem;'>"
+        f"<span style='color:{_smc_vc};font-size:0.65rem;flex-shrink:0;margin-top:0.05rem;'>▸</span>"
+        f"<span style='font-size:0.68rem;color:#aaa;line-height:1.4;'>{_r}</span></div>"
+        for _r in _smc_reasons
+    )
     sweep_lbl_h = sweep["type"].replace(" Sweep","") if sweep else "None"
     sweep_col_h = BULL if sweep and sweep["type"] == "Bullish Sweep" else BEAR if sweep else "#555"
     choch_lbl_h = f"{choch['type']} {choch['direction'][:4]}" if choch else "None"
@@ -663,84 +677,98 @@ def smc_tab(df, current_price):
     ob_lbl_h    = ob["direction"][:4] if ob else "None"
     ob_col_h    = BULL if ob and ob["direction"] == "Bullish" else BEAR if ob else "#555"
 
+    # ── Tooltip CSS + helper ──────────────────────────────────────────────────
+    st.markdown("""<style>
+    .smc-tip-w{position:relative;display:inline-flex;align-items:center;cursor:help;margin-left:0.3rem}
+    .smc-tip-w .smc-tt{visibility:hidden;opacity:0;position:absolute;bottom:130%;left:50%;
+        transform:translateX(-50%);background:#1e1e1e;color:#ccc;border:1px solid #333;
+        border-radius:6px;padding:0.45rem 0.6rem;font-size:0.7rem;font-weight:500;
+        line-height:1.5;white-space:normal;width:220px;text-align:left;z-index:200;
+        pointer-events:none;transition:opacity .15s;box-shadow:0 4px 14px rgba(0,0,0,.5);
+        text-transform:none;letter-spacing:0}
+    .smc-tip-w .smc-tt::after{content:'';position:absolute;top:100%;left:50%;
+        transform:translateX(-50%);border:5px solid transparent;border-top-color:#333}
+    .smc-tip-w:hover .smc-tt{visibility:visible;opacity:1}
+    </style>""", unsafe_allow_html=True)
+
+    def _smctip(text):
+        return (
+            f"<span class='smc-tip-w'>"
+            f"<span style='display:inline-flex;align-items:center;justify-content:center;"
+            f"width:13px;height:13px;border-radius:50%;border:1px solid #3a3a3a;"
+            f"font-size:0.48rem;color:#666;font-weight:700;'>?</span>"
+            f"<span class='smc-tt'>{text}</span></span>"
+        )
+
+    _smc_tile_tips = {
+        "Structure":   "Market structure: is price making higher highs & higher lows (Bullish) or lower highs & lower lows (Bearish)? Structure is the backbone of SMC — it tells you the dominant direction of institutional order flow.",
+        "Sweep":       "Liquidity sweep: did price briefly spike beyond a recent swing high/low to trigger stop-losses before reversing? Institutions do this to grab cheap liquidity before pushing price the other way. A bullish sweep above a high followed by a drop = bearish. A bearish sweep below a low followed by a rally = bullish.",
+        "CHoCH/BOS":   "Change of Character (CHoCH) = first sign of a trend reversal — price breaks the prior structure in the opposite direction. Break of Structure (BOS) = trend continuation confirmed. CHoCH is earlier/riskier; BOS is more conservative confirmation.",
+        "Order Block": "The last bullish or bearish candle before a large impulsive move. Institutions placed their orders here and are likely to defend this zone on a retest. Bullish OB = last bearish candle before a strong up move. Bearish OB = last bullish candle before a strong down move.",
+        "R : R":       "Risk to Reward ratio for this setup. For every 1 unit risked (distance to stop loss), how many units is the target away? 1:2 minimum is considered good. Below 1:1.5 = poor setup, the reward doesn't justify the risk.",
+    }
+
     def _stat_tile(label, value, color):
         return (
-            f"<div style='background:#161616;border:1px solid #272727;border-radius:10px;"
-            f"padding:0.55rem 0.9rem;text-align:center;'>"
-            f"<div style='font-size:0.57rem;color:#606060;text-transform:uppercase;"
-            f"letter-spacing:0.8px;font-weight:700;margin-bottom:0.2rem;'>{label}</div>"
-            f"<div style='font-size:0.92rem;font-weight:900;color:{color};'>{value}</div>"
+            f"<div style='padding:0.85rem 1.1rem;border-right:1px solid #222;'>"
+            f"<div style='display:flex;align-items:center;margin-bottom:0.3rem;'>"
+            f"<div style='font-size:0.72rem;color:#ccc;text-transform:uppercase;"
+            f"letter-spacing:0.8px;font-weight:700;'>{label}</div>"
+            + _smctip(_smc_tile_tips.get(label, ""))
+            + f"</div>"
+            f"<div style='font-size:1rem;font-weight:800;color:{color};'>{value}</div>"
             f"</div>"
         )
 
     tiles_html = (
-        _stat_tile("Structure",  trend,         trend_color)
-      + _stat_tile("Sweep",      sweep_lbl_h,   sweep_col_h)
-      + _stat_tile("CHoCH/BOS",  choch_lbl_h,   choch_col_h)
-      + _stat_tile("Order Block",ob_lbl_h,      ob_col_h)
+        _stat_tile("Structure",  trend,                trend_color)
+      + _stat_tile("Sweep",      sweep_lbl_h,          sweep_col_h)
+      + _stat_tile("CHoCH/BOS",  choch_lbl_h,          choch_col_h)
+      + _stat_tile("Order Block",ob_lbl_h,             ob_col_h)
       + _stat_tile("R : R",      f"1:{plan['rr']:.1f}", rr_color)
     )
 
-    st.markdown(
-        f"<div style='background:#1b1b1b;"
-        f"border:1px solid #272727;border-radius:14px;"
-        f"overflow:hidden;margin-bottom:1.2rem;"
-        f"box-shadow:0 4px 24px rgba(0,0,0,0.3);'>"
-        f"<div style='padding:2rem 2.2rem;"
-        f"background:linear-gradient(135deg,rgba({','.join(str(int(bias_color[i:i+2],16)) for i in (1,3,5)) if bias_color.startswith('#') and len(bias_color)==7 else '85,85,85'},0.07),transparent);'>"
-        # ── top row
-        f"<div style='display:flex;align-items:flex-start;justify-content:space-between;"
-        f"margin-bottom:1.6rem;gap:2rem;'>"
-        # left block
-        f"<div style='flex:1;'>"
-        f"<div style='font-size:0.57rem;color:#606060;text-transform:uppercase;"
-        f"letter-spacing:1.5px;font-weight:700;margin-bottom:0.4rem;'>Smart Money Concepts</div>"
-        f"<div style='font-size:0.85rem;color:#888;margin-bottom:1.2rem;'>Institutional Structure · Order Flow · Liquidity</div>"
-        f"<div style='display:flex;align-items:center;gap:1.2rem;'>"
-        f"<div style='background:{bias_glow};border:2px solid {bias_color};"
-        f"border-radius:14px;padding:0.55rem 1.6rem;'>"
-        f"<div style='font-size:2.4rem;font-weight:900;color:{bias_color};"
-        f"letter-spacing:2px;line-height:1;text-shadow:0 0 20px {bias_color}33;'>{bias}</div>"
-        f"</div>"
-        f"<div>"
-        f"<div style='font-size:0.7rem;color:#888;font-weight:600;margin-bottom:0.15rem;'>Market Bias</div>"
-        f"<div style='font-size:0.78rem;color:#bbb;'>SMC Score &nbsp;"
-        f"<b style='color:{bias_color};font-size:0.95rem;'>{plan['score']:+d}</b></div>"
-        f"</div>"
-        f"</div>"
-        f"</div>"
-        # right: confidence dial
-        f"<div style='text-align:center;background:#161616;border:1px solid #272727;"
-        f"border-radius:16px;padding:1.2rem 1.8rem;min-width:110px;flex-shrink:0;'>"
-        f"<div style='font-size:0.57rem;color:#606060;text-transform:uppercase;"
-        f"letter-spacing:1px;font-weight:700;margin-bottom:0.5rem;'>Confidence</div>"
-        f"<div style='font-size:2.6rem;font-weight:900;color:{conf_color};"
-        f"line-height:1;margin-bottom:0.4rem;text-shadow:0 0 20px {conf_color}33;'>{conf}%</div>"
-        + _glowbar(conf, conf_color, "5px") +
-        f"</div>"
-        f"</div>"
-        f"</div>"
-        # ── bottom stat tiles
-        f"<div style='display:grid;grid-template-columns:repeat(5,1fr);gap:0.6rem;"
-        f"padding:0.9rem 2.2rem 1.2rem;border-top:1px solid #272727;'>"
-        f"{tiles_html}"
-        f"</div>"
-        f"</div>",
-        unsafe_allow_html=True,
-    )
-
-    # ── Price Ladder (BUY only) ──────────────────────────────────────────────
-    if plan["bias"] == "BUY":
+    _smc_ladder = ""
+    if bias == "BUY":
         try:
-            from _levels import price_ladder_html as _s_plh
-            _s_stop = plan["stop_loss"]
-            _s_t1   = plan["take_profit"]
-            _s_R    = abs(cp - _s_stop)
-            _s_t2   = round(cp + _s_R * 3.0, 2)
-            _s_t3   = round(cp + _s_R * 5.0, 2)
-            st.markdown(_s_plh(cp, _s_stop, _s_t1, _s_t2, _s_t3, True), unsafe_allow_html=True)
+            from _levels import price_ladder_html as _s2_plh
+            _s2_stop = plan["stop_loss"]
+            _s2_t1   = plan["take_profit"]
+            _s2_R    = abs(cp - _s2_stop)
+            _s2_t2   = round(cp + _s2_R * 3.0, 2)
+            _s2_t3   = round(cp + _s2_R * 5.0, 2)
+            _smc_ladder = _s2_plh(cp, _s2_stop, _s2_t1, _s2_t2, _s2_t3, True)
         except Exception:
             pass
+
+    st.markdown(
+        f"<div style='background:#181818;border:1px solid #232323;"
+        f"border-top:3px solid {_smc_vc};border-radius:14px;overflow:hidden;margin-bottom:1.4rem;'>"
+        f"<div style='padding:1.4rem 1.8rem;border-bottom:1px solid #222;'>"
+        f"<div style='font-size:0.72rem;color:#bbb;font-weight:700;"
+        f"text-transform:uppercase;letter-spacing:1px;margin-bottom:0.4rem;'>Smart Money Decision</div>"
+        f"<div style='display:flex;align-items:center;gap:1.2rem;'>"
+        f"<div style='font-size:2.4rem;font-weight:900;color:{_smc_vc};"
+        f"line-height:1;letter-spacing:-1px;'>{_smc_verdict}</div>"
+        f"<div style='flex:1;'>"
+        f"<div style='font-size:0.82rem;color:#bbb;line-height:1.5;'>{_smc_sub}</div>"
+        f"</div>"
+        f"<div style='text-align:center;background:#141414;border:1px solid #232323;"
+        f"border-radius:8px;padding:0.6rem 1rem;flex-shrink:0;'>"
+        f"<div style='font-size:1.4rem;font-weight:900;color:{conf_color};line-height:1;'>{conf}%</div>"
+        f"<div style='display:flex;align-items:center;justify-content:center;gap:0.25rem;margin-top:0.2rem;'>"
+        f"<div style='font-size:0.65rem;color:#bbb;text-transform:uppercase;letter-spacing:0.5px;'>Confidence</div>"
+        + _smctip("SMC confidence score (0–100). Combines structure direction, liquidity sweep, CHoCH/BOS signal, and order block proximity. Above 65 = strong institutional signal. Below 40 = no clear smart money footprint.")
+        + f"</div></div></div>"
+        + (f"<div style='margin-top:0.8rem;'>{_smc_reasons_html}</div>" if _smc_reasons_html else "")
+        + f"</div>"
+        f"<div style='display:grid;grid-template-columns:repeat(5,1fr);border-bottom:1px solid #222;'>"
+        + tiles_html +
+        f"</div>"
+        + _smc_ladder
+        + f"</div>",
+        unsafe_allow_html=True,
+    )
 
     # ── 4 SIGNAL CARDS in a single 4-column row ────────────────────────────
     st.markdown(_sec("SMC Signal Breakdown", PURP), unsafe_allow_html=True)
@@ -770,11 +798,11 @@ def smc_tab(df, current_price):
                 f"border-radius:12px;overflow:hidden;height:100%;'>"
                 f"<div style='padding:0.85rem 1.1rem;"
                 f"background:linear-gradient(135deg,rgba({','.join(str(int(accent[i:i+2],16)) for i in (1,3,5)) if accent.startswith('#') and len(accent)==7 else '85,85,85'},0.06),transparent);'>"
-                f"<div style='font-size:0.56rem;color:#606060;text-transform:uppercase;"
+                f"<div style='font-size:0.56rem;color:#999;text-transform:uppercase;"
                 f"letter-spacing:1px;font-weight:700;margin-bottom:0.5rem;'>{label}</div>"
                 + _badge(badge_text, badge_col) +
                 f"<div style='margin-top:0.65rem;'>{rows_html}</div>"
-                + (f"<div style='font-size:0.66rem;color:#555;margin-top:0.5rem;"
+                + (f"<div style='font-size:0.66rem;color:#999;margin-top:0.5rem;"
                    f"line-height:1.4;border-top:1px solid #272727;padding-top:0.4rem;'>{footer}</div>"
                    if footer else "")
                 + f"</div></div>",

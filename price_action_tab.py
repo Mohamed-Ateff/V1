@@ -320,63 +320,93 @@ def price_action_analysis_tab(df, info_icon):
     in_r = r_zone_lo <= current_price <= r_zone_hi
     in_s = s_zone_lo <= current_price <= s_zone_hi
 
-    # ── 1. MARKET STRUCTURE HERO ──────────────────────────────────────────────
+    # ── DECISION BOX ─────────────────────────────────────────────────────────
+    ma_series = df["Close"].rolling(window=20).mean()
+    _ts = _compute_trade_setup(
+        df, current_price, trend,
+        sup1, sup2, res1, res2,
+        swing_low, swing_high,
+        ma_series, s_touches, r_touches,
+        s_str, r_str, in_s, in_r,
+    )
+    _pa_verdict   = "BUY"   if _ts and not _ts.get("no_trade") else ("WAIT" if _ts else "WAIT")
+    _pa_vc        = BULL    if _pa_verdict == "BUY" else NEUT
+    _pa_conf      = _ts.get("conf", 0) if _ts else 0
+    _pa_sub       = (
+        f"Price action confirms a long setup — {_ts.get('conf',0)}% confidence"
+        if _pa_verdict == "BUY" else
+        (_ts.get("no_trade_reason", "No clear setup at this time.") if _ts else "Insufficient data.")
+    )
+    _pa_reasons   = (_ts.get("reasons") or [])[:3]
+    _pa_reasons_html = "".join(
+        f"<div style='display:flex;align-items:flex-start;gap:0.4rem;margin-bottom:0.3rem;'>"
+        f"<span style='color:{_pa_vc};font-size:0.65rem;flex-shrink:0;margin-top:0.05rem;'>▸</span>"
+        f"<span style='font-size:0.68rem;color:#aaa;line-height:1.4;'>{_r}</span></div>"
+        for _r in _pa_reasons
+    )
     trend_desc = ("Higher highs & higher lows" if trend == "UPTREND"
                   else "Lower lows & lower highs" if trend == "DOWNTREND"
                   else "No clear directional bias")
-    bar_bg   = "#303030"
     pos_zone = "Upper" if pos_pct >= 66 else "Lower" if pos_pct <= 33 else "Middle"
+
+    _pa_ladder = ""
+    if _ts and not _ts.get("no_trade"):
+        try:
+            from _levels import price_ladder_html as _pa_plh
+            _pa_ladder = _pa_plh(
+                _ts["entry"], _ts["stop"],
+                _ts["t1"], _ts["t2"],
+                round(_ts["entry"] + (_ts["entry"] - _ts["stop"]) * 4.236, 2),
+                True,
+            )
+        except Exception:
+            pass
+
     st.markdown(
-        f"""
-        <div style='background:#1b1b1b;border:1px solid #272727;
-                    border-radius:14px;overflow:hidden;margin-bottom:1.4rem;
-                    box-shadow:0 4px 24px rgba(0,0,0,0.3);'>
-            <div style='padding:1.6rem 2rem;
-                        background:linear-gradient(135deg,rgba({','.join(str(int(t_col[i:i+2],16)) for i in (1,3,5))},0.08),transparent);'>
-                <div style='display:flex;align-items:center;gap:0.9rem;margin-bottom:0.5rem;'>
-                    <div style='width:42px;height:42px;border-radius:10px;
-                                background:rgba({','.join(str(int(t_col[i:i+2],16)) for i in (1,3,5))},0.12);
-                                display:flex;align-items:center;justify-content:center;
-                                font-size:0.7rem;color:{t_col};font-weight:800;text-transform:uppercase;
-                                letter-spacing:0.5px;'>MKT</div>
-                    <div>
-                        <div style='font-size:0.62rem;color:#606060;text-transform:uppercase;
-                                    letter-spacing:1.2px;font-weight:700;'>Market Structure</div>
-                        <div style='font-size:2.2rem;font-weight:900;color:{t_col};line-height:1;
-                                    letter-spacing:-1px;text-shadow:0 0 20px {t_col}33;'>{trend}</div>
-                    </div>
-                </div>
-                <div style='font-size:0.82rem;color:#888;margin-top:0.15rem;'>{trend_desc}</div>
-            </div>
-            <div style='display:grid;grid-template-columns:repeat(4,1fr);
-                        border-top:1px solid #272727;padding:1.1rem 2rem;gap:0.75rem;'>
-                <div>
-                    <div style='font-size:0.62rem;color:#606060;text-transform:uppercase;
-                                letter-spacing:0.6px;margin-bottom:0.4rem;font-weight:700;'>Range Position</div>
-                    <div style='font-size:1.3rem;font-weight:800;color:{t_col};'>{pos_pct}%</div>
-                    <div style='font-size:0.72rem;color:#666;margin-top:0.2rem;'>{pos_zone} of {_sw}d range</div>
-                </div>
-                <div>
-                    <div style='font-size:0.62rem;color:#606060;text-transform:uppercase;
-                                letter-spacing:0.6px;margin-bottom:0.4rem;font-weight:700;'>Swing High</div>
-                    <div style='font-size:1.3rem;font-weight:800;color:#e0e0e0;'>${swing_high:.2f}</div>
-                    <div style='font-size:0.72rem;color:{BEAR};margin-top:0.2rem;'>↑ {dist_high:.2f}% away</div>
-                </div>
-                <div>
-                    <div style='font-size:0.62rem;color:#606060;text-transform:uppercase;
-                                letter-spacing:0.6px;margin-bottom:0.4rem;font-weight:700;'>Swing Low</div>
-                    <div style='font-size:1.3rem;font-weight:800;color:#e0e0e0;'>${swing_low:.2f}</div>
-                    <div style='font-size:0.72rem;color:{BULL};margin-top:0.2rem;'>↓ {dist_low:.2f}% cushion</div>
-                </div>
-                <div>
-                    <div style='font-size:0.62rem;color:#606060;text-transform:uppercase;
-                                letter-spacing:0.6px;margin-bottom:0.4rem;font-weight:700;'>Range Size</div>
-                    <div style='font-size:1.3rem;font-weight:800;color:#e0e0e0;'>${range_sz:.2f}</div>
-                    <div style='font-size:0.72rem;color:#666;margin-top:0.2rem;'>{_sw}-day Hi–Lo spread</div>
-                </div>
-            </div>
-        </div>
-        """,
+        f"<div style='background:#181818;border:1px solid #232323;"
+        f"border-top:3px solid {_pa_vc};border-radius:14px;overflow:hidden;margin-bottom:1.4rem;'>"
+        f"<div style='padding:1.4rem 1.8rem;border-bottom:1px solid #222;"
+        f"display:flex;align-items:flex-start;justify-content:space-between;gap:1.5rem;'>"
+        f"<div>"
+        f"<div style='font-size:0.75rem;color:#999;font-weight:700;"
+        f"text-transform:uppercase;letter-spacing:1px;margin-bottom:0.4rem;'>Decision</div>"
+        f"<div style='font-size:3rem;font-weight:900;color:{_pa_vc};"
+        f"line-height:1;letter-spacing:-1.5px;'>{_pa_verdict}</div>"
+        f"<div style='font-size:0.82rem;color:#aaa;margin-top:0.55rem;line-height:1.5;'>{_pa_sub}</div>"
+        + (f"<div style='margin-top:0.7rem;'>{_pa_reasons_html}</div>" if _pa_reasons_html else "")
+        + f"</div>"
+        f"<div style='text-align:right;flex-shrink:0;'>"
+        f"<div style='font-size:0.72rem;color:#888;text-transform:uppercase;"
+        f"letter-spacing:1px;font-weight:700;margin-bottom:0.3rem;'>Structure</div>"
+        f"<div style='font-size:1.8rem;font-weight:900;color:{t_col};line-height:1;"
+        f"letter-spacing:-0.5px;'>{trend}</div>"
+        f"<div style='font-size:0.7rem;color:#999;margin-top:0.2rem;'>{trend_desc}</div>"
+        f"<div style='font-size:1.2rem;font-weight:800;color:{_pa_vc};margin-top:0.5rem;'>{_pa_conf}%</div>"
+        f"<div style='font-size:0.72rem;color:#888;text-transform:uppercase;letter-spacing:0.5px;'>confidence</div>"
+        f"</div></div>"
+        f"<div style='display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid #222;'>"
+        f"<div style='padding:0.8rem 1.2rem;border-right:1px solid #222;'>"
+        f"<div style='font-size:0.72rem;color:#888;text-transform:uppercase;letter-spacing:0.8px;font-weight:700;margin-bottom:0.22rem;'>Range Position</div>"
+        f"<div style='font-size:1rem;font-weight:800;color:{t_col};'>{pos_pct}%</div>"
+        f"<div style='font-size:0.72rem;color:#888;margin-top:0.1rem;'>{pos_zone} of {_sw}d range</div>"
+        f"</div>"
+        f"<div style='padding:0.8rem 1.2rem;border-right:1px solid #222;'>"
+        f"<div style='font-size:0.72rem;color:#888;text-transform:uppercase;letter-spacing:0.8px;font-weight:700;margin-bottom:0.22rem;'>Swing High</div>"
+        f"<div style='font-size:1rem;font-weight:800;color:#ccc;'>{swing_high:.2f}</div>"
+        f"<div style='font-size:0.57rem;color:{BEAR};margin-top:0.1rem;'>↑ {dist_high:.2f}% away</div>"
+        f"</div>"
+        f"<div style='padding:0.8rem 1.2rem;border-right:1px solid #222;'>"
+        f"<div style='font-size:0.72rem;color:#888;text-transform:uppercase;letter-spacing:0.8px;font-weight:700;margin-bottom:0.22rem;'>Swing Low</div>"
+        f"<div style='font-size:1rem;font-weight:800;color:#ccc;'>{swing_low:.2f}</div>"
+        f"<div style='font-size:0.57rem;color:{BULL};margin-top:0.1rem;'>↓ {dist_low:.2f}% cushion</div>"
+        f"</div>"
+        f"<div style='padding:0.8rem 1.2rem;'>"
+        f"<div style='font-size:0.72rem;color:#888;text-transform:uppercase;letter-spacing:0.8px;font-weight:700;margin-bottom:0.22rem;'>Range Size</div>"
+        f"<div style='font-size:1rem;font-weight:800;color:#ccc;'>{range_sz:.2f}</div>"
+        f"<div style='font-size:0.72rem;color:#888;margin-top:0.1rem;'>{_sw}d Hi–Lo spread</div>"
+        f"</div></div>"
+        + _pa_ladder
+        + f"</div>",
         unsafe_allow_html=True,
     )
 
@@ -402,10 +432,10 @@ def price_action_analysis_tab(df, info_icon):
             st.markdown(
                 f"<div style='background:#1b1b1b;border:1px solid #272727;"
                 f"border-radius:10px;padding:0.85rem 0.6rem;text-align:center;'>"
-                f"<div style='font-size:0.65rem;color:#606060;text-transform:uppercase;"
+                f"<div style='font-size:0.65rem;color:#999;text-transform:uppercase;"
                 f"letter-spacing:0.6px;margin-bottom:0.45rem;font-weight:700;'>{label}</div>"
                 f"<div style='font-size:1.2rem;font-weight:800;color:{color};'>${price:.2f}</div>"
-                f"<div style='font-size:0.72rem;color:#555;margin-top:0.25rem;'>{dist}</div>"
+                f"<div style='font-size:0.78rem;color:#aaa;margin-top:0.25rem;'>{dist}</div>"
                 f"</div>",
                 unsafe_allow_html=True,
             )
@@ -447,12 +477,12 @@ def price_action_analysis_tab(df, info_icon):
                 f"<div style='padding:0.9rem 1.4rem;'>"
                 f"<div style='display:grid;grid-template-columns:1fr 1fr;gap:0.55rem;margin-bottom:0.7rem;'>"
                 f"<div style='background:#161616;border:1px solid #272727;border-radius:8px;padding:0.6rem 0.8rem;'>"
-                f"<div style='font-size:0.62rem;color:#606060;text-transform:uppercase;"
+                f"<div style='font-size:0.75rem;color:#999;text-transform:uppercase;"
                 f"letter-spacing:0.5px;margin-bottom:0.2rem;font-weight:700;'>Strength</div>"
                 f"<div style='font-size:1.05rem;font-weight:700;color:{sc};'>{strength_str}</div>"
                 f"</div>"
                 f"<div style='background:#161616;border:1px solid #272727;border-radius:8px;padding:0.6rem 0.8rem;'>"
-                f"<div style='font-size:0.62rem;color:#606060;text-transform:uppercase;"
+                f"<div style='font-size:0.75rem;color:#999;text-transform:uppercase;"
                 f"letter-spacing:0.5px;margin-bottom:0.2rem;font-weight:700;'>Touches</div>"
                 f"<div style='font-size:1.05rem;font-weight:700;color:{NEUT};'>{touches}</div>"
                 f"</div></div>"
@@ -461,14 +491,8 @@ def price_action_analysis_tab(df, info_icon):
                 unsafe_allow_html=True,
             )
 
-    # ── 4. TRADE SETUP (above chart) ─────────────────────────────────────────
+    # ── 5. CHART ─────────────────────────────────────────────────────────────
     ma = recent_df["Close"].rolling(window=ma_period).mean()
-    st.markdown(_sec("Trade Setup", BULL), unsafe_allow_html=True)
-    insight_toggle(
-        'pa_setup',
-        'How are Bull and Bear scores calculated?',
-        "<p>The <strong style='color:#4caf50'>Bull Score</strong> and <strong style='color:#f44336'>Bear Score</strong> are pure price action ratings — no pattern dependency.</p><div class='itog-row'><span class='itog-dot'></span><span><strong>Trend Structure</strong> — higher highs &amp; higher lows vs lower lows &amp; lower highs.</span></div><div class='itog-row'><span class='itog-dot'></span><span><strong>MA Position &amp; Slope</strong> — price vs 20-MA and direction of the moving average.</span></div><div class='itog-row'><span class='itog-dot'></span><span><strong>Zone Proximity</strong> — how close price is to key support or resistance, and zone touch count.</span></div><div class='itog-row'><span class='itog-dot'></span><span><strong>Candle Signals</strong> — engulfing candles, hammers, shooting stars, doji at key levels.</span></div><div class='itog-row'><span class='itog-dot'></span><span><strong>Volume &amp; RSI</strong> — above-average volume confirmation and RSI overbought/oversold readings.</span></div>",
-    )
     ts = _compute_trade_setup(
         df=recent_df, current_price=current_price, trend=trend,
         sup1=sup1, sup2=sup2, res1=res1, res2=res2,
@@ -476,105 +500,6 @@ def price_action_analysis_tab(df, info_icon):
         ma_series=ma, s_touches=s_touches, r_touches=r_touches,
         s_str=s_str, r_str=r_str, in_s=in_s, in_r=in_r,
     )
-
-    if ts is None:
-        st.info("Need at least 15 bars of data to compute a trade setup.")
-    elif ts.get('no_trade'):
-        dominant = ts['setup']
-        dom_col  = BEAR if dominant == 'SHORT' else NEUT
-        dom_label = 'BEARISH' if dominant == 'SHORT' else 'NEUTRAL'
-        bull_pct = int(ts['ls'] / max(ts['ls'] + ts['ss'], 1) * 100)
-        bear_pct = 100 - bull_pct
-        st.markdown(
-            f"<div style='background:#1b1b1b;border:1px solid {dom_col}44;"
-            f"border-radius:14px;overflow:hidden;'>"
-            f"<div style='padding:1.2rem 1.6rem;"
-            f"background:linear-gradient(135deg,rgba({','.join(str(int(dom_col[i:i+2],16)) for i in (1,3,5))},0.06),transparent);"
-            f"border-bottom:1px solid #272727;display:flex;align-items:center;justify-content:space-between;'>"
-            f"<div>"
-            f"<div style='font-size:0.6rem;color:#606060;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:0.3rem;'>Trade Setup</div>"
-            f"<div style='font-size:1.8rem;font-weight:900;color:{dom_col};letter-spacing:-0.5px;line-height:1;'>NO TRADE</div>"
-            f"<div style='font-size:0.78rem;color:#666;margin-top:0.3rem;'>{dom_label} bias — no long entry</div>"
-            f"</div>"
-            f"<div style='text-align:right;'>"
-            f"<div style='font-size:0.6rem;color:#606060;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:0.4rem;'>RSI · ATR</div>"
-            f"<div style='font-size:1.1rem;font-weight:700;color:#e0e0e0;'>{ts['rsi']:.0f} · {ts['atr']:.2f}</div>"
-            f"</div>"
-            f"</div>"
-            f"<div style='padding:1rem 1.6rem;display:grid;grid-template-columns:1fr 1fr;gap:0.8rem;'>"
-            f"<div>"
-            f"<div style='font-size:0.6rem;color:#606060;text-transform:uppercase;letter-spacing:0.6px;font-weight:700;margin-bottom:0.4rem;'>Bull Score</div>"
-            f"<div style='font-size:1.5rem;font-weight:900;color:{BULL};line-height:1;margin-bottom:0.4rem;'>{ts['ls']} pts</div>"
-            f"{_glowbar(bull_pct, BULL, '4px')}"
-            f"</div>"
-            f"<div>"
-            f"<div style='font-size:0.6rem;color:#606060;text-transform:uppercase;letter-spacing:0.6px;font-weight:700;margin-bottom:0.4rem;'>Bear Score</div>"
-            f"<div style='font-size:1.5rem;font-weight:900;color:{BEAR};line-height:1;margin-bottom:0.4rem;'>{ts['ss']} pts</div>"
-            f"{_glowbar(bear_pct, BEAR, '4px')}"
-            f"</div>"
-            f"</div>"
-            f"</div>",
-            unsafe_allow_html=True,
-        )
-    else:
-        sc   = ts['setup_color']
-        setup = ts['setup']
-        conf  = ts['conf']
-        icon  = '▲ LONG'
-        conf_bar_cl = BULL
-
-        # Signal strength text
-        if   conf >= 75: sig_txt = 'High Confidence'
-        elif conf >= 60: sig_txt = 'Moderate Confidence'
-        else:            sig_txt = 'Low Confidence'
-
-        # ── Hero banner ──
-        st.markdown(
-            f"<div style='background:#1b1b1b;border:1px solid #272727;"
-            f"border-radius:14px;overflow:hidden;margin-bottom:1rem;"
-            f"box-shadow:0 4px 24px rgba(0,0,0,0.3);'>"
-            f"<div style='padding:1.5rem 2rem;"
-            f"background:linear-gradient(135deg,rgba({','.join(str(int(sc[i:i+2],16)) for i in (1,3,5))},0.08),transparent);'>"
-            f"<div style='display:flex;justify-content:space-between;align-items:center;"
-            f"margin-bottom:1rem;'>"
-            f"<div>"
-            f"<div style='font-size:0.62rem;color:#606060;text-transform:uppercase;"
-            f"letter-spacing:1.2px;font-weight:700;margin-bottom:0.3rem;'>Price Action Trade Setup</div>"
-            f"<div style='font-size:2.2rem;font-weight:900;color:{sc};"
-            f"letter-spacing:-1px;line-height:1;"
-            f"text-shadow:0 0 20px {sc}33;'>{icon}</div>"
-            f"<div style='font-size:0.78rem;color:#888;margin-top:0.4rem;'>"
-            f"{sig_txt}</div>"
-            f"</div>"
-            f"<div style='text-align:right;'>"
-            f"<div style='font-size:0.62rem;color:#606060;margin-bottom:0.3rem;"
-            f"text-transform:uppercase;letter-spacing:1px;font-weight:700;'>Signal Confidence</div>"
-            f"<div style='font-size:2.6rem;font-weight:900;color:{sc};"
-            f"line-height:1;letter-spacing:-2px;'>{conf}%</div>"
-            f"</div>"
-            f"</div>"
-            # Confidence bar
-            + _glowbar(conf, conf_bar_cl, '6px') +
-            f"<div style='font-size:0.65rem;color:#4a4a4a;margin-top:0.6rem;'>"
-            f"Bull signals: {ts['ls']} pts &nbsp;|&nbsp; Bear signals: {ts['ss']} pts"
-            f"</div>"
-            f"</div></div>",
-            unsafe_allow_html=True,
-        )
-
-        # ── Price Ladder (BUY only) ──────────────────────────────────────────
-        if sc == BULL:
-            try:
-                from _levels import price_ladder_html as _pa_plh
-                _pa_R  = abs(ts["entry"] - ts["stop"])
-                _pa_t3 = round(ts["entry"] + _pa_R * 5.0, 2)
-                st.markdown(_pa_plh(ts["entry"], ts["stop"], ts["t1"], ts["t2"], _pa_t3, True), unsafe_allow_html=True)
-            except Exception:
-                pass
-
-        # ── Five. CHART
-
-    # ── 5. CHART ─────────────────────────────────────────────────────────────
     st.markdown(_sec("Price Action Chart — Candles · MA · Volume · Zones", INFO), unsafe_allow_html=True)
     fig = make_subplots(
         rows=2, cols=1, shared_xaxes=True,

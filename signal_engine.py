@@ -341,7 +341,163 @@ def detect_signals(_df):
 
         signals_df['ADX_Sell'] = adx_sell
 
+    # ── NEW: SuperTrend ───────────────────────────────────────────────────
+    supert_col = next((c for c in df.columns if c.startswith('SUPERT_') and not c.startswith('SUPERTd') and not c.startswith('SUPERTl') and not c.startswith('SUPERTs')), None)
+    supertd_col = next((c for c in df.columns if c.startswith('SUPERTd_')), None)
+    if supert_col and supertd_col:
+        st_buy  = ((df[supertd_col] == 1)  & (df[supertd_col].shift(1) == -1)).astype(int)
+        st_sell = ((df[supertd_col] == -1) & (df[supertd_col].shift(1) == 1)).astype(int)
+        signals_df['SUPERTREND_Buy']  = st_buy
+        signals_df['SUPERTREND_Sell'] = st_sell
 
+    # ── NEW: Hull MA ──────────────────────────────────────────────────────
+    if 'HMA_20' in df.columns:
+        hma_buy  = ((df['Close'] > df['HMA_20']) & (df['Close'].shift(1) <= df['HMA_20'].shift(1))).astype(int)
+        hma_sell = ((df['Close'] < df['HMA_20']) & (df['Close'].shift(1) >= df['HMA_20'].shift(1))).astype(int)
+        signals_df['HMA_Buy']  = hma_buy
+        signals_df['HMA_Sell'] = hma_sell
+
+    # ── NEW: Momentum (MOM) ───────────────────────────────────────────────
+    if 'MOM_10' in df.columns:
+        mom_buy  = ((df['MOM_10'] > 0) & (df['MOM_10'].shift(1) <= 0)).astype(int)
+        mom_sell = ((df['MOM_10'] < 0) & (df['MOM_10'].shift(1) >= 0)).astype(int)
+        signals_df['MOM_Buy']  = mom_buy
+        signals_df['MOM_Sell'] = mom_sell
+
+    # ── NEW: TSI ──────────────────────────────────────────────────────────
+    tsi_col = next((c for c in df.columns if c.startswith('TSI_')), None)
+    tsis_col = next((c for c in df.columns if c.startswith('TSIs_')), None)
+    if tsi_col:
+        if tsis_col:
+            tsi_buy  = ((df[tsi_col] > df[tsis_col]) & (df[tsi_col].shift(1) <= df[tsis_col].shift(1))).astype(int)
+            tsi_sell = ((df[tsi_col] < df[tsis_col]) & (df[tsi_col].shift(1) >= df[tsis_col].shift(1))).astype(int)
+        else:
+            tsi_buy  = ((df[tsi_col] > 0) & (df[tsi_col].shift(1) <= 0)).astype(int)
+            tsi_sell = ((df[tsi_col] < 0) & (df[tsi_col].shift(1) >= 0)).astype(int)
+        signals_df['TSI_Buy']  = tsi_buy
+        signals_df['TSI_Sell'] = tsi_sell
+
+    # ── NEW: PPO ──────────────────────────────────────────────────────────
+    ppo_col  = next((c for c in df.columns if c.startswith('PPO_')), None)
+    ppos_col = next((c for c in df.columns if c.startswith('PPOs_')), None)
+    if ppo_col and ppos_col:
+        ppo_buy  = ((df[ppo_col] > df[ppos_col]) & (df[ppo_col].shift(1) <= df[ppos_col].shift(1))).astype(int)
+        ppo_sell = ((df[ppo_col] < df[ppos_col]) & (df[ppo_col].shift(1) >= df[ppos_col].shift(1))).astype(int)
+        signals_df['PPO_Buy']  = ppo_buy
+        signals_df['PPO_Sell'] = ppo_sell
+
+    # ── NEW: Elder Ray ────────────────────────────────────────────────────
+    if 'ELDER_BULL' in df.columns and 'ELDER_BEAR' in df.columns:
+        elder_buy  = ((df['ELDER_BULL'] > 0) & (df['ELDER_BEAR'] > df['ELDER_BEAR'].shift(1))).astype(int)
+        elder_sell = ((df['ELDER_BEAR'] < 0) & (df['ELDER_BULL'] < df['ELDER_BULL'].shift(1))).astype(int)
+        signals_df['ELDER_Buy']  = elder_buy
+        signals_df['ELDER_Sell'] = elder_sell
+
+    # ── NEW: A/D Line ─────────────────────────────────────────────────────
+    if 'ADL' in df.columns:
+        adl_rising = df['ADL'] > df['ADL'].shift(3)
+        price_rising = df['Close'] > df['Close'].shift(3)
+        signals_df['ADL_Buy']  = (adl_rising  & price_rising).astype(int)
+        signals_df['ADL_Sell'] = (~adl_rising & ~price_rising).astype(int)
+
+    # ── NEW: Volume MA ────────────────────────────────────────────────────
+    if 'VOL_MA_20' in df.columns:
+        vol_surge = df['Volume'] > df['VOL_MA_20'] * 1.5
+        signals_df['VOLMA_Buy']  = (vol_surge & (df['Close'] > df['Close'].shift(1))).astype(int)
+        signals_df['VOLMA_Sell'] = (vol_surge & (df['Close'] < df['Close'].shift(1))).astype(int)
+
+    # ── NEW: Force Index ──────────────────────────────────────────────────
+    if 'FORCE_2' in df.columns and 'FORCE_13' in df.columns:
+        fi_buy  = ((df['FORCE_2'] > 0) & (df['FORCE_13'] > 0) & (df['FORCE_2'].shift(1) <= 0)).astype(int)
+        fi_sell = ((df['FORCE_2'] < 0) & (df['FORCE_13'] < 0) & (df['FORCE_2'].shift(1) >= 0)).astype(int)
+        signals_df['FORCE_Buy']  = fi_buy
+        signals_df['FORCE_Sell'] = fi_sell
+
+    # ── NEW: Volume RSI ───────────────────────────────────────────────────
+    if 'VOL_RSI_14' in df.columns:
+        signals_df['VOLRSI_Buy']  = (df['VOL_RSI_14'] > 70).astype(int) * (df['Close'] > df['Close'].shift(1)).astype(int)
+        signals_df['VOLRSI_Sell'] = (df['VOL_RSI_14'] > 70).astype(int) * (df['Close'] < df['Close'].shift(1)).astype(int)
+
+    # ── NEW: Squeeze Momentum ─────────────────────────────────────────────
+    sqz_col = next((c for c in df.columns if c.startswith('SQZ_') and 'NO' not in c), None)
+    sqzon_col = next((c for c in df.columns if 'SQZON' in c), None)
+    if sqz_col:
+        sqz_buy  = ((df[sqz_col] > 0) & (df[sqz_col].shift(1) <= 0)).astype(int)
+        sqz_sell = ((df[sqz_col] < 0) & (df[sqz_col].shift(1) >= 0)).astype(int)
+        signals_df['SQZ_Buy']  = sqz_buy
+        signals_df['SQZ_Sell'] = sqz_sell
+
+    # ── NEW: Historical Volatility ────────────────────────────────────────
+    if 'HIST_VOL_20' in df.columns:
+        _hv_low = df['HIST_VOL_20'] < df['HIST_VOL_20'].rolling(60).quantile(0.2)
+        signals_df['HISTVOL_Buy']  = (_hv_low & (df['Close'] > df['Close'].shift(1))).astype(int)
+        signals_df['HISTVOL_Sell'] = (_hv_low & (df['Close'] < df['Close'].shift(1))).astype(int)
+
+    # ── NEW: Chandelier Exit ──────────────────────────────────────────────
+    if 'CHANDELIER_LONG' in df.columns:
+        ch_buy  = ((df['Close'] > df['CHANDELIER_LONG']) & (df['Close'].shift(1) <= df['CHANDELIER_LONG'].shift(1))).astype(int)
+        ch_sell = ((df['Close'] < df['CHANDELIER_LONG']) & (df['Close'].shift(1) >= df['CHANDELIER_LONG'].shift(1))).astype(int)
+        signals_df['CHANDELIER_Buy']  = ch_buy
+        signals_df['CHANDELIER_Sell'] = ch_sell
+
+    # ── NEW: Pivot Points ─────────────────────────────────────────────────
+    if 'PIVOT_R1' in df.columns and 'PIVOT_S1' in df.columns:
+        piv_buy  = ((df['Close'] > df['PIVOT_R1']) & (df['Close'].shift(1) <= df['PIVOT_R1'].shift(1))).astype(int)
+        piv_sell = ((df['Close'] < df['PIVOT_S1']) & (df['Close'].shift(1) >= df['PIVOT_S1'].shift(1))).astype(int)
+        signals_df['PIVOT_Buy']  = piv_buy
+        signals_df['PIVOT_Sell'] = piv_sell
+
+    # ── NEW: Fibonacci Levels ─────────────────────────────────────────────
+    if 'FIB_618' in df.columns:
+        fib_buy  = ((df['Close'] > df['FIB_618']) & (df['Close'].shift(1) <= df['FIB_618'].shift(1))).astype(int)
+        fib_sell = ((df['Close'] < df['FIB_382']) & (df['Close'].shift(1) >= df['FIB_382'].shift(1))).astype(int) if 'FIB_382' in df.columns else pd.Series(0, index=df.index)
+        signals_df['FIB_Buy']  = fib_buy
+        signals_df['FIB_Sell'] = fib_sell
+
+    # ── NEW: VWAP Bands ───────────────────────────────────────────────────
+    if 'VWAP_LOWER1' in df.columns and 'VWAP_UPPER1' in df.columns:
+        vb_buy  = ((df['Close'] <= df['VWAP_LOWER1']) & (df['Close'].shift(1) > df['VWAP_LOWER1'].shift(1))).astype(int)
+        vb_sell = ((df['Close'] >= df['VWAP_UPPER1']) & (df['Close'].shift(1) < df['VWAP_UPPER1'].shift(1))).astype(int)
+        signals_df['VWAPBAND_Buy']  = vb_buy
+        signals_df['VWAPBAND_Sell'] = vb_sell
+
+    # ── NEW: Prev High/Low ────────────────────────────────────────────────
+    if 'PREV_HIGH' in df.columns and 'PREV_LOW' in df.columns:
+        ph_buy  = ((df['Close'] > df['PREV_HIGH']) & (df['Close'].shift(1) <= df['PREV_HIGH'].shift(1))).astype(int)
+        ph_sell = ((df['Close'] < df['PREV_LOW'])  & (df['Close'].shift(1) >= df['PREV_LOW'].shift(1))).astype(int)
+        signals_df['PREVHILO_Buy']  = ph_buy
+        signals_df['PREVHILO_Sell'] = ph_sell
+
+    # ── NEW: BB Z-Score ───────────────────────────────────────────────────
+    if 'BB_ZSCORE' in df.columns:
+        signals_df['BBZSCORE_Buy']  = (df['BB_ZSCORE'] < -2).astype(int)
+        signals_df['BBZSCORE_Sell'] = (df['BB_ZSCORE'] >  2).astype(int)
+
+    # ── NEW: Distance from MA ─────────────────────────────────────────────
+    if 'DIST_MA_PCT' in df.columns:
+        signals_df['DISTMA_Buy']  = (df['DIST_MA_PCT'] < -8).astype(int)
+        signals_df['DISTMA_Sell'] = (df['DIST_MA_PCT'] >  8).astype(int)
+
+    # ── NEW: Stochastic Extreme ───────────────────────────────────────────
+    stochk_col = next((c for c in df.columns if c.startswith('STOCHk_')), None)
+    if stochk_col:
+        signals_df['STOCHEXT_Buy']  = (df[stochk_col] < 10).astype(int)
+        signals_df['STOCHEXT_Sell'] = (df[stochk_col] > 90).astype(int)
+
+    # ── NEW: CCI Extreme ──────────────────────────────────────────────────
+    if 'CCI_20' in df.columns:
+        signals_df['CCIEXT_Buy']  = (df['CCI_20'] < -200).astype(int)
+        signals_df['CCIEXT_Sell'] = (df['CCI_20'] >  200).astype(int)
+
+    # ── NEW: TASI Filter (context column — no Buy/Sell, just information) ─
+    if 'TASI_ABOVE_EMA50' in df.columns:
+        signals_df['TASI_FILTER'] = df['TASI_ABOVE_EMA50']
+
+    # ── NEW: RS vs TASI ───────────────────────────────────────────────────
+    if 'RS_TASI' in df.columns:
+        rs_rising = df['RS_TASI'] > df['RS_TASI'].shift(5)
+        signals_df['RSTASI_Buy']  = (rs_rising & (df['RS_TASI'] > 0)).astype(int)
+        signals_df['RSTASI_Sell'] = (~rs_rising & (df['RS_TASI'] < 0)).astype(int)
 
     return signals_df
 

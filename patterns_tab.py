@@ -1094,22 +1094,47 @@ def patterns_tab(df, pattern_context=None):
     guardrails = pattern_context["guardrails"]
     state_counts = pattern_context["state_counts"]
 
-    # ── Hero banner ──────────────────────────────────────────────────────────
-    hero_html = (
-        "<div style='background:#1b1b1b;border:1px solid #272727;"
-        "border-radius:14px;overflow:hidden;margin-bottom:1.4rem;"
-        "box-shadow:0 4px 24px rgba(0,0,0,0.3);'>"
-        "<div style='padding:1.6rem 2rem;"
-        "background:linear-gradient(135deg,rgba(" + ','.join(str(int(bias_col[i:i+2],16)) for i in (1,3,5)) + ",0.08),transparent);'>"
-        "<div style='font-size:0.62rem;color:#606060;text-transform:uppercase;"
-        "letter-spacing:1.2px;margin-bottom:0.5rem;font-weight:700;'>Pattern Signal</div>"
-        "<div style='font-size:2.4rem;font-weight:900;color:" + bias_col + ";line-height:1;"
-        "letter-spacing:-1px;text-shadow:0 0 20px " + bias_col + "33;'>" + signal_lbl + "</div>"
-        "<div style='font-size:0.82rem;color:#888;margin-top:0.6rem;line-height:1.7;"
-        "max-width:600px;'>" + reason + "</div>"
-        "</div></div>"
+    # ── DECISION BOX ─────────────────────────────────────────────────────────
+    _pt_conf = pattern_context.get("conf", 0)
+    if _pt_conf == 0 and signal_lbl == "BUY":
+        _pt_conf = min(round(bull_cnt / max(bull_cnt + bear_cnt, 1) * 100), 94)
+    _pt_reasons_raw = []
+    if bull_cnt > 0:
+        _pt_reasons_raw.append(f"{bull_cnt} bullish vs {bear_cnt} bearish patterns active in last 10 sessions")
+    if strongest:
+        _pt_reasons_raw.append(f"Strongest: {strongest.get('pattern','')} ({strongest.get('strength',0)}% strength)")
+    if guardrails.get("flags"):
+        _pt_reasons_raw.append(f"Warning: {guardrails['flags'][0]['title']}")
+    _pt_reasons_html = "".join(
+        f"<div style='display:flex;align-items:flex-start;gap:0.4rem;margin-bottom:0.3rem;'>"
+        f"<span style='color:{bias_col};font-size:0.65rem;flex-shrink:0;margin-top:0.05rem;'>▸</span>"
+        f"<span style='font-size:0.68rem;color:#aaa;line-height:1.4;'>{_r}</span></div>"
+        for _r in _pt_reasons_raw[:3]
     )
-    st.markdown(hero_html, unsafe_allow_html=True)
+    st.markdown(
+        f"<div style='background:linear-gradient(160deg,#1c1c1c,#161616);"
+        f"border:1px solid {bias_col}22;border-top:3px solid {bias_col};"
+        f"border-radius:14px;overflow:hidden;margin-bottom:1.4rem;"
+        f"box-shadow:0 4px 24px rgba(0,0,0,0.4);'>"
+        f"<div style='padding:1.4rem 1.8rem;border-bottom:1px solid #1e1e1e;"
+        f"background:linear-gradient(135deg,{bias_col}08,transparent);'>"
+        f"<div style='font-size:0.58rem;color:{bias_col}88;font-weight:800;"
+        f"text-transform:uppercase;letter-spacing:1px;margin-bottom:0.4rem;'>Chart Patterns Decision</div>"
+        f"<div style='display:flex;align-items:center;gap:1.2rem;'>"
+        f"<div style='font-size:2.4rem;font-weight:900;color:{bias_col};"
+        f"line-height:1;letter-spacing:-1px;text-shadow:0 0 20px {bias_col}33;'>{signal_lbl}</div>"
+        f"<div style='flex:1;'>"
+        f"<div style='font-size:0.78rem;color:#888;line-height:1.5;'>{reason}</div>"
+        f"</div>"
+        f"<div style='text-align:center;background:#161616;border:1px solid #272727;"
+        f"border-radius:10px;padding:0.6rem 1rem;flex-shrink:0;'>"
+        f"<div style='font-size:1.4rem;font-weight:900;color:{bias_col};line-height:1;'>{_pt_conf}%</div>"
+        f"<div style='font-size:0.52rem;color:#555;text-transform:uppercase;letter-spacing:0.5px;margin-top:0.2rem;'>Confidence</div>"
+        f"</div></div>"
+        + (f"<div style='margin-top:0.8rem;'>{_pt_reasons_html}</div>" if _pt_reasons_html else "")
+        + f"</div></div>",
+        unsafe_allow_html=True,
+    )
 
     summary_cards = [
         ("Bullish Active", str(bull_cnt), BULL, f"{pattern_context['long_bonus']} pts confluence"),
@@ -1144,13 +1169,16 @@ def patterns_tab(df, pattern_context=None):
                 unsafe_allow_html=True,
             )
 
-    # ── Price Ladder (BUY only) ──────────────────────────────────────────────
-    if signal_lbl == "BUY":
+    # ── Price Ladder (always shown when there's a directional signal) ────────
+    if signal_lbl in ("BUY", "WATCH"):
         try:
-            from _levels import compute_structural_levels as _csl, render_price_ladder as _rpl
+            from _levels import compute_structural_levels as _csl, price_ladder_html as _pt_plh
             _p_lv = _csl(df, current_price, True)
-            _rpl(_p_lv["entry"], _p_lv["stop"], _p_lv["t1"], _p_lv["t2"], _p_lv["t3"], True,
-                 _p_lv.get("entry_quality", ""), _p_lv.get("eq_col", ""))
+            st.markdown(
+                _pt_plh(_p_lv["entry"], _p_lv["stop"], _p_lv["t1"], _p_lv["t2"], _p_lv["t3"], True,
+                        _p_lv.get("entry_quality", ""), _p_lv.get("eq_col", "")),
+                unsafe_allow_html=True,
+            )
         except Exception:
             pass
 

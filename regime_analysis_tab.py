@@ -109,13 +109,74 @@ def _stat_tile(label, value, sub, val_color, bg, border, muted, bar_pct=None, ba
     return (
         f"<div style='background:#1b1b1b;border:1px solid #272727;"
         f"border-radius:10px;padding:1rem 1.2rem;'>"
-        f"<div style='font-size:0.62rem;color:#606060;text-transform:uppercase;"
+        f"<div style='font-size:0.75rem;color:#999;text-transform:uppercase;"
         f"letter-spacing:0.8px;margin-bottom:0.45rem;font-weight:700;'>{label}</div>"
         f"<div style='font-size:1.3rem;font-weight:800;color:{val_color};line-height:1;'>{value}</div>"
         f"<div style='font-size:0.72rem;color:#666;margin-top:0.3rem;'>{sub}</div>"
         f"{bar_html}"
         f"</div>"
     )
+
+
+def get_regime_signal(df, cp):
+    """Return a signal dict for the Decision Tab aggregator, or None if no trade."""
+    if df is None or len(df) < 20:
+        return None
+    try:
+        df = _normalize_regime_df(df)
+        latest = df.iloc[-1]
+        current_regime = str(latest["REGIME"])
+        mom_5d  = _momentum(df, 5)
+        mom_20d = _momentum(df, 20)
+        adx_val = float(latest.get("ADX_14", 0) or 0)
+        ema20   = float(latest.get("EMA_20", float(cp)) or float(cp))
+        ema50   = float(latest.get("EMA_50", float(cp)) or float(cp))
+        atr_val = float(latest.get("ATR_14", float(cp) * 0.02) or float(cp) * 0.02)
+        stability = _stability(df, 20)
+        streak    = _streak(df)
+
+        # Score regime favorability for a long trade
+        score = 50
+        if current_regime == "TREND":
+            score += 20 if mom_5d >= 0 else -10
+            score += 10 if float(cp) > ema20 else -8
+            score += 8  if adx_val >= 25 else (-5 if adx_val < 18 else 0)
+        elif current_regime == "RANGE":
+            score += 5 if float(cp) > ema20 else -5
+            score -= 5 if float(cp) < ema50 else 0
+        elif current_regime == "VOLATILE":
+            score -= 20
+
+        score += 5 if stability >= 60 else (-5 if stability < 35 else 0)
+        score = max(0, min(100, score))
+
+        # Only surface bullish regime setups
+        if score < 52:
+            return None
+
+        is_buy  = current_regime == "TREND" and mom_5d >= 0 and float(cp) > ema20
+        verdict = "▲ BUY" if is_buy else "▶ HOLD"
+        reasons = [
+            f"Regime: {current_regime} ({streak}d streak, {stability:.0f}% stability)",
+            f"5D momentum {'+' if mom_5d >= 0 else ''}{mom_5d:.1f}%, ADX {adx_val:.0f}",
+        ]
+
+        _stop = round(float(cp) - 2 * atr_val, 2)
+        _risk = max(float(cp) - _stop, 0.001)
+        return dict(
+            color="#26A69A",
+            verdict_text=verdict,
+            sublabel=f"Regime Analysis — {current_regime}",
+            conf=score,
+            reasons=reasons,
+            entry=float(cp),
+            stop=_stop,
+            t1=round(float(cp) + _risk * 2.0, 2),
+            t2=round(float(cp) + _risk * 3.5, 2),
+            t3=round(float(cp) + _risk * 5.5, 2),
+        )
+    except Exception:
+        return None
 
 
 def render_regime_analysis_tab(df, info_icon, create_regime_distribution_chart):
@@ -161,44 +222,146 @@ def render_regime_analysis_tab(df, info_icon, create_regime_distribution_chart):
     range_pct     = round(range_days / total_days * 100, 1) if total_days else 0
     volatile_pct  = round(vol_days   / total_days * 100, 1) if total_days else 0
 
-    # ── HERO CARD ─────────────────────────────────────────────────────────────
-    st.markdown(f"""
-    <div style="background:#1b1b1b;border:1px solid #272727;
-                border-radius:14px;overflow:hidden;margin-bottom:1.4rem;
-                box-shadow:0 4px 24px rgba(0,0,0,0.3);">
-        <div style="padding:1.6rem 2rem 1.4rem;
-                    background:linear-gradient(135deg,rgba({','.join(str(int(rc[i:i+2],16)) for i in (1,3,5))},0.08),transparent);">
-            <div style="display:flex;align-items:flex-start;justify-content:space-between;
-                        gap:1.2rem;flex-wrap:wrap;">
-                <div>
-                    <div style="font-size:0.62rem;color:#606060;text-transform:uppercase;
-                                letter-spacing:1.2px;margin-bottom:0.55rem;font-weight:700;">
-                        Current Market Regime</div>
-                    <div style="display:flex;align-items:center;gap:0.9rem;">
-                        <div style="width:48px;height:48px;border-radius:12px;
-                                    background:rgba({','.join(str(int(rc[i:i+2],16)) for i in (1,3,5))},0.12);
-                                    display:flex;align-items:center;justify-content:center;
-                                    font-size:1.3rem;color:{rc};font-weight:900;">&#9673;</div>
-                        <div style="font-size:2.4rem;font-weight:900;color:{rc};line-height:1;
-                                    letter-spacing:-1px;text-shadow:0 0 20px {rc}33;">{current_regime}</div>
-                    </div>
-                    <div style="font-size:0.82rem;color:#888;margin-top:0.6rem;
-                                max-width:460px;line-height:1.6;">{desc}</div>
-                </div>
-                <div style="text-align:right;flex-shrink:0;">
-                    <div style="font-size:0.62rem;color:#606060;text-transform:uppercase;
-                                letter-spacing:1px;margin-bottom:0.4rem;font-weight:700;">
-                        Current Price</div>
-                    <div style="font-size:2rem;font-weight:800;color:#e0e0e0;line-height:1;">
-                        {current_price:.2f} SAR</div>
-                    <div style="font-size:0.75rem;color:#666;margin-top:0.35rem;">
-                        Active for <span style="color:{rc};font-weight:700;">{streak} days</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    # ── DECISION BOX ─────────────────────────────────────────────────────────
+    _atr_val = float(latest.get("ATR_14", current_price * 0.02) or current_price * 0.02)
+    _ema20   = float(latest.get("EMA_20", current_price) or current_price)
+    _ema50   = float(latest.get("EMA_50", current_price) or current_price)
+
+    if current_regime == "TREND" and mom_5d >= 0 and current_price > _ema20:
+        _dec_v    = "BUY"
+        _dec_col  = BULL
+        _dec_sub  = f"Regime is trending up — momentum and structure are aligned. Enter on dips to EMA20."
+        _dec_entry = current_price
+        _dec_stop  = round(current_price - 2 * _atr_val, 2)
+        _dec_t1    = round(current_price + 2 * _atr_val, 2)
+        _dec_t2    = round(current_price + 3.5 * _atr_val, 2)
+        _dec_t3    = round(current_price + 5.5 * _atr_val, 2)
+    elif current_regime == "VOLATILE" or (current_regime == "TREND" and mom_5d < 0):
+        _dec_v    = "WAIT"
+        _dec_col  = NEUT
+        _dec_sub  = f"Volatile or trend reversing — risk is elevated. No new entries until regime stabilises."
+        _dec_entry = _dec_stop = _dec_t1 = _dec_t2 = _dec_t3 = None
+    else:
+        _dec_v    = "HOLD"
+        _dec_col  = "#4A9EFF"
+        _dec_sub  = f"Range-bound regime with {stability:.0f}% stability. Wait for a breakout before entering."
+        _dec_entry = _dec_stop = _dec_t1 = _dec_t2 = _dec_t3 = None
+
+    _dec_rgb = {"BUY": "76,175,80", "WAIT": "255,152,0", "HOLD": "74,158,255"}.get(_dec_v, "74,158,255")
+
+    _ladder_html = ""
+    if _dec_v == "BUY" and _dec_entry:
+        try:
+            from _levels import price_ladder_html as _reg_plh
+            _ladder_html = _reg_plh(_dec_entry, _dec_stop, _dec_t1, _dec_t2, _dec_t3, True)
+        except Exception:
+            pass
+
+    # ── Tooltip CSS + helper ──────────────────────────────────────────────────
+    st.markdown("""<style>
+    .reg-tip-wrap{position:relative;display:inline-flex;align-items:center;cursor:help;margin-left:0.3rem}
+    .reg-tip-wrap .reg-tt{
+        visibility:hidden;opacity:0;position:absolute;bottom:130%;left:50%;
+        transform:translateX(-50%);background:#1e1e1e;color:#ccc;border:1px solid #333;
+        border-radius:6px;padding:0.45rem 0.6rem;font-size:0.7rem;font-weight:500;
+        line-height:1.5;white-space:normal;width:220px;text-align:left;z-index:200;
+        pointer-events:none;transition:opacity .15s;box-shadow:0 4px 14px rgba(0,0,0,.5);
+        text-transform:none;letter-spacing:0}
+    .reg-tip-wrap .reg-tt::after{content:'';position:absolute;top:100%;left:50%;
+        transform:translateX(-50%);border:5px solid transparent;border-top-color:#333}
+    .reg-tip-wrap:hover .reg-tt{visibility:visible;opacity:1}
+    </style>""", unsafe_allow_html=True)
+
+    def _rtip(text):
+        return (
+            f"<span class='reg-tip-wrap'>"
+            f"<span style='display:inline-flex;align-items:center;justify-content:center;"
+            f"width:13px;height:13px;border-radius:50%;border:1px solid #3a3a3a;"
+            f"font-size:0.48rem;color:#666;font-weight:700;'>?</span>"
+            f"<span class='reg-tt'>{text}</span></span>"
+        )
+
+    def _rlbl(text, tooltip=""):
+        return (
+            f"<div style='display:flex;align-items:center;margin-bottom:0.25rem;'>"
+            f"<div style='font-size:0.72rem;color:#ccc;text-transform:uppercase;"
+            f"letter-spacing:0.8px;font-weight:700;'>{text}</div>"
+            + (_rtip(tooltip) if tooltip else "")
+            + f"</div>"
+        )
+
+    st.markdown(
+        f"<div style='background:#181818;border:1px solid #232323;"
+        f"border-top:3px solid {_dec_col};border-radius:14px;overflow:hidden;margin-bottom:1.4rem;'>"
+        f"<div style='padding:1.6rem 2rem 1.3rem;border-bottom:1px solid #222;"
+        f"display:flex;align-items:flex-start;justify-content:space-between;gap:1.5rem;'>"
+        f"<div>"
+        f"<div style='font-size:0.72rem;color:#bbb;text-transform:uppercase;"
+        f"letter-spacing:1px;font-weight:700;margin-bottom:0.45rem;'>Decision</div>"
+        f"<div style='font-size:3rem;font-weight:900;color:{_dec_col};"
+        f"letter-spacing:-1.5px;line-height:1;'>{_dec_v}</div>"
+        f"<div style='font-size:0.85rem;color:#bbb;margin-top:0.55rem;"
+        f"font-weight:500;line-height:1.6;max-width:420px;'>{_dec_sub}</div>"
+        f"</div>"
+        f"<div style='text-align:right;flex-shrink:0;'>"
+        f"<div style='display:flex;align-items:center;justify-content:flex-end;gap:0.3rem;margin-bottom:0.3rem;'>"
+        f"<div style='font-size:0.72rem;color:#bbb;text-transform:uppercase;"
+        f"letter-spacing:1px;font-weight:700;'>Regime</div>"
+        + _rtip("Market condition detected by combining ADX, EMA direction, and ATR volatility. "
+                "TREND = price moving strongly in one direction (ADX above 20, EMA sloping). "
+                "RANGE = price bouncing between support and resistance. "
+                "VOLATILE = large unpredictable swings — reduce size, wait for clarity.")
+        + f"</div>"
+        f"<div style='font-size:2rem;font-weight:900;color:{rc};line-height:1;"
+        f"letter-spacing:-0.5px;'>{current_regime}</div>"
+        f"<div style='font-size:0.7rem;color:#aaa;margin-top:0.25rem;'>{streak}d streak</div>"
+        f"<div style='font-size:0.72rem;color:#777;line-height:1.5;margin-top:0.4rem;"
+        f"max-width:200px;text-align:right;'>{desc}</div>"
+        f"</div>"
+        f"</div>"
+        f"<div style='display:grid;grid-template-columns:repeat(4,1fr);"
+        f"border-bottom:1px solid #222;'>"
+        f"<div style='padding:0.85rem 1.2rem;border-right:1px solid #222;'>"
+        + _rlbl("5D Momentum",
+            "Price change over the last 5 trading days. "
+            "Positive = short-term upward momentum. Negative = price is falling. "
+            "20D momentum is shown as a secondary reference for the medium-term trend.")
+        + f"<div style='font-size:1rem;font-weight:800;color:{mom_col_5};'>"
+        f"{'+' if mom_5d >= 0 else ''}{mom_5d:.1f}%</div>"
+        f"<div style='font-size:0.72rem;color:#aaa;margin-top:0.1rem;'>20D: {'+' if mom_20d >= 0 else ''}{mom_20d:.1f}%</div>"
+        f"</div>"
+        f"<div style='padding:0.85rem 1.2rem;border-right:1px solid #222;'>"
+        + _rlbl("ADX",
+            "Average Directional Index — measures trend strength, not direction. "
+            "Above 30 = strong trend in whichever direction. "
+            "20–30 = moderate trend. Below 20 = weak or no trend (choppy). "
+            "High ADX in TREND regime = strong tailwind for momentum trades.")
+        + f"<div style='font-size:1rem;font-weight:800;color:{adx_col};'>{adx_val:.0f}</div>"
+        f"<div style='font-size:0.72rem;color:#aaa;margin-top:0.1rem;'>{adx_label}</div>"
+        f"</div>"
+        f"<div style='padding:0.85rem 1.2rem;border-right:1px solid #222;'>"
+        + _rlbl("Volume",
+            "Today's volume compared to the 20-day average. "
+            "High (1.5×+) = strong market participation — confirms the move. "
+            "Low (below 0.7×) = thin trading — moves are less reliable and easier to fake. "
+            "Normal = average interest.")
+        + f"<div style='font-size:1rem;font-weight:800;color:{vol_col};'>{vol_label}</div>"
+        f"<div style='font-size:0.72rem;color:#aaa;margin-top:0.1rem;'>{vol_ratio:.1f}x avg</div>"
+        f"</div>"
+        f"<div style='padding:0.85rem 1.2rem;'>"
+        + _rlbl("Stability",
+            "How consistently the stock has been in its current regime over the last 20 sessions. "
+            "70%+ = very stable — the regime is well-established. "
+            "Below 35% = regime is flickering — mixed signals, be cautious. "
+            "A stable TREND regime with high ADX is the ideal setup for momentum trades.")
+        + f"<div style='font-size:1rem;font-weight:800;color:{stability_col};'>{stability:.0f}%</div>"
+        f"<div style='font-size:0.72rem;color:#aaa;margin-top:0.1rem;'>last 20 sessions</div>"
+        f"</div>"
+        f"</div>"
+        + (_ladder_html if _ladder_html else "")
+        + f"</div>",
+        unsafe_allow_html=True,
+    )
 
     # ── DISTRIBUTION ──────────────────────────────────────────────────────────
     st.markdown(_sec(f"Regime Distribution — {total_days} Days", rc), unsafe_allow_html=True)

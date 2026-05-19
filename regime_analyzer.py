@@ -360,6 +360,177 @@ class RegimeAnalyzer:
 
                 df = pd.concat([df, adx], axis=1)
 
+        # ── NEW: Trend indicators ──────────────────────────────────────────
+        if 'SuperTrend' in self.selected_indicators:
+            try:
+                st_df = ta.supertrend(df['High'], df['Low'], df['Close'], length=10, multiplier=3.0)
+                if st_df is not None:
+                    df = pd.concat([df, st_df], axis=1)
+            except Exception:
+                pass
+
+        if 'Hull MA' in self.selected_indicators:
+            df['HMA_20'] = ta.hma(df['Close'], length=20)
+
+        # ── NEW: Momentum indicators ──────────────────────────────────────
+        if 'Momentum' in self.selected_indicators:
+            df['MOM_10'] = ta.mom(df['Close'], length=10)
+
+        if 'TSI' in self.selected_indicators:
+            try:
+                tsi = ta.tsi(df['Close'])
+                if tsi is not None:
+                    df = pd.concat([df, tsi], axis=1)
+            except Exception:
+                pass
+
+        if 'PPO' in self.selected_indicators:
+            try:
+                ppo = ta.ppo(df['Close'])
+                if ppo is not None:
+                    df = pd.concat([df, ppo], axis=1)
+            except Exception:
+                pass
+
+        if 'Elder Ray' in self.selected_indicators:
+            _ema13 = ta.ema(df['Close'], length=13)
+            if _ema13 is not None:
+                df['ELDER_BULL'] = df['High'] - _ema13
+                df['ELDER_BEAR'] = df['Low']  - _ema13
+
+        # ── NEW: Volume indicators ─────────────────────────────────────────
+        if 'A/D Line' in self.selected_indicators:
+            try:
+                df['ADL'] = ta.ad(df['High'], df['Low'], df['Close'], df['Volume'])
+            except Exception:
+                pass
+
+        if 'Volume MA' in self.selected_indicators:
+            df['VOL_MA_20'] = df['Volume'].rolling(window=20).mean()
+
+        if 'Force Index' in self.selected_indicators:
+            df['FORCE_2']  = ta.efi(df['Close'], df['Volume'], length=2)
+            df['FORCE_13'] = ta.efi(df['Close'], df['Volume'], length=13)
+
+        if 'Volume RSI' in self.selected_indicators:
+            df['VOL_RSI_14'] = ta.rsi(df['Volume'].astype(float), length=14)
+
+        # ── NEW: Volatility indicators ─────────────────────────────────────
+        if 'Squeeze Momentum' in self.selected_indicators:
+            try:
+                sqz = ta.squeeze(df['High'], df['Low'], df['Close'], df['Volume'])
+                if sqz is not None:
+                    df = pd.concat([df, sqz], axis=1)
+            except Exception:
+                pass
+
+        if 'Historical Volatility' in self.selected_indicators:
+            df['HIST_VOL_20'] = df['Close'].pct_change().rolling(20).std() * np.sqrt(252) * 100
+
+        if 'Standard Deviation' in self.selected_indicators:
+            df['STDDEV_20'] = df['Close'].rolling(20).std()
+
+        if 'Chandelier Exit' in self.selected_indicators:
+            try:
+                _atr22 = ta.atr(df['High'], df['Low'], df['Close'], length=22)
+                if _atr22 is not None:
+                    df['CHANDELIER_LONG']  = df['High'].rolling(22).max() - 3 * _atr22
+                    df['CHANDELIER_SHORT'] = df['Low'].rolling(22).min()  + 3 * _atr22
+            except Exception:
+                pass
+
+        # ── NEW: Support & Resistance ──────────────────────────────────────
+        if 'Pivot Points' in self.selected_indicators:
+            df['PIVOT']   = (df['High'] + df['Low'] + df['Close']) / 3
+            df['PIVOT_R1'] = 2 * df['PIVOT'] - df['Low']
+            df['PIVOT_S1'] = 2 * df['PIVOT'] - df['High']
+
+        if 'Fibonacci Levels' in self.selected_indicators:
+            _roll_high = df['High'].rolling(50).max()
+            _roll_low  = df['Low'].rolling(50).min()
+            _fib_range = _roll_high - _roll_low
+            df['FIB_382'] = _roll_high - 0.382 * _fib_range
+            df['FIB_500'] = _roll_high - 0.500 * _fib_range
+            df['FIB_618'] = _roll_high - 0.618 * _fib_range
+
+        if 'VWAP Bands' in self.selected_indicators:
+            try:
+                _vwap_raw = ta.vwap(df['High'], df['Low'], df['Close'], df['Volume'])
+                if _vwap_raw is not None:
+                    _tp_std = ((df['High'] + df['Low'] + df['Close']) / 3).rolling(20).std()
+                    df['VWAP_UPPER1'] = _vwap_raw + 1 * _tp_std
+                    df['VWAP_LOWER1'] = _vwap_raw - 1 * _tp_std
+                    df['VWAP_UPPER2'] = _vwap_raw + 2 * _tp_std
+                    df['VWAP_LOWER2'] = _vwap_raw - 2 * _tp_std
+            except Exception:
+                pass
+
+        if 'Prev High/Low' in self.selected_indicators:
+            df['PREV_HIGH'] = df['High'].shift(1)
+            df['PREV_LOW']  = df['Low'].shift(1)
+
+        if 'Swing High/Low' in self.selected_indicators:
+            _n = 5
+            df['SWING_HIGH'] = df['High'].where(
+                df['High'] == df['High'].rolling(_n * 2 + 1, center=True).max())
+            df['SWING_LOW'] = df['Low'].where(
+                df['Low'] == df['Low'].rolling(_n * 2 + 1, center=True).min())
+
+        # ── NEW: Mean Reversion indicators ────────────────────────────────
+        if 'RSI Extremes' in self.selected_indicators:
+            if 'RSI_14' not in df.columns:
+                df['RSI_14'] = ta.rsi(df['Close'], length=14)
+
+        if 'BB Z-Score' in self.selected_indicators:
+            _bb_mid = df['Close'].rolling(20).mean()
+            _bb_std = df['Close'].rolling(20).std()
+            df['BB_ZSCORE'] = (df['Close'] - _bb_mid) / _bb_std.replace(0, np.nan)
+
+        if 'Distance from MA' in self.selected_indicators:
+            _ma50 = ta.sma(df['Close'], length=50)
+            if _ma50 is not None:
+                df['DIST_MA_PCT'] = (df['Close'] - _ma50) / _ma50.replace(0, np.nan) * 100
+
+        if 'Stochastic Extreme' in self.selected_indicators:
+            if 'STOCHk_14_3_3' not in df.columns:
+                _stoch = ta.stoch(df['High'], df['Low'], df['Close'])
+                if _stoch is not None:
+                    df = pd.concat([df, _stoch], axis=1)
+
+        if 'CCI Extreme' in self.selected_indicators:
+            if 'CCI_20' not in df.columns:
+                df['CCI_20'] = ta.cci(df['High'], df['Low'], df['Close'], length=20)
+
+        # ── NEW: Market Regime & Breadth ──────────────────────────────────
+        if 'TASI Filter' in self.selected_indicators or 'Sector Filter' in self.selected_indicators:
+            try:
+                _tasi = _cached_download('TASI.SR', _download_start.strftime('%Y-%m-%d'), _end_exclusive)
+                if _tasi is not None and not _tasi.empty:
+                    if isinstance(_tasi.columns, pd.MultiIndex):
+                        _tasi.columns = _tasi.columns.get_level_values(0)
+                    _tasi = _tasi.reset_index()
+                    _tasi.columns = [str(c).strip() for c in _tasi.columns]
+                    _tasi_close = pd.to_numeric(_tasi['Close'], errors='coerce')
+                    _tasi_ema50 = _tasi_close.ewm(span=50, adjust=False).mean()
+                    df['TASI_ABOVE_EMA50'] = (_tasi_close.values[:len(df)] > _tasi_ema50.values[:len(df)]).astype(int) if len(_tasi_close) >= len(df) else 0
+            except Exception:
+                df['TASI_ABOVE_EMA50'] = 1
+
+        if 'RS vs TASI' in self.selected_indicators:
+            try:
+                _tasi2 = _cached_download('TASI.SR', _download_start.strftime('%Y-%m-%d'), _end_exclusive)
+                if _tasi2 is not None and not _tasi2.empty:
+                    if isinstance(_tasi2.columns, pd.MultiIndex):
+                        _tasi2.columns = _tasi2.columns.get_level_values(0)
+                    _tasi2 = _tasi2.reset_index()
+                    _tasi_c = pd.to_numeric(_tasi2['Close'], errors='coerce')
+                    _min_len = min(len(df), len(_tasi_c))
+                    _stock_ret = df['Close'].iloc[:_min_len].pct_change(20)
+                    _tasi_ret  = _tasi_c.iloc[:_min_len].pct_change(20)
+                    df['RS_TASI'] = (_stock_ret.values - _tasi_ret.values)
+            except Exception:
+                pass
+
         df = _drop_duplicate_columns(df)
 
         

@@ -524,9 +524,8 @@ def price_ladder_html(cp, stop, t1, t2, t3, is_bullish,
                       entry_quality="", eq_col="",
                       entry_zone_lo=None, entry_zone_hi=None):
     """
-    Generate the unified Price Ladder HTML.
+    Generate the unified Price Ladder HTML — redesigned for maximum clarity.
     Pure HTML string — no st.* calls (safe to call from any tab).
-    Optional: entry_quality label + eq_col from compute_structural_levels().
     """
     entry    = cp
     stop_col = BEAR if is_bullish else BULL
@@ -548,90 +547,70 @@ def price_ladder_html(cp, stop, t1, t2, t3, is_bullish,
     rr2_col = BULL if rr2 >= 3.0 else (NEUT if rr2 >= 2.0 else BEAR)
     rr3_col = BULL if rr3 >= 5.0 else (NEUT if rr3 >= 3.0 else BEAR)
 
-    # Entry zone label for the Entry cell
-    ez_lo = entry_zone_lo if entry_zone_lo is not None else cp
-    ez_hi = entry_zone_hi if entry_zone_hi is not None else cp
-
-    def _cell(label, price, dist_pct, color, sub=""):
-        sign     = "+" if dist_pct > 0 else ""
-        if label == "Entry":
-            dist_str = "Entry Point"
-            if abs(ez_hi - ez_lo) > 0.001:
-                sub_html = (f"<div style='font-size:0.62rem;color:{color}bb;"
-                            f"margin-top:0.3rem;font-weight:600;'"
-                            f">Zone: {ez_lo:.2f}&ndash;{ez_hi:.2f}</div>")
-            else:
-                sub_html = ""
-        else:
-            dist_str = f"{sign}{dist_pct:.1f}%"
-            sub_html = (f"<div style='font-size:0.64rem;color:{color}99;"
-                        f"margin-top:0.25rem;font-weight:600;'>{sub}</div>") if sub else ""
-        return (
-            f"<div style='background:#161616;border:1px solid #272727;"
-            f"border-radius:10px;padding:0.9rem 0.6rem;text-align:center;"
-            f"transition:border-color 0.15s;'>"
-            f"<div style='font-size:0.65rem;color:#606060;text-transform:uppercase;"
-            f"letter-spacing:0.8px;font-weight:700;margin-bottom:0.5rem;'>{label}</div>"
-            f"<div style='font-size:1.25rem;font-weight:800;color:#ffffff;"
-            f"line-height:1;'>{price:.2f}</div>"
-            f"<div style='font-size:0.78rem;font-weight:700;color:{color};"
-            f"margin-top:0.4rem;'>{dist_str}</div>"
-            + sub_html +
-            f"</div>"
-        )
-
-    def _meta(label, value, color):
-        return (
-            f"<div style='background:#131313;border:1px solid #272727;border-radius:8px;"
-            f"padding:0.65rem 0.7rem;text-align:center;'>"
-            f"<div style='font-size:0.58rem;color:#555;text-transform:uppercase;"
-            f"letter-spacing:0.6px;font-weight:700;margin-bottom:0.35rem;'>{label}</div>"
-            f"<div style='font-size:1.1rem;font-weight:800;color:{color};line-height:1;'>"
-            f"{value}</div></div>"
-        )
-
-    # Entry quality badge (only if provided)
+    # Entry quality badge
     eq_badge = ""
     if entry_quality:
         _ec = eq_col or NEUT
+        _ec_rgb = ','.join(str(int(_ec[i:i+2], 16)) for i in (1, 3, 5))
         eq_badge = (
-            f"<span style='font-size:0.65rem;font-weight:700;"
-            f"color:{_ec};background:rgba({','.join(str(int(_ec[i:i+2],16)) for i in (1,3,5))},0.12);"
-            f"border-radius:5px;padding:0.15rem 0.5rem;'>Entry: {entry_quality}</span>"
+            f"<span style='font-size:0.6rem;font-weight:800;letter-spacing:0.5px;"
+            f"color:{_ec};background:rgba({_ec_rgb},0.14);border:1px solid rgba({_ec_rgb},0.3);"
+            f"border-radius:5px;padding:0.12rem 0.55rem;text-transform:uppercase;'>"
+            f"Entry {entry_quality}</span>"
         )
 
-    return (
-        f"<div style='background:#1b1b1b;border:1px solid #272727;"
-        f"border-radius:12px;overflow:hidden;margin-bottom:0.85rem;"
-        f"box-shadow:0 2px 16px rgba(0,0,0,0.2);'>"
+    # ── Card builder ─────────────────────────────────────────────────────────
+    def _lv_card(label, price, pct_val, accent, rr="", action="", is_entry=False):
+        sign = "+" if pct_val > 0 else ("−" if pct_val < 0 else "")
+        pct_text = "at market" if is_entry else f"{sign}{abs(pct_val):.1f}%"
+        return (
+            f"<div style='display:flex;flex-direction:column;align-items:center;"
+            f"text-align:center;padding:1.1rem 0.5rem 1rem;"
+            f"background:#181818;border:1px solid #232323;border-top:3px solid {accent};"
+            f"border-radius:8px;gap:0.28rem;'>"
+            f"<div style='font-size:0.72rem;color:#888;font-weight:700;"
+            f"text-transform:uppercase;letter-spacing:0.8px;'>{label}</div>"
+            f"<div style='font-size:1.4rem;font-weight:900;color:#ebebeb;"
+            f"letter-spacing:-0.5px;line-height:1;'>{price:.2f}</div>"
+            f"<div style='font-size:0.68rem;font-weight:700;color:{accent};'>{pct_text}</div>"
+            + (f"<div style='font-size:0.72rem;font-weight:800;color:{accent};"
+               f"margin-top:0.1rem;'>{rr}</div>" if rr else "")
+            + (f"<div style='font-size:0.72rem;color:#888;margin-top:0.05rem;'>{action}</div>" if action else "")
+            + f"</div>"
+        )
 
-        # Header
-        f"<div style='padding:1rem 1.4rem;border-bottom:1px solid #272727;"
-        f"background:linear-gradient(135deg,rgba(255,215,0,0.07),rgba(255,215,0,0.02),transparent);"
-        f"display:flex;align-items:center;gap:0.8rem;'>"
-        f"<span style='font-size:1.1rem;font-weight:900;color:#FFD700;"
-        f"letter-spacing:-0.3px;'>Price Ladder</span>"
-        + eq_badge +
+    _cards_html = (
+        _lv_card("Stop Loss", stop,  stop_pct,  "#c0392b",
+                 rr=f"Risk −{risk_pct:.1f}%", action="exit here")
+        + _lv_card("Entry",   entry,  0.0,       "#4a9eff",
+                 action="buy at market", is_entry=True)
+        + _lv_card("Target 1", t1,    t1_pct,    "#4a7c59",
+                 rr=f"1:{rr1:.1f}R", action="sell ⅓")
+        + _lv_card("Target 2", t2,    t2_pct,    "#4a7c59",
+                 rr=f"1:{rr2:.1f}R", action="sell ⅓")
+        + _lv_card("Target 3", t3,    t3_pct,    "#4a7c59",
+                 rr=f"1:{rr3:.1f}R", action="trail")
+    )
+
+    _eq_tag = (
+        f"&ensp;<span style='font-size:0.65rem;color:#666;font-weight:700;"
+        f"border:1px solid #2a2a2a;border-radius:4px;padding:0.08rem 0.45rem;'>"
+        f"{entry_quality}</span>"
+    ) if entry_quality else ""
+
+    return (
+        f"<div style='background:#181818;border:1px solid #232323;"
+        f"border-radius:10px;overflow:hidden;margin-bottom:0.85rem;'>"
+
+        f"<div style='padding:0.75rem 1.1rem;border-bottom:1px solid #222;'>"
+        f"<span style='font-size:0.75rem;color:#999;font-weight:700;"
+        f"text-transform:uppercase;letter-spacing:1px;'>Trade Plan</span>"
+        + _eq_tag +
         f"</div>"
 
-        # 5-col levels grid
-        f"<div style='padding:1rem 1.2rem;'>"
-        f"<div style='display:grid;grid-template-columns:repeat(5,1fr);gap:0.55rem;margin-bottom:0.85rem;'>"
-        + _cell("Stop Loss", stop, stop_pct,  stop_col)
-        + _cell("Entry",     entry, 0.0,      INFO)
-        + _cell("Target 1",  t1,   t1_pct,   t_col,  f"{rr1:.1f}R")
-        + _cell("Target 2",  t2,   t2_pct,   t_col,  f"{rr2:.1f}R")
-        + _cell("Target 3",  t3,   t3_pct,   t_col,  f"{rr3:.1f}R")
-        + f"</div>"
-
-        # 4-col risk/reward row
-        f"<div style='display:grid;grid-template-columns:repeat(4,1fr);gap:0.55rem;"
-        f"border-top:1px solid #272727;padding-top:0.8rem;'>"
-        + _meta("Max Risk",   f"{risk_pct:.1f}%",   BEAR)
-        + _meta("R:R to T1",  f"1 : {rr1:.1f}",     rr1_col)
-        + _meta("R:R to T2",  f"1 : {rr2:.1f}",     rr2_col)
-        + _meta("R:R to T3",  f"1 : {rr3:.1f}",     rr3_col)
-        + f"</div>"
+        f"<div style='display:grid;grid-template-columns:repeat(5,1fr);"
+        f"gap:0.5rem;padding:0.9rem 1rem;'>"
+        + _cards_html +
         f"</div>"
 
         f"</div>"

@@ -287,7 +287,7 @@ def _render_signal_summaries(df, current_price):
                 st.markdown(
                     f"<div style='background:#1b1b1b;border:1px solid #272727;"
                     f"border-radius:12px;padding:1.1rem 1.2rem;opacity:0.2;"
-                    f"text-align:center;color:#555;font-size:0.75rem;'>—</div>",
+                    f"text-align:center;color:#999;font-size:0.75rem;'>—</div>",
                     unsafe_allow_html=True,
                 )
 
@@ -397,6 +397,10 @@ def _score_engine(df, cp):
     above_2   = cp > e20 and cp > e50
     below_2   = cp < e20 and cp < e50
 
+    # How extended is price from EMA20 (as % of price)?  Used to detect "already ran."
+    ema20_gap_pct = (cp - e20) / e20 * 100 if e20 > 0 else 0.0
+
+    # ── EMA Stack: trend direction only (not entry timing) ───────────────
     if above_all:
         F("EMA Stack Full Bull — price above EMA20, EMA50, EMA200", 8, 8, "Trend", 1)
     elif above_2:
@@ -410,12 +414,25 @@ def _score_engine(df, cp):
     elif cp < e20:
         F("Price below EMA20 only (weak bear)", -2, 8, "Trend", -1)
 
+    # ── Extension from EMA20 — penalise stocks that already ran ──────────
+    # A good entry is near the EMA, not 10%+ extended above it.
+    if above_all or above_2:
+        if ema20_gap_pct > 12:
+            F(f"Price extended {ema20_gap_pct:.1f}% above EMA20 — stock already ran, high risk of pullback", -6, 6, "Trend", -1)
+        elif ema20_gap_pct > 7:
+            F(f"Price {ema20_gap_pct:.1f}% above EMA20 — extended, better to wait for pullback", -3, 6, "Trend", -1)
+        elif ema20_gap_pct < 2:
+            F(f"Price hugging EMA20 ({ema20_gap_pct:.1f}% above) — clean entry zone", 4, 6, "Trend", 1)
+        elif ema20_gap_pct < 4:
+            F(f"Price near EMA20 ({ema20_gap_pct:.1f}% above) — acceptable entry", 2, 6, "Trend", 1)
+
     macd_p1  = _fv(df, "MACD_12_26_9",  bars_back=1) or macd
     macds_p1 = _fv(df, "MACDs_12_26_9", bars_back=1) or macd_s
     cross_up   = macd > macd_s and macd_p1 <= macds_p1
     cross_down = macd < macd_s and macd_p1 >= macds_p1
     hist_acc   = macd_h > macd_h_prev
 
+    # ── MACD: crossover freshness matters — old signal = less value ───────
     if cross_up:
         F("MACD bullish crossover — fresh buy signal", 6, 6, "Momentum", 1)
     elif macd > macd_s and hist_acc:
@@ -429,34 +446,44 @@ def _score_engine(df, cp):
     elif macd < macd_s:
         F("MACD below signal line (bearish)", -2, 6, "Momentum", -1)
 
+    # ── RSI: oversold = opportunity, overbought = too late ───────────────
+    # Overbought gets harder penalty than old version — stock has already run.
     if rsi < 25:
-        F(f"RSI deeply oversold ({rsi:.0f}) — extreme fear zone", 6, 6, "Momentum", 1)
+        F(f"RSI deeply oversold ({rsi:.0f}) — extreme fear, high bounce potential", 6, 6, "Momentum", 1)
     elif rsi < 35:
-        F(f"RSI oversold ({rsi:.0f})", 4, 6, "Momentum", 1)
+        F(f"RSI oversold ({rsi:.0f}) — good entry zone", 4, 6, "Momentum", 1)
+    elif rsi < 45:
+        F(f"RSI cooling off ({rsi:.0f}) — reset from prior run, watch for reversal", 2, 6, "Momentum", 1)
     elif rsi > 80:
-        F(f"RSI deeply overbought ({rsi:.0f}) — extreme greed zone", -6, 6, "Momentum", -1)
+        F(f"RSI deeply overbought ({rsi:.0f}) — stock already ran, buyers exhausted", -6, 6, "Momentum", -1)
     elif rsi > 70:
-        F(f"RSI overbought ({rsi:.0f})", -4, 6, "Momentum", -1)
-    elif 45 <= rsi <= 65:
+        F(f"RSI overbought ({rsi:.0f}) — extended, late entry risk", -4, 6, "Momentum", -1)
+    elif rsi > 60:
+        F(f"RSI elevated ({rsi:.0f}) — momentum fading, limited upside room", -1, 6, "Momentum", -1)
+    elif 45 <= rsi <= 60:
         F(f"RSI neutral ({rsi:.0f}) — no directional edge", 0, 6, "Momentum", 0)
 
+    # ── Stochastic: oversold crossover = best entry, overbought = avoid ──
     if sk < 25 and sk > sd_val and sk_p <= sd_p:
-        F(f"Stoch bullish crossover from oversold ({sk:.0f})", 4, 4, "Momentum", 1)
+        F(f"Stoch bullish crossover from oversold ({sk:.0f}) — momentum turning up", 4, 4, "Momentum", 1)
     elif sk < 25:
-        F(f"Stoch oversold ({sk:.0f})", 2, 4, "Momentum", 1)
+        F(f"Stoch oversold ({sk:.0f}) — price compressed, watch for bounce", 2, 4, "Momentum", 1)
     elif sk > 75 and sk < sd_val and sk_p >= sd_p:
-        F(f"Stoch bearish crossover from overbought ({sk:.0f})", -4, 4, "Momentum", -1)
+        F(f"Stoch bearish crossover from overbought ({sk:.0f}) — momentum turning down", -4, 4, "Momentum", -1)
     elif sk > 75:
-        F(f"Stoch overbought ({sk:.0f})", -2, 4, "Momentum", -1)
+        F(f"Stoch overbought ({sk:.0f}) — stock already ran, selling pressure likely", -2, 4, "Momentum", -1)
 
+    # ── Bollinger Bands: lower band = value, upper band = extended ────────
     if bb_pct < 0.05:
-        F("Price at lower Bollinger Band — 2-sigma oversold", 4, 4, "Volatility", 1)
+        F("Price at lower Bollinger Band — 2-sigma oversold, mean reversion likely", 4, 4, "Volatility", 1)
     elif bb_pct < 0.20:
-        F("Price near lower BB — value zone", 2, 4, "Volatility", 1)
+        F("Price near lower BB — value zone, entry opportunity", 2, 4, "Volatility", 1)
     elif bb_pct > 0.95:
-        F("Price at upper Bollinger Band — 2-sigma overbought", -4, 4, "Volatility", -1)
+        F("Price at upper Bollinger Band — 2-sigma extended, stock already ran", -4, 4, "Volatility", -1)
     elif bb_pct > 0.80:
-        F("Price near upper BB — extended", -2, 4, "Volatility", -1)
+        F("Price near upper BB — extended from mean, poor entry timing", -2, 4, "Volatility", -1)
+    elif 0.40 <= bb_pct <= 0.60:
+        F("Price at BB midpoint — neutral zone, no edge", 0, 4, "Volatility", 0)
 
     pos_di = _col(df, "DMP_14") or 20.0
     neg_di = _col(df, "DMN_14") or 20.0
@@ -470,6 +497,26 @@ def _score_engine(df, cp):
         F(f"Bearish trend — ADX {adx:.0f}", -2, 4, "Trend", -1)
     elif adx < 15:
         F(f"No trend — ADX {adx:.0f}, choppy", 0, 4, "Trend", 0)
+
+    # ── Recent move: if stock already surged 5–20 days ago, opportunity is gone ─
+    # Heavy recent gain = ran already. Modest prior gain that's now cooling = OK.
+    if p5d > 8:
+        F(f"Up {p5d:.1f}% in 5 days — spike already happened, chasing risk high", -5, 5, "Momentum", -1)
+    elif p5d > 4:
+        F(f"Up {p5d:.1f}% in 5 days — recent surge, better to wait for consolidation", -2, 5, "Momentum", -1)
+    elif p5d < -8:
+        F(f"Down {abs(p5d):.1f}% in 5 days — sharp drop, watch for stabilisation", 2, 5, "Momentum", 1)
+    elif p5d < -4:
+        F(f"Down {abs(p5d):.1f}% in 5 days — healthy pullback, potential entry forming", 3, 5, "Momentum", 1)
+
+    if p20d > 20:
+        F(f"Up {p20d:.1f}% in 20 days — large move already done, limited upside near-term", -4, 4, "Momentum", -1)
+    elif p20d > 12:
+        F(f"Up {p20d:.1f}% in 20 days — significant run, entry risk elevated", -2, 4, "Momentum", -1)
+    elif p20d < -15:
+        F(f"Down {abs(p20d):.1f}% in 20 days — sold off hard, contrarian opportunity forming", 3, 4, "Momentum", 1)
+    elif p20d < -8:
+        F(f"Down {abs(p20d):.1f}% in 20 days — pullback into value zone", 2, 4, "Momentum", 1)
 
     if vol_ratio > 2.0 and p5d > 1:
         F(f"Heavy volume ({vol_ratio:.1f}x) on up-move — institutional buying", 3, 3, "Volume", 1)
@@ -505,8 +552,7 @@ def _score_engine(df, cp):
         elif cci > 150:
             F(f"CCI overbought ({cci:.0f})", -2, 2, "Momentum", -1)
 
-    # ── RSI divergence detection (bullish & bearish) ────────────────────
-    # Look back ~20 bars for price vs RSI divergence
+    # ── RSI divergence detection ──────────────────────────────────────────
     if n >= 25 and "RSI_14" in df.columns:
         _rsi_s = df["RSI_14"].dropna().astype(float)
         if len(_rsi_s) >= 20:
@@ -518,14 +564,12 @@ def _score_engine(df, cp):
             _p_hi2 = float(high.iloc[-10:].max())
             _r_hi1 = float(_rsi_s.iloc[-20:-10].max())
             _r_hi2 = float(_rsi_s.iloc[-10:].max())
-            # Bullish divergence: price lower low, RSI higher low
             if _p_lo2 < _p_lo1 and _r_lo2 > _r_lo1 + 2:
                 F("RSI bullish divergence — price lower low but RSI higher low", 5, 5, "Divergence", 1)
-            # Bearish divergence: price higher high, RSI lower high
             elif _p_hi2 > _p_hi1 and _r_hi2 < _r_hi1 - 2:
                 F("RSI bearish divergence — price higher high but RSI lower high", -5, 5, "Divergence", -1)
 
-    # ── MACD divergence detection ───────────────────────────────────────
+    # ── MACD divergence detection ─────────────────────────────────────────
     if n >= 25 and "MACDh_12_26_9" in df.columns:
         _mh_s = df["MACDh_12_26_9"].dropna().astype(float)
         if len(_mh_s) >= 20:
@@ -542,15 +586,17 @@ def _score_engine(df, cp):
             elif _p_hi2 > _p_hi1 and _mh_hi2 < _mh_hi1:
                 F("MACD bearish divergence — momentum fading despite higher prices", -5, 5, "Divergence", -1)
 
-    if w52_pos >= 85 and p20d > 0:
-        F(f"Near 52W high ({w52_pos:.0f}th pct) with positive momentum", 3, 3, "Momentum", 1)
-    elif w52_pos <= 15:
-        F(f"Near 52W low ({w52_pos:.0f}th pct) — maximum pessimism", 3, 3, "Momentum", 1)
-    elif w52_pos >= 85 and p20d < 0:
-        F(f"Near 52W high but losing momentum — potential top", -2, 3, "Momentum", -1)
+    # ── 52W position: near lows = opportunity, near highs = already ran ───
+    if w52_pos <= 10:
+        F(f"Near 52-week low ({w52_pos:.0f}th pct) — maximum pessimism, contrarian buy zone", 4, 4, "Momentum", 1)
+    elif w52_pos <= 25:
+        F(f"In lower 52W range ({w52_pos:.0f}th pct) — value territory", 2, 4, "Momentum", 1)
+    elif w52_pos >= 90:
+        F(f"Near 52-week high ({w52_pos:.0f}th pct) — stock already ran, limited upside", -4, 4, "Momentum", -1)
+    elif w52_pos >= 75:
+        F(f"Upper 52W range ({w52_pos:.0f}th pct) — extended, buy opportunity has passed", -2, 4, "Momentum", -1)
 
-    # ── Regime overlay — INDEPENDENT signal based on regime + ADX/trend ──
-    # Uses EMA alignment (not running_score) to avoid self-reinforcement.
+    # ── Regime overlay ────────────────────────────────────────────────────
     if regime == "TREND":
         if above_all or above_2:
             F("TRENDING regime + bullish EMA alignment — trend continuation favoured", 3, 3, "Regime", 1)
@@ -947,12 +993,14 @@ def _fallback_horizon(days, d):
 # CACHED EXTERNAL SIGNAL COLLECTION  (survives page refresh for 5 min)
 # ─────────────────────────────────────────────────────────────────────────────
 _EXT_TABS = [
-    ("Price Action",   "price_action_tab",  "get_pa_signal"),
-    ("Volume Profile", "volume_profile_tab", "get_vp_signal"),
-    ("Chart Patterns", "patterns_tab",       "get_patterns_signal"),
-    ("Smart Money",    "smc_tab",            "get_smc_signal"),
-    # AI Analysis excluded — trains 15 ML models, adds 10-25s.
-    # AI tab renders independently; its signal is too heavy for the Decision cascade.
+    ("Price Action",   "price_action_tab",   "get_pa_signal"),
+    ("Volume Profile", "volume_profile_tab",  "get_vp_signal"),
+    ("Chart Patterns", "patterns_tab",        "get_patterns_signal"),
+    ("Smart Money",    "smc_tab",             "get_smc_signal"),
+    ("Regime",         "regime_analysis_tab", "get_regime_signal"),
+    ("Elliott Wave",   "elliott_wave_tab",    "get_ew_signal"),
+    ("Classical TA",   "classical_ta_tab",    "get_cta_signal"),
+    # AI Analysis: heavy (15 ML models); uses get_ai_signal from gemini_tab but cached separately
 ]
 
 @st.cache_data(ttl=300, show_spinner=False)
@@ -965,7 +1013,6 @@ def _collect_ext_signals(_df_hash: str, _cp: float, df_json: str):
         try:
             _module = __import__(_mod)
             _sig = getattr(_module, _fn)(_df, _cp)
-            # Convert to plain dict (avoid unpicklable objects)
             if _sig:
                 out[_name] = {k: (v if not isinstance(v, (pd.Series, pd.DataFrame, np.ndarray)) else None)
                               for k, v in _sig.items()}
@@ -973,6 +1020,17 @@ def _collect_ext_signals(_df_hash: str, _cp: float, df_json: str):
                 out[_name] = None
         except Exception:
             out[_name] = None
+    # AI Analysis — separate (heavier) signal
+    try:
+        import gemini_tab as _gt
+        _ai_sig = _gt.get_ai_signal(_df, _cp)
+        if _ai_sig:
+            out["AI Analysis"] = {k: (v if not isinstance(v, (pd.Series, pd.DataFrame, np.ndarray)) else None)
+                                  for k, v in _ai_sig.items()}
+        else:
+            out["AI Analysis"] = None
+    except Exception:
+        out["AI Analysis"] = None
     return out
 
 
@@ -1292,57 +1350,78 @@ def render_decision_tab(df, symbol_input, stock_name, current_price):
     is_bull = d["is_bullish"]
 
     # ── Collect scores from ALL tabs for the master scoring system ──────────
-    # Each entry: (name, icon, score 0-100, label, color, reasons_list, is_active)
+    # Each entry: (name, icon, weight, score 0-100, label, color, reasons_list, is_active)
     # is_active: True if module returned real analysis, False if no signal/unavailable
     _tab_scores = []
+
+    # ── Module weights (must sum to 1.0) ────────────────────────────────────
+    # Technical Indicators: 20%  | Regime: 15%         | Volume Profile: 15%
+    # Smart Money: 15%           | AI Analysis: 15%    | Classical TA: 10%
+    # Elliott Wave: 10%          | Price Action: 0% (informational, no own weight)
+    # Chart Patterns: 0% (informational, no own weight)
+    _MODULE_WEIGHTS = {
+        "Technical Indicators": 0.20,
+        "Regime":               0.15,
+        "Volume Profile":       0.15,
+        "Smart Money":          0.15,
+        "AI Analysis":          0.15,
+        "Classical TA":         0.10,
+        "Elliott Wave":         0.10,
+    }
 
     # 1. Technical Indicators (from _score_engine — ALWAYS active, full bull+bear)
     _ti_score = max(0, min(100, int(50 + d["pct"] * 0.5)))
     _ti_lbl = "Bullish" if d["pct"] > 15 else ("Bearish" if d["pct"] < -15 else "Neutral")
     _ti_col = BULL if d["pct"] > 15 else (BEAR if d["pct"] < -15 else "#FFC107")
     _ti_reasons = [f["name"] for f in sorted(d["factors"], key=lambda x: abs(x["pts"]), reverse=True)[:3]]
-    _tab_scores.append(("Technical Indicators", "&#128200;", _ti_score, _ti_lbl, _ti_col, _ti_reasons, True))
+    _tab_scores.append(("Technical Indicators", "&#128200;", 0.20, _ti_score, _ti_lbl, _ti_col, _ti_reasons, True))
 
-    # 2-5. External tab signals — @st.cache_data (survives refresh, 5 min TTL)
-    # AI Analysis excluded from collection — too heavy (trains 15 ML models).
+    # 2-8. External tab signals — @st.cache_data (survives refresh, 5 min TTL)
     _ext_icons = {
-        "Price Action": "&#128201;", "Volume Profile": "&#128202;",
-        "Chart Patterns": "&#128300;", "Smart Money": "&#128176;",
+        "Price Action":   "&#128201;",
+        "Volume Profile": "&#128202;",
+        "Chart Patterns": "&#128300;",
+        "Smart Money":    "&#128176;",
+        "Regime":         "&#9680;",
+        "Elliott Wave":   "&#8734;",
+        "Classical TA":   "&#128200;",
+        "AI Analysis":    "&#129302;",
     }
     _tail = df["Close"].tail(5).tolist()
     _df_hash = f"{symbol_input}_{round(cp,2)}_{len(df)}_{[round(float(x),4) for x in _tail]}"
     _cached_sigs = _collect_ext_signals(_df_hash, cp, df.to_json())
 
     for _name, _icon in _ext_icons.items():
+        if _name == "Technical Indicators":
+            continue  # already added above
         _sig = _cached_sigs.get(_name)
+        _wt  = _MODULE_WEIGHTS.get(_name, 0.0)
         if _sig:
             _s_conf = min(95, _sig["conf"])
             _s_lbl = _sig.get("verdict_text", "▲ BUY").replace("▲ ", "")
             _s_reasons = _sig.get("reasons", [])[:2]
-            _s_col = BULL
-            # Active + bullish signal
-            _tab_scores.append((_name, _icon, _s_conf, _s_lbl, _s_col, _s_reasons, True))
+            _s_col = _sig.get("color", BULL)
+            _tab_scores.append((_name, _icon, _wt, _s_conf, _s_lbl, _s_col, _s_reasons, True))
         else:
-            # INACTIVE — no signal found. NOT bearish, just absent.
-            _tab_scores.append((_name, _icon, 50, "No Signal", "#555", ["No setup detected — neutral"], False))
+            _tab_scores.append((_name, _icon, _wt, 50, "No Signal", "#555", ["No setup detected — neutral"], False))
 
     # ── Categorize modules ──────────────────────────────────────────────────
-    _active_tabs  = [s for s in _tab_scores if s[6]]           # modules with real data
+    _active_tabs  = [s for s in _tab_scores if s[7]]
     _active_count = len(_active_tabs)
-    _bull_tabs    = sum(1 for s in _tab_scores if s[6] and s[2] >= 55)  # active + bullish
-    _bear_real    = sum(1 for s in _tab_scores if s[6] and s[2] < 40)   # active + bearish (only TI can be this)
-    _inactive     = sum(1 for s in _tab_scores if not s[6])             # no signal
+    _bull_tabs    = sum(1 for s in _tab_scores if s[7] and s[3] >= 55)
+    _bear_real    = sum(1 for s in _tab_scores if s[7] and s[3] < 40)
+    _inactive     = sum(1 for s in _tab_scores if not s[7])
     _total_tabs   = len(_tab_scores)
 
-    # ── Master Score — ONLY count active modules ────────────────────────────
-    # Inactive modules don't vote. They're absent, not bearish.
-    _weights = []
-    for (_n, _ic, _sc, _lb, _cl, _rs, _act) in _tab_scores:
-        if _act:
-            _w = 2.0 if _n == "Technical Indicators" else 1.0
-            _weights.append((_sc, _w))
-    if _weights:
-        _master_score = int(sum(s * w for s, w in _weights) / sum(w for _, w in _weights))
+    # ── Master Score — weighted by module weights, only active modules vote ─
+    # Inactive modules abstain — redistribute their weight proportionally.
+    _wt_num = 0.0; _wt_den = 0.0
+    for (_n, _ic, _wt, _sc, _lb, _cl, _rs, _act) in _tab_scores:
+        if _act and _wt > 0:
+            _wt_num += _sc * _wt
+            _wt_den += _wt
+    if _wt_den > 0:
+        _master_score = int(_wt_num / _wt_den)
     else:
         _master_score = _ti_score  # fallback to TI only
 
@@ -1416,14 +1495,14 @@ def render_decision_tab(df, symbol_input, stock_name, current_price):
     _ti_neutral = not _ti_bullish and not _ti_bearish
 
     if (V in ("BUY", "LEAN BULL") and _master_score >= 60
-            and _bull_tabs >= 2 and _bear_real == 0 and _ti_bullish):
+            and _bull_tabs >= 3 and _bear_real == 0 and _ti_bullish):
         display_v = "BUY"
         vc = BULL
         _verdict_confidence = "HIGH"
-        vsub = f"{_bull_tabs} modules confirm — Strong bullish confluence"
+        vsub = f"{_bull_tabs}/7 weighted modules confirm — Strong bullish confluence"
 
     elif (V in ("BUY", "LEAN BULL") and _master_score >= 55
-            and _bull_tabs >= 1 and _bear_real == 0 and _ti_bullish):
+            and _bull_tabs >= 2 and _bear_real == 0 and _ti_bullish):
         display_v = "BUY"
         vc = BULL
         _verdict_confidence = "MODERATE"
@@ -1520,6 +1599,40 @@ def render_decision_tab(df, symbol_input, stock_name, current_price):
         font-size:0.5rem;color:#666;font-weight:700;margin-left:0.3rem}
     </style>""", unsafe_allow_html=True)
 
+    # ── Scan context reconciliation banner ───────────────────────────────────
+    _scan_ctx = st.session_state.get("scan_context")
+    if _scan_ctx:
+        _sc_score  = _scan_ctx.get("score", "")
+        _sc_conv   = _scan_ctx.get("conviction", "")
+        _sc_setup  = _scan_ctx.get("setup", "")
+        _sc_agree  = display_v == "BUY"
+        _sc_col    = BULL if _sc_agree else "#FFC107"
+        _sc_msg    = (
+            f"Both systems agree — scanner found a strong setup and Decision tab confirms BUY. "
+            f"High confidence."
+        ) if _sc_agree else (
+            f"The market scanner flagged this stock (Score: {_sc_score}, Conviction: {_sc_conv}%) "
+            f"but the Decision tab says <b>{display_v}</b>. "
+            f"The scanner uses a simpler scoring model across 200+ stocks. "
+            f"The Decision tab applies stricter multi-module gating (needs 2+ bullish tabs, TI agreement, and strong master score). "
+            f"<b>Trust the Decision tab</b> — if it says WAIT, one or more confirmation layers are missing. "
+            f"Watch the stock and wait for a cleaner setup."
+        )
+        st.markdown(
+            f"<div style='border:1px solid {_sc_col}30;border-left:3px solid {_sc_col};"
+            f"background:{_sc_col}08;border-radius:10px;padding:0.75rem 1.1rem;"
+            f"margin-bottom:0.9rem;display:flex;align-items:flex-start;gap:0.8rem;'>"
+            f"<span style='font-size:0.75rem;font-weight:900;color:{_sc_col};"
+            f"flex-shrink:0;margin-top:0.05rem;'>{'✓' if _sc_agree else '!'}</span>"
+            f"<div>"
+            f"<div style='font-size:0.65rem;font-weight:800;color:{_sc_col};"
+            f"text-transform:uppercase;letter-spacing:0.6px;margin-bottom:0.25rem;'>"
+            f"{'Scanner &amp; Decision Tab Agree' if _sc_agree else 'Scanner vs Decision Tab — Why Different?'}</div>"
+            f"<div style='font-size:0.76rem;color:#999;line-height:1.6;'>{_sc_msg}</div>"
+            f"</div></div>",
+            unsafe_allow_html=True,
+        )
+
     # RGB of verdict color for glows
     _vc_rgb = ','.join(str(int(vc[i:i+2], 16)) for i in (1, 3, 5))
 
@@ -1544,61 +1657,109 @@ def render_decision_tab(df, symbol_input, stock_name, current_price):
     else:
         _wp_source = "Too few matching past setups — treat as a rough estimate."
 
-    # ── Ring builder — reusable for all 4 stat rings ─────────────────────────
-    def _ring(pct, color, val_text, sub_text):
-        """pct = 0-100 fill, val_text = big label inside, sub_text = small label inside."""
-        circ = 263.9   # 2π × 42
+    # ── Tooltip helper ────────────────────────────────────────────────────────
+    def _tip_bubble(tooltip):
+        return (
+            f"<span class='hero-tip' style='display:inline-flex;align-items:center;"
+            f"justify-content:center;cursor:help;'>"
+            f"<span class='hero-q'>?</span>"
+            f"<span class='tt' style='width:220px;font-size:0.71rem;line-height:1.55;'>"
+            f"{tooltip}</span></span>"
+        )
+
+    # ── Score ring — BIG, the hero stat ──────────────────────────────────────
+    def _big_ring(pct, color, val_text, sub_text):
+        circ = 376.0   # 2π × 60
         dash = round(circ * max(0, min(100, pct)) / 100, 1)
         return (
-            f"<svg width='96' height='96' viewBox='0 0 96 96' style='display:block;margin:0 auto;'>"
-            f"<circle cx='48' cy='48' r='42' fill='none' stroke='#1a1a1a' stroke-width='6'/>"
-            f"<circle cx='48' cy='48' r='42' fill='none' stroke='{color}' stroke-width='6' "
+            f"<svg width='140' height='140' viewBox='0 0 140 140' style='display:block;'>"
+            f"<circle cx='70' cy='70' r='60' fill='none' stroke='#1e1e1e' stroke-width='7'/>"
+            f"<circle cx='70' cy='70' r='60' fill='none' stroke='{color}' stroke-width='7' "
             f"stroke-linecap='round' stroke-dasharray='{dash} {circ}' "
-            f"transform='rotate(-90 48 48)' "
-            f"style='filter:drop-shadow(0 0 7px {color}55);'/>"
-            f"<text x='48' y='44' text-anchor='middle' fill='{color}' "
-            f"font-size='17' font-weight='900' font-family='Inter,sans-serif'>{val_text}</text>"
-            f"<text x='48' y='58' text-anchor='middle' fill='#4a4a4a' "
+            f"transform='rotate(-90 70 70)'/>"
+            f"<text x='70' y='64' text-anchor='middle' fill='{color}' "
+            f"font-size='30' font-weight='900' font-family='Inter,sans-serif'>{val_text}</text>"
+            f"<text x='70' y='82' text-anchor='middle' fill='#3e3e3e' "
+            f"font-size='8' font-weight='700' font-family='Inter,sans-serif'>{sub_text}</text>"
+            f"</svg>"
+        )
+
+    # ── Medium ring — supporting stats (110×110) ─────────────────────────────
+    def _ring(pct, color, val_text, sub_text):
+        circ = 301.6   # 2π × 48
+        dash = round(circ * max(0, min(100, pct)) / 100, 1)
+        return (
+            f"<svg width='110' height='110' viewBox='0 0 110 110' style='display:block;margin:0 auto;'>"
+            f"<circle cx='55' cy='55' r='48' fill='none' stroke='#1e1e1e' stroke-width='6'/>"
+            f"<circle cx='55' cy='55' r='48' fill='none' stroke='{color}' stroke-width='6' "
+            f"stroke-linecap='round' stroke-dasharray='{dash} {circ}' "
+            f"transform='rotate(-90 55 55)'/>"
+            f"<text x='55' y='50' text-anchor='middle' fill='{color}' "
+            f"font-size='19' font-weight='900' font-family='Inter,sans-serif'>{val_text}</text>"
+            f"<text x='55' y='64' text-anchor='middle' fill='#3e3e3e' "
             f"font-size='7' font-weight='700' font-family='Inter,sans-serif'>{sub_text}</text>"
             f"</svg>"
         )
 
-    def _ring_col(ring_svg, title):
+    def _small_ring_col(ring_svg, title, tooltip=""):
+        _tt = _tip_bubble(tooltip) if tooltip else ""
         return (
-            f"<div style='flex:1;display:flex;flex-direction:column;"
-            f"align-items:center;gap:0.4rem;'>"
+            f"<div style='display:flex;flex-direction:column;align-items:center;gap:0.35rem;'>"
             + ring_svg
-            + f"<div style='font-size:0.62rem;color:#555;font-weight:700;"
-            f"text-transform:uppercase;letter-spacing:0.5px;text-align:center;'>{title}</div>"
-            f"</div>"
+            + f"<div style='display:flex;align-items:center;gap:0.25rem;'>"
+            f"<span style='font-size:0.62rem;color:#aaa;font-weight:700;"
+            f"text-transform:uppercase;letter-spacing:0.5px;'>{title}</span>"
+            + _tt + f"</div></div>"
         )
 
-    # Score ring
-    _r_score = _ring_col(
-        _ring(_master_score, _ms_col, str(_master_score), "OUT OF 100"),
-        "Score"
+    # BIG score ring with tooltip
+    _score_tooltip = (
+        f"Weighted master score across 7 analysis modules — "
+        f"Technicals 20%, Regime 15%, Volume 15%, SMC 15%, AI 15%, Classical TA 10%, Elliott Wave 10%. "
+        f"Inactive modules abstain; weight is redistributed to active ones. "
+        f"Historical win rate is blended in at 20% when enough past setups exist. "
+        f"Above 60 = strong conviction. Below 40 = bearish or weak."
     )
-    # Win Rate ring
-    _r_win = _ring_col(
-        _ring(_win_rate, _wp_col, f"{_win_rate:.0f}%", "WIN RATE"),
-        "Win Rate"
-    )
-    # R:R ring — visual fills to % of 4R max
-    _rr_pct = min(100, d['rr1'] / 4.0 * 100)
-    _r_rr = _ring_col(
-        _ring(_rr_pct, _rr_col, f"1:{d['rr1']:.1f}", "RISK/RWD"),
-        "Risk / Reward"
-    )
-    # Daily Trend ring — 100% if bullish, 0% if bearish, 50% unknown
-    _d1_pct = 100 if _d1_trend_bull is True else (0 if _d1_trend_bull is False else 50)
-    _r_d1 = _ring_col(
-        _ring(_d1_pct, _d1_col, _d1_arrow, _d1_text.upper()),
-        "Daily Trend"
+    _r_score_big = (
+        f"<div style='display:flex;flex-direction:column;align-items:center;gap:0.4rem;"
+        f"padding-right:1.5rem;border-right:1px solid #222;'>"
+        + _big_ring(_master_score, _ms_col, str(_master_score), "OUT OF 100")
+        + f"<div style='display:flex;align-items:center;gap:0.3rem;'>"
+        f"<span style='font-size:0.7rem;color:#ccc;font-weight:700;"
+        f"text-transform:uppercase;letter-spacing:0.6px;'>Master Score</span>"
+        + _tip_bubble(_score_tooltip)
+        + f"</div></div>"
     )
 
-    # ── Top signals — card rows ───────────────────────────────────────────────
+    # 3 small supporting rings
+    _r_win = _small_ring_col(
+        _ring(_win_rate, _wp_col, f"{_win_rate:.0f}%", "WIN RATE"),
+        "Win Rate", tooltip=_wp_source
+    )
+    _rr_pct = min(100, d['rr1'] / 4.0 * 100)
+    _r_rr = _small_ring_col(
+        _ring(_rr_pct, _rr_col, f"1:{d['rr1']:.1f}", "RISK/RWD"),
+        "Risk / Reward",
+        tooltip=(
+            f"For every 1 unit risked on the stop, Target 1 returns {d['rr1']:.1f} units. "
+            f"1:2 or better is good. Below 1:1.5 means the reward doesn't justify the risk — skip or resize."
+        )
+    )
+    _d1_pct = 100 if _d1_trend_bull is True else (0 if _d1_trend_bull is False else 50)
+    _r_d1 = _small_ring_col(
+        _ring(_d1_pct, _d1_col, _d1_arrow, _d1_text.upper()),
+        "Daily Trend",
+        tooltip=(
+            f"Daily timeframe check: price vs. the 50-day EMA. "
+            f"Bullish = price is above a rising EMA50 — trade goes with the bigger trend. "
+            f"Bearish = price below declining EMA50 — any BUY here is counter-trend and higher risk. "
+            f"A bearish D1 automatically downgrades a BUY to WAIT."
+        )
+    )
+
+    # ── Top signals — compact chip grid ──────────────────────────────────────
     _sorted_f   = sorted(d["factors"], key=lambda x: abs(x["pts"]), reverse=True)
-    _top_f      = _sorted_f[:7]
+    _top_f      = _sorted_f[:6]   # cap at 6 for 2×3 grid
     _bull_sigs  = sum(1 for _f in _top_f if _f["dir"] > 0)
     _bear_sigs  = sum(1 for _f in _top_f if _f["dir"] < 0)
 
@@ -1628,197 +1789,234 @@ def render_decision_tab(df, symbol_input, stock_name, current_price):
         "Regime":     "#607d8b",
     }
 
-    _sig_rows_html = ""
-    for _i, _f in enumerate(_top_f):
-        _fc     = BULL if _f["dir"] > 0 else (BEAR if _f["dir"] < 0 else "#555")
-        _pts    = _f["pts"]
-        _max_p  = _f["max"] if _f["max"] > 0 else 1
-        _bar_w  = min(100, abs(_pts) / _max_p * 100)
-        _label  = "Supporting" if _f["dir"] > 0 else ("Opposing" if _f["dir"] < 0 else "Neutral")
-        _icon   = "▲" if _f["dir"] > 0 else ("▼" if _f["dir"] < 0 else "●")
-        _head, _detail = _split_name(_f["name"])
-        _cat    = _f.get("cat", "")
-        _cat_c  = _cat_colors.get(_cat, "#555")
-        _mb     = "margin-bottom:0.4rem;" if _i < len(_top_f) - 1 else ""
-        _sig_rows_html += (
-            f"<div style='display:flex;align-items:stretch;gap:0;"
+    _sig_chips_html = ""
+    for _f in _top_f:
+        _fc    = BULL if _f["dir"] > 0 else (BEAR if _f["dir"] < 0 else "#555")
+        _icon  = "▲" if _f["dir"] > 0 else ("▼" if _f["dir"] < 0 else "●")
+        _head, _ = _split_name(_f["name"])
+        _cat   = _f.get("cat", "")
+        _cat_c = _cat_colors.get(_cat, "#555")
+        if len(_head) > 28:
+            _head = _head[:26] + "…"
+        _sig_chips_html += (
+            f"<div style='display:flex;align-items:center;gap:0;"
             f"border-radius:8px;overflow:hidden;background:#111;"
-            f"border:1px solid {_fc}18;{_mb}'>"
-
-            # Left accent stripe
+            f"border:1px solid {_fc}22;min-width:0;'>"
+            # Direction color stripe
             f"<div style='width:3px;flex-shrink:0;background:{_fc};"
-            f"box-shadow:0 0 8px {_fc}55;'></div>"
-
-            # Icon bubble
-            f"<div style='display:flex;align-items:center;justify-content:center;"
-            f"padding:0 0.75rem;background:{_fc}0d;flex-shrink:0;'>"
-            f"<span style='font-size:0.7rem;font-weight:900;color:{_fc};'>{_icon}</span>"
+            f"align-self:stretch;'></div>"
+            # Body
+            f"<div style='flex:1;min-width:0;padding:0.42rem 0.5rem 0.42rem 0.45rem;"
+            f"display:flex;flex-direction:column;gap:0.18rem;'>"
+            # Category pill
+            f"<div style='display:inline-flex;align-items:center;gap:0.22rem;"
+            f"align-self:flex-start;'>"
+            f"<div style='width:5px;height:5px;border-radius:50%;background:{_cat_c};"
+            f"flex-shrink:0;'></div>"
+            f"<span style='font-size:0.52rem;color:{_cat_c};font-weight:800;"
+            f"text-transform:uppercase;letter-spacing:0.4px;'>{_cat}</span>"
             f"</div>"
-
-            # Text block
-            f"<div style='flex:1;min-width:0;padding:0.5rem 0.5rem;'>"
-            f"<div style='display:flex;align-items:center;gap:0.35rem;margin-bottom:0.1rem;'>"
-            f"<span style='font-size:0.49rem;font-weight:800;color:{_cat_c};"
-            f"background:{_cat_c}18;border:1px solid {_cat_c}30;border-radius:3px;"
-            f"padding:0.05rem 0.3rem;text-transform:uppercase;letter-spacing:0.4px;"
-            f"flex-shrink:0;'>{_cat}</span>"
+            # Signal name
+            f"<div style='font-size:0.67rem;color:#bbb;font-weight:600;"
+            f"white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'>{_head}</div>"
             f"</div>"
-            f"<div style='font-size:0.76rem;color:#d0d0d0;font-weight:700;"
-            f"white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3;'>{_head}</div>"
-            + (f"<div style='font-size:0.62rem;color:#555;font-weight:500;margin-top:0.08rem;"
-               f"white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'>{_detail}</div>" if _detail else "")
-            + f"</div>"
-
-            # Right side: verdict pill + strength bar
-            f"<div style='display:flex;flex-direction:column;align-items:flex-end;"
-            f"justify-content:center;padding:0.55rem 0.75rem;gap:0.3rem;flex-shrink:0;'>"
-            f"<div style='font-size:0.52rem;color:{_fc};font-weight:800;text-transform:uppercase;"
-            f"letter-spacing:0.4px;background:{_fc}18;border-radius:4px;padding:0.1rem 0.35rem;'>{_label}</div>"
-            f"<div style='width:52px;'>"
-            f"<div style='background:#1a1a1a;border-radius:999px;height:3px;overflow:hidden;'>"
-            f"<div style='width:{_bar_w:.0f}%;height:100%;border-radius:999px;"
-            f"background:{_fc};box-shadow:0 0 5px {_fc}66;'></div></div>"
-            f"</div>"
-            f"</div>"
-
+            # Direction icon
+            f"<div style='padding:0 0.5rem;font-size:0.65rem;font-weight:900;"
+            f"color:{_fc};flex-shrink:0;'>{_icon}</div>"
             f"</div>"
         )
 
-    # ── Module score tiles ────────────────────────────────────────────────────
+    # ── Module score tiles (one per weighted module) ─────────────────────────
     _mod_names = {
         "Technical Indicators": "Technicals",
-        "Price Action":         "Price Action",
+        "Regime":               "Regime",
         "Volume Profile":       "Volume",
-        "Chart Patterns":       "Patterns",
         "Smart Money":          "SMC",
+        "AI Analysis":          "AI",
+        "Classical TA":         "Classic TA",
+        "Elliott Wave":         "Elliott",
+        "Price Action":         "PA",
+        "Chart Patterns":       "Patterns",
+    }
+    # Weight labels shown in tile footer
+    _mod_wt_labels = {
+        "Technical Indicators": "20%",
+        "Regime":               "15%",
+        "Volume Profile":       "15%",
+        "Smart Money":          "15%",
+        "AI Analysis":          "15%",
+        "Classical TA":         "10%",
+        "Elliott Wave":         "10%",
+        "Price Action":         "",
+        "Chart Patterns":       "",
     }
     _mods_html = ""
-    for _n, _ic, _sc, _lb, _cl, _rs, _act in _tab_scores:
-        _mname = _mod_names.get(_n, _n)
-        _dot_bg = BULL if _act and _sc >= 55 else (BEAR if _act and _sc < 40 else "#444")
-        _dot_label = f"{_sc}" if _act else "—"
-        _status_text = (
+    for _n, _ic, _wt, _sc, _lb, _cl, _rs, _act in _tab_scores:
+        _mname   = _mod_names.get(_n, _n)
+        _mwt_lbl = _mod_wt_labels.get(_n, "")
+        _mc      = BULL if _act and _sc >= 55 else (BEAR if _act and _sc < 40 else "#444")
+        _mlabel  = f"{_sc}" if _act else "—"
+        _mstatus = (
             "Bullish"   if _act and _sc >= 55 else
             "Bearish"   if _act and _sc < 40  else
             "Neutral"   if _act               else
             "No signal"
         )
         _mods_html += (
-            f"<div style='text-align:center;flex:1;padding:0.65rem 0.3rem;"
-            f"background:#111;border:1px solid {_dot_bg}22;border-radius:10px;'>"
-            f"<div style='font-size:1.2rem;font-weight:900;color:{_dot_bg};line-height:1;'>{_dot_label}</div>"
-            f"<div style='font-size:0.61rem;color:#888;font-weight:700;margin-top:0.25rem;'>{_mname}</div>"
-            f"<div style='font-size:0.54rem;color:{_dot_bg};font-weight:700;margin-top:0.15rem;"
-            f"background:{_dot_bg}12;border-radius:4px;padding:0.1rem 0.3rem;'>{_status_text}</div>"
-            f"</div>"
+            f"<div style='text-align:center;flex:1;padding:0.75rem 0.3rem 0.65rem;"
+            f"background:#1a1a1a;border:1px solid #232323;border-top:3px solid {_mc};"
+            f"border-radius:8px;display:flex;flex-direction:column;"
+            f"align-items:center;gap:0.22rem;min-width:0;'>"
+            f"<div style='font-size:1.3rem;font-weight:900;color:{_mc};line-height:1;'>{_mlabel}</div>"
+            f"<div style='font-size:0.65rem;color:#888;font-weight:700;"
+            f"text-transform:uppercase;letter-spacing:0.3px;white-space:nowrap;"
+            f"overflow:hidden;text-overflow:ellipsis;max-width:100%;'>{_mname}</div>"
+            f"<div style='font-size:0.56rem;font-weight:700;color:{_mc};'>{_mstatus}</div>"
+            + (f"<div style='font-size:0.5rem;color:#444;margin-top:0.1rem;'>{_mwt_lbl}</div>" if _mwt_lbl else "")
+            + f"</div>"
         )
 
     # ── Modules agreement summary ─────────────────────────────────────────────
-    _agree_col = BULL if _bull_tabs >= 3 else ("#FFC107" if _bull_tabs >= 1 else BEAR)
+    _agree_col = BULL if _bull_tabs >= 4 else ("#FFC107" if _bull_tabs >= 2 else BEAR)
 
-    # ── KEY LEVELS (BUY only) ─────────────────────────────────────────────────
+    # ── KEY LEVELS for inline price ladder ────────────────────────────────────
     _kl_entry = d["entry"]
     _kl_stop  = d["stop"]
     _kl_t1, _kl_t2, _kl_t3 = d["t1"], d["t2"], d["t3"]
     if _kl_stop >= _kl_entry:
         _kl_stop = round(_kl_entry - abs(_kl_entry - _kl_stop), 2)
-    _kl_stop_pct = abs((_kl_stop  - _kl_entry) / _kl_entry * 100) if _kl_entry > 0 else d["risk_pct"]
+    _kl_stop_pct = abs((_kl_stop - _kl_entry) / _kl_entry * 100) if _kl_entry > 0 else d["risk_pct"]
     _kl_t1_pct   = (_kl_t1 - _kl_entry) / _kl_entry * 100 if _kl_entry > 0 else 0
     _kl_t2_pct   = (_kl_t2 - _kl_entry) / _kl_entry * 100 if _kl_entry > 0 else 0
     _kl_t3_pct   = (_kl_t3 - _kl_entry) / _kl_entry * 100 if _kl_entry > 0 else 0
+    _kl_rr1 = abs(_kl_t1 - _kl_entry) / max(0.001, abs(_kl_entry - _kl_stop))
+    _kl_rr2 = abs(_kl_t2 - _kl_entry) / max(0.001, abs(_kl_entry - _kl_stop))
+    _kl_rr3 = abs(_kl_t3 - _kl_entry) / max(0.001, abs(_kl_entry - _kl_stop))
+    _kl_rr1c = BULL if _kl_rr1 >= 2.0 else (NEUT if _kl_rr1 >= 1.5 else BEAR)
+    _kl_rr2c = BULL if _kl_rr2 >= 3.0 else (NEUT if _kl_rr2 >= 2.0 else BEAR)
+    _kl_rr3c = BULL if _kl_rr3 >= 5.0 else (NEUT if _kl_rr3 >= 3.0 else BEAR)
+    _eq       = d.get("entry_quality", "")
+    _eq_col   = d.get("eq_col", "")
 
-    def _kl_cell(label, price, pct_str, color, action=""):
+    def _tp_card(label, price, pct_val, accent, rr="", action="", is_entry=False):
+        sign = "+" if pct_val > 0 else ("−" if pct_val < 0 else "")
+        pct_text = "at market" if is_entry else f"{sign}{abs(pct_val):.1f}%"
         return (
-            f"<div style='text-align:center;padding:0.8rem 0.3rem;background:#111;"
-            f"border:1px solid {color}22;border-radius:10px;'>"
-            f"<div style='font-size:0.54rem;color:#444;font-weight:700;text-transform:uppercase;"
-            f"letter-spacing:0.6px;margin-bottom:0.3rem;'>{label}</div>"
-            f"<div style='font-size:1.05rem;font-weight:900;color:{color};line-height:1;'>{price:.2f}</div>"
-            f"<div style='font-size:0.63rem;font-weight:700;color:{color}bb;margin-top:0.25rem;'>{pct_str}</div>"
-            + (f"<div style='font-size:0.52rem;color:#3a3a3a;margin-top:0.2rem;font-weight:600;'>{action}</div>" if action else "")
+            f"<div style='display:flex;flex-direction:column;align-items:center;"
+            f"text-align:center;padding:1.1rem 0.5rem 1rem;"
+            f"background:#1a1a1a;border:1px solid #232323;border-top:3px solid {accent};"
+            f"border-radius:8px;gap:0.28rem;'>"
+            f"<div style='font-size:0.72rem;color:#888;font-weight:700;"
+            f"text-transform:uppercase;letter-spacing:0.8px;'>{label}</div>"
+            f"<div style='font-size:1.4rem;font-weight:900;color:#ebebeb;"
+            f"letter-spacing:-0.5px;line-height:1;'>{price:.2f}</div>"
+            f"<div style='font-size:0.68rem;font-weight:700;color:{accent};'>{pct_text}</div>"
+            + (f"<div style='font-size:0.72rem;font-weight:800;color:{accent};"
+               f"margin-top:0.1rem;'>{rr}</div>" if rr else "")
+            + (f"<div style='font-size:0.72rem;color:#888;margin-top:0.05rem;'>{action}</div>" if action else "")
             + f"</div>"
         )
 
-    _kl_html = (
-        _kl_cell("Entry", _kl_entry, "Buy here", "#e0e0e0")
-        + _kl_cell("Stop Loss", _kl_stop, f"−{_kl_stop_pct:.1f}%", BEAR, "Exit if price drops here")
-        + _kl_cell("Target 1", _kl_t1, f"+{_kl_t1_pct:.1f}%  ·  {d['rr1']:.1f}×", BULL, "Sell partial here")
-        + _kl_cell("Target 2", _kl_t2, f"+{_kl_t2_pct:.1f}%  ·  {d['rr2']:.1f}×", BULL, "Main exit")
-        + _kl_cell("Target 3", _kl_t3, f"+{_kl_t3_pct:.1f}%", BULL, "If momentum holds")
+    _eq_tag = (
+        f"&ensp;<span style='font-size:0.65rem;color:#666;font-weight:700;"
+        f"border:1px solid #2a2a2a;border-radius:4px;padding:0.08rem 0.45rem;'>"
+        f"{_eq}</span>"
+    ) if _eq else ""
+
+    _kl_risk_pct = _kl_stop_pct
+
+    _tp_cards = (
+        _tp_card("Stop Loss", _kl_stop,  -_kl_stop_pct, "#c0392b",
+                 rr=f"Risk −{_kl_risk_pct:.1f}%", action="exit here")
+        + _tp_card("Entry",   _kl_entry,  0.0,           "#4a9eff",
+                 action="buy at market", is_entry=True)
+        + _tp_card("Target 1", _kl_t1,   _kl_t1_pct,    "#4a7c59",
+                 rr=f"1:{_kl_rr1:.1f}R", action="sell ⅓")
+        + _tp_card("Target 2", _kl_t2,   _kl_t2_pct,    "#4a7c59",
+                 rr=f"1:{_kl_rr2:.1f}R", action="sell ⅓")
+        + _tp_card("Target 3", _kl_t3,   _kl_t3_pct,    "#4a7c59",
+                 rr=f"1:{_kl_rr3:.1f}R", action="trail")
     )
 
-    _kl_section = (
-        f"<div style='padding:1rem 2rem 1.2rem;border-top:1px solid #1e1e1e;'>"
-        f"<div style='font-size:0.63rem;color:#555;text-transform:uppercase;"
-        f"letter-spacing:1.2px;font-weight:700;margin-bottom:0.65rem;'>Trade Plan</div>"
-        f"<div style='display:grid;grid-template-columns:repeat(5,1fr);gap:0.4rem;'>"
-        + _kl_html
-        + f"</div></div>"
+    _ladder_section = (
+        f"<div style='padding:1rem 1.5rem 1.25rem;border-top:1px solid #222;'>"
+        f"<div style='font-size:0.72rem;color:#ccc;font-weight:700;text-transform:uppercase;"
+        f"letter-spacing:1px;margin-bottom:0.7rem;'>Trade Plan{_eq_tag}</div>"
+        f"<div style='display:grid;grid-template-columns:repeat(5,1fr);gap:0.5rem;'>"
+        + _tp_cards +
+        f"</div></div>"
     ) if display_v == "BUY" else ""
 
     # ══════════════════════════════════════════════════════════════════════════
     # ASSEMBLE HERO CARD
     # ══════════════════════════════════════════════════════════════════════════
     _hero_html = (
-        f"<div style='background:linear-gradient(180deg,#1c1c1c,#161616);"
-        f"border:1px solid #272727;border-radius:18px;overflow:hidden;"
-        f"margin-bottom:1.5rem;box-shadow:0 8px 40px rgba(0,0,0,0.5);'>"
+        f"<div style='background:#181818;border:1px solid #232323;"
+        f"border-top:3px solid {vc};border-radius:14px;overflow:hidden;"
+        f"margin-bottom:1.5rem;'>"
 
-        # TOP ACCENT LINE
-        + f"<div style='height:3px;background:linear-gradient(90deg,{vc}00,{vc},{vc}00);'></div>"
-
-        # ── SECTION 1: VERDICT ───────────────────────────────────────────────
-        + f"<div style='padding:1.8rem 2rem 1.4rem;border-bottom:1px solid #1e1e1e;'>"
-        f"<div style='font-size:2.8rem;font-weight:900;color:{vc};letter-spacing:-1.5px;"
-        f"line-height:1;text-shadow:0 0 28px rgba({_vc_rgb},0.25);'>{display_v}</div>"
-        f"<div style='font-size:0.84rem;color:#999;margin-top:0.65rem;"
-        f"font-weight:500;line-height:1.6;'>{vsub}</div>"
+        # ── SECTION 1: VERDICT + sub-text ────────────────────────────────────
+        f"<div style='padding:1.8rem 2rem 1.5rem;border-bottom:1px solid #222;'>"
+        f"<div style='display:flex;align-items:flex-start;justify-content:space-between;"
+        f"flex-wrap:wrap;gap:0.5rem;'>"
+        f"<div>"
+        f"<div style='font-size:0.72rem;color:#bbb;font-weight:700;"
+        f"text-transform:uppercase;letter-spacing:1.2px;margin-bottom:0.5rem;'>Decision</div>"
+        f"<div style='font-size:3.2rem;font-weight:900;color:{vc};letter-spacing:-2px;"
+        f"line-height:0.9;'>{display_v}</div>"
+        f"<div style='font-size:0.85rem;color:#bbb;margin-top:0.75rem;"
+        f"font-weight:500;line-height:1.6;max-width:480px;'>{vsub}</div>"
         f"</div>"
+        f"<div style='display:flex;flex-direction:column;align-items:flex-end;gap:0.3rem;"
+        f"flex-shrink:0;'>"
+        f"<div style='display:flex;align-items:center;gap:0.3rem;'>"
+        f"<div style='font-size:0.72rem;color:#bbb;font-weight:700;"
+        f"text-transform:uppercase;letter-spacing:0.8px;'>Confidence</div>"
+        + _tip_bubble("How confident is the system in this verdict? HIGH = all modules agree strongly. MODERATE = most agree. LOW = mixed signals. NEUTRAL = no clear direction.")
+        + f"</div>"
+        f"<div style='font-size:1.6rem;font-weight:900;color:{_vc_conf_col};"
+        f"line-height:1;'>{_verdict_confidence}</div>"
+        f"</div>"
+        f"</div></div>"
 
-        # ── SECTION 2: 4 RINGS ROW ────────────────────────────────────────────
-        + f"<div style='padding:1.2rem 2rem 1.4rem;border-bottom:1px solid #1e1e1e;'>"
-        f"<div style='display:flex;gap:0.5rem;'>"
-        + _r_score + _r_win + _r_rr + _r_d1
+        # ── SECTION 2: RINGS — Master Score (big) + 3 supporting ─────────────
+        + f"<div style='padding:1.3rem 2rem 1.5rem;border-bottom:1px solid #222;'>"
+        f"<div style='display:flex;align-items:center;gap:2rem;'>"
+        + _r_score_big
+        + f"<div style='display:flex;flex:1;justify-content:space-around;"
+        f"gap:0.5rem;flex-wrap:wrap;'>"
+        + _r_win + _r_rr + _r_d1
+        + f"</div>"
         + f"</div></div>"
 
-        # ── SECTION 2: TRADE PLAN (BUY only) ─────────────────────────────────
-        + _kl_section
+        # ── SECTION 3: PRICE LADDER (BUY only — inside card) ─────────────────
+        + _ladder_section
 
-        # ── SECTION 3: ANALYSIS MODULES ──────────────────────────────────────
-        + f"<div style='padding:1rem 2rem;border-top:1px solid #1e1e1e;'>"
-        f"<div style='display:flex;justify-content:space-between;align-items:center;"
-        f"margin-bottom:0.6rem;'>"
-        f"<div style='font-size:0.63rem;color:#555;text-transform:uppercase;"
-        f"letter-spacing:1.2px;font-weight:700;'>Analysis Modules</div>"
-        f"<div style='font-size:0.68rem;font-weight:700;color:{_agree_col};'>"
-        f"{_bull_tabs} bullish &nbsp;·&nbsp; {_bear_real} bearish</div>"
-        f"</div>"
-        f"<div style='display:flex;gap:0.4rem;'>"
-        + _mods_html
-        + f"</div>"
-        f"<div style='font-size:0.6rem;color:#333;margin-top:0.45rem;'>"
-        f"No signal = that tab found no clear setup on this stock."
-        f"</div></div>"
-
-        # ── SECTION 4: KEY REASONS ────────────────────────────────────────────
-        + f"<div style='padding:1rem 2rem 1.5rem;border-top:1px solid #1e1e1e;'>"
+        # ── SECTION 4: ANALYSIS MODULES ──────────────────────────────────────
+        + f"<div style='padding:1rem 2rem 1.2rem;border-top:1px solid #222;"
+        f"background:#161616;'>"
         f"<div style='display:flex;justify-content:space-between;align-items:center;"
         f"margin-bottom:0.65rem;'>"
-        f"<div style='font-size:0.63rem;color:#555;text-transform:uppercase;"
-        f"letter-spacing:1.2px;font-weight:700;'>Key Reasons</div>"
-        f"<div style='display:flex;gap:0.4rem;'>"
-        f"<span style='font-size:0.6rem;font-weight:800;color:{BULL};"
-        f"background:{BULL}18;border-radius:4px;padding:0.1rem 0.4rem;"
-        f"border:1px solid {BULL}30;'>{_bull_sigs} supporting</span>"
-        f"<span style='font-size:0.6rem;font-weight:800;color:{BEAR};"
-        f"background:{BEAR}18;border-radius:4px;padding:0.1rem 0.4rem;"
-        f"border:1px solid {BEAR}30;'>{_bear_sigs} opposing</span>"
-        f"</div></div>"
-        + _sig_rows_html
+        f"<div style='display:flex;align-items:center;gap:0.35rem;'>"
+        f"<div style='font-size:0.72rem;color:#ccc;text-transform:uppercase;"
+        f"letter-spacing:1.2px;font-weight:700;'>Analysis Modules</div>"
+        + _tip_bubble(
+            "Each module is an independent analysis engine. "
+            "The number shown is that module's score (0–100). "
+            "Grey = no clear setup found (abstains from the master score). "
+            "The % label below each tile is how much it contributes to the master score."
+        )
         + f"</div>"
+        f"<div style='font-size:0.65rem;font-weight:700;color:{_agree_col};'>"
+        f"{_bull_tabs} bullish &nbsp;·&nbsp; {_bear_real} bearish</div>"
+        f"</div>"
+        f"<div style='display:flex;gap:0.4rem;flex-wrap:wrap;'>"
+        + _mods_html
+        + f"</div>"
+        f"<div style='font-size:0.6rem;color:#555;margin-top:0.5rem;'>"
+        f"Grey tile = tab found no clear setup on this stock — it abstains, does not drag the score down."
+        f"</div></div>"
 
-        # BOTTOM ACCENT
-        + f"<div style='height:2px;background:linear-gradient(90deg,{vc}00,{vc}55,{vc}00);'></div>"
         f"</div>"
     )
     st.markdown(_hero_html, unsafe_allow_html=True)
@@ -1829,22 +2027,6 @@ def render_decision_tab(df, symbol_input, stock_name, current_price):
     st.markdown(_sec("Live Buy Signals", BULL), unsafe_allow_html=True)
 
 
-    # ── D1 filter warning banner (logic was done above, just display here) ──
-    if _d1_filter_warn:
-        _d1_col = BEAR if not _d1_filter_ok else NEUT
-        st.markdown(
-            f"<div style='background:#1b1b1b;border:1px solid #272727;"
-            f"border-radius:10px;overflow:hidden;margin-bottom:1rem;"
-            f"box-shadow:0 1px 8px rgba(0,0,0,0.15);'>"
-            f"<div style='padding:0.8rem 1.2rem;font-size:0.78rem;color:#b0b0b0;"
-            f"line-height:1.6;display:flex;align-items:center;gap:0.7rem;'>"
-            f"<span style='display:inline-block;width:3px;height:1.4rem;"
-            f"border-radius:2px;background:{_d1_col};flex-shrink:0;"
-            f"box-shadow:0 0 6px {_d1_col}44;'></span>"
-            f"{_d1_filter_warn}</div></div>",
-            unsafe_allow_html=True,
-        )
-
     # ── Collect signals from each tab (reuse cached results) ────────────────
     _tab_signals = []   # list of (tab_label, signal_dict)
     _sig_label_map = {
@@ -1852,6 +2034,9 @@ def render_decision_tab(df, symbol_input, stock_name, current_price):
         "Chart Patterns": "Patterns",
         "Volume Profile": "Volume Profile",
         "Smart Money":    "Smart Money Concepts",
+        "Regime":         "Regime Analysis",
+        "Elliott Wave":   "Elliott Wave",
+        "Classical TA":   "Classical TA",
         "AI Analysis":    "AI Analysis",
     }
     # Threshold: only show signals with conf >= 50. Below that they're not buys, they're noise.
@@ -1866,70 +2051,66 @@ def render_decision_tab(df, symbol_input, stock_name, current_price):
         else:
             _weak_signals.append((_slabel, _s))
 
-    # ── Render each signal box ────────────────────────────────────────────────
-    if not _tab_signals:
-        _weak_note = ""
-        if _weak_signals:
-            _weak_list = ", ".join(f"{_lbl} ({_s.get('conf', 0)}%)" for _lbl, _s in _weak_signals)
-            _weak_note = (
-                f"<div style='font-size:0.66rem;color:#6a6a6a;margin-top:0.7rem;line-height:1.5;'>"
-                f"Weak signals ignored: {_weak_list}</div>"
-            )
-        st.markdown(
-            f"<div style='background:#1b1b1b;border:1px solid #272727;"
-            f"border-radius:12px;padding:2.5rem 1.8rem;text-align:center;'>"
-            f"<div style='font-size:1.5rem;margin-bottom:0.5rem;opacity:0.3;'>&#128683;</div>"
-            f"<div style='font-size:0.85rem;color:#666;font-weight:600;'>No active BUY signals</div>"
-            f"<div style='font-size:0.72rem;color:#4a4a4a;margin-top:0.35rem;'>"
-            f"Stand aside until conditions improve</div>"
-            f"{_weak_note}</div>",
-            unsafe_allow_html=True,
-        )
-    else:
+    # ── Render signal cards — Trade Plan style ───────────────────────────────
+    _module_icons = {
+        "Patterns & Price Action": "PA",
+        "Patterns":                "CP",
+        "Volume Profile":          "VP",
+        "Smart Money Concepts":    "SMC",
+        "Regime Analysis":         "RE",
+        "Elliott Wave":            "EW",
+        "Classical TA":            "TA",
+        "AI Analysis":             "AI",
+    }
+    _module_colors = {
+        "Patterns & Price Action": "#2196f3",
+        "Patterns":                "#9c27b0",
+        "Volume Profile":          "#00bcd4",
+        "Smart Money Concepts":    "#ff9800",
+        "Regime Analysis":         "#26A69A",
+        "Elliott Wave":            "#9c27b0",
+        "Classical TA":            "#2196f3",
+        "AI Analysis":             "#e91e63",
+    }
+
+    if _tab_signals:
         from _levels import price_ladder_html as _dec_plh
 
+        # ── Individual signal detail cards ────────────────────────────────────
         for _idx, (_tlabel, _sig) in enumerate(_tab_signals):
-            _conf   = _sig.get("conf", 50)
-            _cc     = BULL if _conf >= 65 else (NEUT if _conf >= 45 else BEAR)
-            _str_label = 'Strong' if _conf >= 65 else ('Moderate' if _conf >= 45 else 'Weak')
+            _conf      = _sig.get("conf", 50)
+            _cc        = _module_colors.get(_tlabel, BULL)
+            _str_label = "Strong" if _conf >= 65 else ("Moderate" if _conf >= 45 else "Weak")
+            _bk        = _module_icons.get(_tlabel, _tlabel[:2].upper())
 
-            # Spacing between cards
-            if _idx > 0:
-                st.markdown("<div style='height:1rem;'></div>", unsafe_allow_html=True)
-
-            # ── Signal card with depth ────────────────────────────────────────
             st.markdown(
-                f"<div style='background:#1b1b1b;border:1px solid #272727;"
-                f"border-radius:12px;overflow:hidden;"
-                f"box-shadow:0 2px 16px rgba(0,0,0,0.25);'>"
-
-                # Header — tab name + prominent BUY verdict
-                f"<div style='padding:1rem 1.4rem;border-bottom:1px solid #272727;"
+                f"<div style='background:linear-gradient(160deg,#1c1c1c,#181818);"
+                f"border:1px solid {_cc}22;border-top:3px solid {_cc};"
+                f"border-radius:12px;overflow:hidden;margin-bottom:0.8rem;"
+                f"box-shadow:0 2px 12px rgba(0,0,0,0.3);'>"
+                f"<div style='padding:0.9rem 1.4rem;border-bottom:1px solid #1e1e1e;"
                 f"display:flex;justify-content:space-between;align-items:center;"
-                f"background:linear-gradient(135deg,rgba(76,175,80,0.07),transparent);'>"
-                f"<div style='display:flex;align-items:center;gap:0.8rem;'>"
-                f"<span style='font-size:0.85rem;font-weight:700;color:#bdbdbd;'>{_tlabel}</span>"
-                f"<span style='font-size:1.1rem;font-weight:900;color:#4caf50;"
-                f"text-shadow:0 0 12px rgba(76,175,80,0.3);'>&#9650; BUY</span>"
+                f"background:linear-gradient(135deg,{_cc}08,transparent);'>"
+                f"<div style='display:flex;align-items:center;gap:0.65rem;'>"
+                f"<div style='width:30px;height:30px;border-radius:8px;"
+                f"background:{_cc}18;border:1px solid {_cc}33;"
+                f"display:flex;align-items:center;justify-content:center;"
+                f"font-size:0.6rem;font-weight:900;color:{_cc};'>{_bk}</div>"
+                f"<span style='font-size:0.82rem;font-weight:700;color:#ccc;'>{_tlabel}</span>"
                 f"</div>"
                 f"<div style='display:flex;align-items:center;gap:0.5rem;'>"
-                f"<span style='font-size:1.05rem;font-weight:800;color:{_cc};'>{_conf}%</span>"
-                f"<span style='font-size:0.68rem;font-weight:600;padding:0.2rem 0.55rem;"
-                f"border-radius:6px;background:rgba({','.join(str(int(_cc[i:i+2],16)) for i in (1,3,5))},0.12);"
-                f"color:{_cc};'>{_str_label}</span>"
-                f"</div>"
-                f"</div>"
-
-                # Body — progress bar
-                f"<div style='padding:1rem 1.4rem;'>"
+                f"<span style='font-size:1.1rem;font-weight:900;color:{_cc};"
+                f"text-shadow:0 0 12px {_cc}44;'>{_conf}%</span>"
+                f"<span style='font-size:0.6rem;font-weight:800;padding:0.15rem 0.45rem;"
+                f"border-radius:5px;background:{_cc}18;color:{_cc};"
+                f"border:1px solid {_cc}30;'>{_str_label}</span>"
+                f"</div></div>"
+                f"<div style='padding:0.8rem 1.4rem;'>"
                 + _glowbar(_conf, _cc) +
-                f"</div>"
-
-                f"</div>",
+                f"</div></div>",
                 unsafe_allow_html=True,
             )
 
-            # ── Price Ladder inside ──────────────────────────────────────────
             try:
                 st.markdown(
                     _dec_plh(
