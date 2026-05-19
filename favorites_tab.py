@@ -1993,16 +1993,15 @@ def render_auto_scanner_page() -> None:
     /* ── stock band (Section 1 — Scanned Strategies) ────────────────────── */
     .sc-band{border:1px solid #222;border-radius:13px;
              overflow:hidden;margin-bottom:0.5rem;background:#0d0d0d;}
-    .sc-band-hdr{display:flex;align-items:center;gap:0.65rem;
-                 padding:0.6rem 1rem;background:#111;
+    .sc-band-hdr{display:flex;align-items:center;gap:0.7rem;
+                 padding:0.7rem 1rem;background:#111;
                  border-bottom:1px solid #1e1e1e;}
-    .sc-sym{font-size:1.05rem;font-weight:900;color:#e2e2e2;letter-spacing:-0.2px;}
-    .sc-sname{font-size:0.65rem;color:#3e3e3e;font-weight:700;
-              background:#181818;border:1px solid #252525;
-              border-radius:6px;padding:0.1rem 0.45rem;white-space:nowrap;}
-    .sc-ct{margin-left:auto;font-size:0.55rem;color:#2e2e2e;font-weight:700;
-           background:#161616;border:1px solid #222;border-radius:6px;
-           padding:0.1rem 0.42rem;}
+    .sc-sym{font-size:1.2rem;font-weight:900;color:#f0f0f0;letter-spacing:-0.3px;}
+    .sc-sname{font-size:0.78rem;color:#888;font-weight:600;
+              white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:18rem;}
+    .sc-ct{margin-left:auto;font-size:0.58rem;color:#404040;font-weight:700;
+           background:#181818;border:1px solid #252525;border-radius:6px;
+           padding:0.15rem 0.5rem;}
 
     /* ── regime card (Section 1) ─────────────────────────────────────────── */
     .sc-rpill{font-size:0.6rem;font-weight:900;padding:0.18rem 0.58rem;
@@ -2894,20 +2893,58 @@ def render_auto_scanner_page() -> None:
                           decreasing_fillcolor='rgba(239,83,80,0.15)',
                           line_width=1, name=''))
 
-                      # past fires
-                      _sdates, _slows = [], []
+                      # past fires — W/L outcome markers
+                      _close_arr = _df_f['Close'].values.astype(float)
+                      _high_arr  = _df_f['High'].values.astype(float)
+                      _low_arr   = _df_f['Low'].values.astype(float)
+                      # get hold/pt/sl for this period
+                      from scanner_engine import _PERIOD_CFG as _pcfg
+                      _pcfg_sel  = st.session_state.get('sc_period', 'Medium')
+                      _, _, _hold_b, _pt_b, _sl_b = _pcfg.get(_pcfg_sel, _pcfg['Medium'])
+
+                      _win_x, _win_y   = [], []
+                      _loss_x, _loss_y = [], []
+                      _exp_x, _exp_y   = [], []
+
                       for _fi in sorted(_fire_idxs):
                           _ci = _fi - _offset
-                          if 0 <= _ci < len(_cdf) and _fi < _N - 1:
-                              _sdates.append(_xd.iloc[_ci] if hasattr(_xd, 'iloc') else _xd[_ci])
-                              _slows.append(float(_cdf['Low'].iloc[_ci]) * 0.993)
-                      if _sdates:
+                          if _ci < 0 or _ci >= len(_cdf):
+                              continue
+                          _xval = _xd.iloc[_ci] if hasattr(_xd, 'iloc') else _xd[_ci]
+                          _yval = float(_cdf['Low'].iloc[_ci]) * 0.991
+                          # outcome: look forward in full df
+                          _entry_p = float(_close_arr[_fi])
+                          _fwd_end = min(_fi + _hold_b + 1, _N)
+                          _fwd_hi  = float(_high_arr[_fi+1:_fwd_end].max()) if _fi+1 < _fwd_end else _entry_p
+                          _fwd_lo  = float(_low_arr[_fi+1:_fwd_end].min())  if _fi+1 < _fwd_end else _entry_p
+                          if _entry_p > 0 and _fwd_hi >= _entry_p * (1 + _pt_b):
+                              _win_x.append(_xval);  _win_y.append(_yval)
+                          elif _entry_p > 0 and _fwd_lo <= _entry_p * (1 - _sl_b):
+                              _loss_x.append(_xval); _loss_y.append(_yval)
+                          elif _fi < _N - 1:
+                              _exp_x.append(_xval);  _exp_y.append(_yval)
+
+                      if _win_x:
                           fig.add_trace(go.Scatter(
-                              x=_sdates, y=_slows, mode='markers',
-                              marker=dict(symbol='triangle-up', size=10,
-                                          color='#26A69A', opacity=0.9,
+                              x=_win_x, y=_win_y, mode='markers',
+                              marker=dict(symbol='triangle-up', size=11,
+                                          color='#26A69A', opacity=1.0,
+                                          line=dict(width=1, color='#1a6e64')),
+                              hovertemplate='Win ✓<extra></extra>', name='Win'))
+                      if _loss_x:
+                          fig.add_trace(go.Scatter(
+                              x=_loss_x, y=_loss_y, mode='markers',
+                              marker=dict(symbol='triangle-up', size=11,
+                                          color='#ef5350', opacity=1.0,
+                                          line=dict(width=1, color='#8b1c1c')),
+                              hovertemplate='Loss ✗<extra></extra>', name='Loss'))
+                      if _exp_x:
+                          fig.add_trace(go.Scatter(
+                              x=_exp_x, y=_exp_y, mode='markers',
+                              marker=dict(symbol='triangle-up', size=9,
+                                          color='#555', opacity=0.7,
                                           line=dict(width=0)),
-                              hovertemplate='Signal fired<extra></extra>', name=''))
+                              hovertemplate='Expired<extra></extra>', name='Expired'))
 
                       # NOW marker
                       _lx  = _xd.iloc[-1] if hasattr(_xd, 'iloc') else _xd[-1]
@@ -2983,9 +3020,17 @@ def render_auto_scanner_page() -> None:
                           f"overflow:hidden;background:#080808;'>"
                           f"<div style='padding:0.4rem 0.8rem;border-bottom:1px solid #181818;"
                           f"display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;'>"
-                          f"<span style='font-size:0.55rem;font-weight:900;color:#282828;"
+                          f"<span style='font-size:0.55rem;font-weight:900;color:#484848;"
                           f"text-transform:uppercase;letter-spacing:1px;'>Signal History</span>"
-                          f"<span style='font-size:0.58rem;color:#26A69A;'>▲ past fires</span>"
+                          f"<span style='font-size:0.6rem;font-weight:800;color:#26A69A;"
+                          f"background:rgba(38,166,154,0.1);border:1px solid rgba(38,166,154,0.25);"
+                          f"padding:1px 7px;border-radius:20px;'>▲ Win</span>"
+                          f"<span style='font-size:0.6rem;font-weight:800;color:#ef5350;"
+                          f"background:rgba(239,83,80,0.1);border:1px solid rgba(239,83,80,0.25);"
+                          f"padding:1px 7px;border-radius:20px;'>▲ Loss</span>"
+                          f"<span style='font-size:0.6rem;font-weight:800;color:#555;"
+                          f"background:#181818;border:1px solid #2a2a2a;"
+                          f"padding:1px 7px;border-radius:20px;'>▲ Expired</span>"
                           f"<span style='margin-left:auto;'>{_fire_lbl}</span></div>"
                           f"<div style='padding:0.35rem 0.8rem;border-bottom:1px solid #161616;"
                           f"display:flex;gap:0.28rem;flex-wrap:wrap;'>{_ind_pills}</div>",

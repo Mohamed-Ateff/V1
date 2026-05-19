@@ -139,7 +139,9 @@ st.markdown("""
 
     .stCheckbox > label { font-size: 1.05rem !important; padding: 0.4rem 0 !important; }
 
-    .block-container { padding-top: 0.25rem !important; padding-bottom: 1rem !important; }
+    .block-container { padding-top: 0 !important; padding-bottom: 1rem !important; }
+    [data-testid="stMainBlockContainer"] { padding-top: 0 !important; }
+    [data-testid="stAppViewContainer"] > section { padding-top: 0 !important; }
 
     h2, h3 { margin-top: 0 !important; margin-bottom: 1rem !important; }
 
@@ -1038,7 +1040,7 @@ def main():
 
             padding-right: 0 !important;
 
-            padding-top: 0.25rem !important;
+            padding-top: 0 !important;
 
             padding-bottom: 3rem !important;
 
