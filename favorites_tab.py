@@ -1837,7 +1837,7 @@ def _render_live_signals(rc_favs: list) -> None:
 # ══════════════════════════════════════════════════════════════════════════════
 
 def render_auto_scanner_page() -> None:
-    from scanner_engine import scan_stock, _REGIME_COLORS, _REGIME_ICONS
+    from scanner_engine import scan_stock, scan_all_stocks, _REGIME_COLORS, _REGIME_ICONS
     from market_data import get_all_tadawul_tickers
 
     _PERIODS = ['Short', 'Medium', 'Long']
@@ -2248,17 +2248,22 @@ def render_auto_scanner_page() -> None:
     _sel_period = st.session_state.sc_period
 
     if not st.session_state.sc_done:
+        from scanner_engine import scan_all_stocks
         _out  = []
-        _tot  = len(_ALL_SYMS)
-        _prog = st.progress(0, text="Scanning…")
+        _prog = st.progress(0, text="Downloading market data…")
+        _prog.progress(0.05, text="Downloading all Tadawul data in one request…")
+        _batch = scan_all_stocks(tuple(_ALL_SYMS), _sel_period, _v=3)
+        _prog.progress(0.6, text="Analysing strategies…")
+        _tot = len(_ALL_SYMS)
         for _i, _sym in enumerate(_ALL_SYMS):
-            _data = scan_stock(_sym, _sel_period)
+            _data = _batch.get(_sym)
             if _data:
                 _data['_sym']   = _sym
                 _data['_sname'] = _ticker_map.get(_sym, '')
                 _out.append(_data)
-            _prog.progress((_i + 1) / _tot,
-                           text=f"{_sym.replace('.SR','')} ({_i+1}/{_tot})")
+            if _i % 20 == 0:
+                _prog.progress(0.6 + 0.38 * (_i + 1) / _tot,
+                               text=f"Analysing {_sym.replace('.SR','')} ({_i+1}/{_tot})")
         _prog.empty()
         st.session_state.sc_results      = _out
         st.session_state.sc_done         = True
@@ -2271,7 +2276,7 @@ def render_auto_scanner_page() -> None:
             "<div style='background:#0d0d0d;border:1px solid #1a1a1a;"
             "border-radius:12px;padding:4rem 2rem;text-align:center;'>"
             "<div style='font-size:1rem;font-weight:800;color:#2a2a2a;'>"
-            "No results — tap Scan</div></div>",
+            "No results — tap ↻ Scan</div></div>",
             unsafe_allow_html=True)
         return
 
@@ -2494,8 +2499,9 @@ def render_auto_scanner_page() -> None:
               _sym_d      = _sym.replace('.SR', '')
               _regs       = _row.get('regimes', {})
               _price      = float(_row.get('price', 0) or 0)
-              _df_f       = _row.get('df')
               _cur_regime = _row.get('current_regime', 'RANGE')
+              from scanner_engine import get_stock_df as _gsd
+              _df_f       = _gsd(_sym, _sel_period, _v=2)
 
               _firing_regimes = [rn for rn in ('TREND','RANGE','VOLATILE')
                                  if (_regs.get(rn) or {}).get('firing')]

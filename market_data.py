@@ -2425,9 +2425,62 @@ SCAN_STRATEGIES = {
 }
 
 
-def run_strategy_scan(tickers_list, strategy_key, start=None, end=None, fresh_only=True, fresh_mode="strict"):
+def _fetch_market_data(tickers_list, start=None, end=None):
+    """Download OHLCV for all tickers in one batched call. Returns combined DataFrame."""
+    import time as _time
+    _BATCH = 100
+    _tlist  = list(tickers_list)
+    _chunks = [_tlist[i:i + _BATCH] for i in range(0, len(_tlist), _BATCH)]
+    if len(_chunks) > 1 and len(_chunks[-1]) == 1:
+        _chunks[-2].append(_chunks[-1][0])
+        _chunks.pop()
+    _frames = []
+    for _ci, _chunk in enumerate(_chunks):
+        for _try in range(2):
+            try:
+                kw = dict(progress=False, threads=True, group_by='ticker', timeout=30, auto_adjust=True)
+                if start and end:
+                    _part = yf.download(list(_chunk), start=str(start)[:10], end=str(end)[:10], **kw)
+                else:
+                    _part = yf.download(list(_chunk), period="6mo", **kw)
+                if _part is not None and not _part.empty:
+                    _frames.append(_part)
+                    break
+            except Exception:
+                pass
+        if _ci < len(_chunks) - 1:
+            _time.sleep(0.2)
+    if not _frames:
+        return None
+    return pd.concat(_frames, axis=1) if len(_frames) > 1 else _frames[0]
+
+
+def _fetch_tasi_baseline():
+    """Fetch TASI index for relative-strength baseline. Returns (tasi_ret_20d, tasi_regime_bearish)."""
+    for _sym in ["^TASI", "^TASI.SR", "TASI.SR"]:
+        try:
+            _td = yf.download(_sym, period="3mo", progress=False, timeout=8, auto_adjust=True)
+            if _td is not None and not _td.empty:
+                if isinstance(_td.columns, pd.MultiIndex):
+                    _td.columns = _td.columns.get_level_values(0)
+                _tc = _td['Close'].astype(float).dropna()
+                if len(_tc) < 20:
+                    continue
+                _tcp = float(_tc.iloc[-1])
+                tasi_ret_20d = ((_tcp / float(_tc.iloc[-20])) - 1) * 100
+                _e20v = float(ta.ema(_tc, length=20).dropna().iloc[-1]) if ta.ema(_tc, length=20) is not None else _tcp
+                _e50v = float(ta.ema(_tc, length=min(50, len(_tc)-1)).dropna().iloc[-1]) if len(_tc) >= 10 else _tcp
+                return tasi_ret_20d, (_tcp < _e20v) and (_tcp < _e50v)
+        except Exception:
+            continue
+    return 0.0, False
+
+
+def run_strategy_scan(tickers_list, strategy_key, start=None, end=None, fresh_only=True, fresh_mode="strict",
+                      _prefetched_data=None, _tasi_baseline=None):
     """
     Fast strategy-specific scan. Only computes the indicators each strategy needs.
+    Pass _prefetched_data and _tasi_baseline to skip downloading (when running all strategies).
     Returns {'buy':[], 'sell':[], 'hold':[], 'strategy': strategy_key}.
     """
     import time as _time
@@ -2440,59 +2493,20 @@ def run_strategy_scan(tickers_list, strategy_key, start=None, end=None, fresh_on
     results = {'buy': [], 'sell': [], 'hold': [], 'strategy': strategy_key}
     all_info = get_all_tadawul_tickers()
 
-    # ── TASI baseline (for RS calculation) ───────────────────────────────────
-    tasi_ret_20d = 0.0
-    tasi_regime_bearish = False
-    try:
-        for _sym in ["^TASI", "^TASI.SR"]:
-            try:
-                _td = yf.download(_sym, period="1y", progress=False, timeout=10)
-                if _td is not None and not _td.empty:
-                    if isinstance(_td.columns, pd.MultiIndex):
-                        _td.columns = _td.columns.get_level_values(0)
-                    _tc = _td['Close'].astype(float).dropna()
-                    _te20 = ta.ema(_tc, length=20)
-                    _te50 = ta.ema(_tc, length=50)
-                    _tcp  = float(_tc.iloc[-1])
-                    tasi_ret_20d = ((_tcp / float(_tc.iloc[-20])) - 1) * 100 if len(_tc) >= 20 else 0.0
-                    _e20v = float(_te20.dropna().iloc[-1]) if _te20 is not None and len(_te20.dropna()) > 0 else _tcp
-                    _e50v = float(_te50.dropna().iloc[-1]) if _te50 is not None and len(_te50.dropna()) > 0 else _tcp
-                    tasi_regime_bearish = (_tcp < _e20v) and (_tcp < _e50v)
-                    break
-            except Exception:
-                continue
-    except Exception:
-        pass
+    # ── TASI baseline ────────────────────────────────────────────────────────
+    if _tasi_baseline is not None:
+        tasi_ret_20d, tasi_regime_bearish = _tasi_baseline
+    else:
+        tasi_ret_20d, tasi_regime_bearish = _fetch_tasi_baseline()
 
-    # ── Batch download ────────────────────────────────────────────────────────
-    _BATCH = 50
-    _tlist  = list(tickers_list)
-    _chunks = [_tlist[i:i + _BATCH] for i in range(0, len(_tlist), _BATCH)]
-    if len(_chunks) > 1 and len(_chunks[-1]) == 1:
-        _chunks[-2].append(_chunks[-1][0])
-        _chunks.pop()
+    # ── Data download (or use prefetched) ────────────────────────────────────
+    if _prefetched_data is not None:
+        all_data = _prefetched_data
+    else:
+        all_data = _fetch_market_data(tickers_list, start=start, end=end)
 
-    _frames = []
-    for _ci, _chunk in enumerate(_chunks):
-        for _try in range(2):
-            try:
-                kw = dict(progress=False, threads=True, group_by='ticker', timeout=30)
-                if start and end:
-                    _part = yf.download(list(_chunk), start=str(start)[:10], end=str(end)[:10], **kw)
-                else:
-                    _part = yf.download(list(_chunk), period="6mo", **kw)
-                if _part is not None and not _part.empty:
-                    _frames.append(_part)
-                    break
-            except Exception:
-                pass
-        if _ci < len(_chunks) - 1:
-            _time.sleep(0.3)
-
-    if not _frames:
+    if all_data is None or all_data.empty:
         return results
-
-    all_data = pd.concat(_frames, axis=1) if len(_frames) > 1 else _frames[0]
 
     def _safe(series, idx=-1, default=0.0):
         try:
@@ -2561,13 +2575,23 @@ def run_strategy_scan(tickers_list, strategy_key, start=None, end=None, fresh_on
             score        = 0.0
             direction    = "buy"
 
+            # ── Pre-compute common indicators once ───────────────────────────
+            ema20  = ta.ema(close, length=20)
+            ema50  = ta.ema(close, length=50)
+            ema200 = ta.ema(close, length=200)
+            rsi14  = ta.rsi(close, length=14)
+            macd_df = ta.macd(close)
+            bb_df   = ta.bbands(close, length=20)
+            stoch_df = ta.stoch(high, low, close)
+            adx_df2  = ta.adx(high, low, close)
+            e20  = _safe(ema20,  default=cp)
+            e50  = _safe(ema50,  default=cp)
+            e200 = _safe(ema200, default=cp)
+            cur_rsi = _safe(rsi14, default=50)
+
             # ── STRATEGY-SPECIFIC INDICATOR LOGIC ────────────────────────────
 
             if strategy_key == "trend_breakout":
-                # EMA stack
-                ema20  = ta.ema(close, length=20)
-                ema50  = ta.ema(close, length=50)
-                ema200 = ta.ema(close, length=200)
                 e20 = _safe(ema20, default=cp)
                 e50 = _safe(ema50, default=cp)
                 e200 = _safe(ema200, default=cp)
@@ -2594,15 +2618,14 @@ def run_strategy_scan(tickers_list, strategy_key, start=None, end=None, fresh_on
                 except Exception:
                     pass
 
-                # ADX
-                adx_df = ta.adx(high, low, close, length=14)
-                if adx_df is not None:
-                    adx_col = next((c for c in adx_df.columns if c.startswith('ADX_')), None)
-                    dmp_col = next((c for c in adx_df.columns if c.startswith('DMP_')), None)
-                    dmn_col = next((c for c in adx_df.columns if c.startswith('DMN_')), None)
-                    cur_adx = _safe(adx_df[adx_col], default=15) if adx_col else 15
-                    pos_di  = _safe(adx_df[dmp_col], default=20) if dmp_col else 20
-                    neg_di  = _safe(adx_df[dmn_col], default=20) if dmn_col else 20
+                # ADX (use pre-computed adx_df2)
+                if adx_df2 is not None:
+                    adx_col = next((c for c in adx_df2.columns if c.startswith('ADX_')), None)
+                    dmp_col = next((c for c in adx_df2.columns if c.startswith('DMP_')), None)
+                    dmn_col = next((c for c in adx_df2.columns if c.startswith('DMN_')), None)
+                    cur_adx = _safe(adx_df2[adx_col], default=15) if adx_col else 15
+                    pos_di  = _safe(adx_df2[dmp_col], default=20) if dmp_col else 20
+                    neg_di  = _safe(adx_df2[dmn_col], default=20) if dmn_col else 20
                     if cur_adx > 25 and pos_di > neg_di:
                         signals_hit.append(f"ADX Strong Trend ({cur_adx:.0f})")
                         consensus += 1
@@ -2617,9 +2640,7 @@ def run_strategy_scan(tickers_list, strategy_key, start=None, end=None, fresh_on
                     score += 1
 
             elif strategy_key == "oversold_bounce":
-                # RSI
-                rsi = ta.rsi(close, length=14)
-                cur_rsi = _safe(rsi, default=50)
+                # RSI (pre-computed)
                 if cur_rsi < 25:
                     signals_hit.append(f"RSI Deeply Oversold ({cur_rsi:.0f})")
                     consensus += 2
@@ -2631,26 +2652,24 @@ def run_strategy_scan(tickers_list, strategy_key, start=None, end=None, fresh_on
                 else:
                     direction = "hold"
 
-                # Bollinger Bands
-                bb = ta.bbands(close, length=20)
-                if bb is not None:
-                    bbl_col = next((c for c in bb.columns if 'BBL' in c), None)
-                    bbu_col = next((c for c in bb.columns if 'BBU' in c), None)
+                # Bollinger Bands (pre-computed bb_df)
+                if bb_df is not None:
+                    bbl_col = next((c for c in bb_df.columns if 'BBL' in c), None)
+                    bbu_col = next((c for c in bb_df.columns if 'BBU' in c), None)
                     if bbl_col and bbu_col:
-                        bbl = _safe(bb[bbl_col], default=cp * 0.98)
-                        bbu = _safe(bb[bbu_col], default=cp * 1.02)
+                        bbl = _safe(bb_df[bbl_col], default=cp * 0.98)
+                        bbu = _safe(bb_df[bbu_col], default=cp * 1.02)
                         bb_pct = (cp - bbl) / (bbu - bbl) if (bbu - bbl) > 0 else 0.5
                         if bb_pct < 0.15:
                             signals_hit.append("BB Lower Band Touch")
                             consensus += 1
                             score += 2
 
-                # Stochastic
-                stoch = ta.stoch(high, low, close)
-                if stoch is not None:
-                    sk_col = next((c for c in stoch.columns if 'STOCHk' in c), None)
+                # Stochastic (pre-computed stoch_df)
+                if stoch_df is not None:
+                    sk_col = next((c for c in stoch_df.columns if 'STOCHk' in c), None)
                     if sk_col:
-                        sk = _safe(stoch[sk_col], default=50)
+                        sk = _safe(stoch_df[sk_col], default=50)
                         if sk < 20:
                             signals_hit.append(f"Stochastic Oversold ({sk:.0f})")
                             consensus += 1
@@ -2664,8 +2683,7 @@ def run_strategy_scan(tickers_list, strategy_key, start=None, end=None, fresh_on
                 pos_di = neg_di = 20
 
             elif strategy_key == "momentum_surge":
-                # MACD crossover
-                macd_df = ta.macd(close)
+                # MACD crossover (pre-computed macd_df)
                 if macd_df is not None:
                     ml   = _safe(macd_df['MACD_12_26_9'])
                     ms   = _safe(macd_df['MACDs_12_26_9'])
@@ -2684,10 +2702,8 @@ def run_strategy_scan(tickers_list, strategy_key, start=None, end=None, fresh_on
                 else:
                     direction = "hold"
 
-                # RSI rising from mid-zone
-                rsi = ta.rsi(close, length=14)
-                cur_rsi = _safe(rsi, default=50)
-                cur_rsi_p = _safe(rsi, -3, default=50)
+                # RSI rising from mid-zone (pre-computed)
+                cur_rsi_p = _safe(rsi14, -3, default=50)
                 if 35 < cur_rsi < 60 and cur_rsi > cur_rsi_p:
                     signals_hit.append(f"RSI Rising ({cur_rsi:.0f}↑)")
                     consensus += 1
@@ -2711,8 +2727,8 @@ def run_strategy_scan(tickers_list, strategy_key, start=None, end=None, fresh_on
                 cur_adx = 15; pos_di = 20; neg_di = 20
 
             elif strategy_key == "squeeze_setup":
-                # Bollinger Bands width
-                bb = ta.bbands(close, length=20)
+                # Bollinger Bands width (pre-computed bb_df)
+                bb = bb_df
                 kc = ta.kc(high, low, close, length=20)
                 squeeze_on = False
                 if bb is not None and kc is not None:
@@ -2739,15 +2755,14 @@ def run_strategy_scan(tickers_list, strategy_key, start=None, end=None, fresh_on
                     consensus += 1
                     score += 2
 
-                # ADX < 25 (no trend yet — coiling)
-                adx_df = ta.adx(high, low, close, length=14)
-                if adx_df is not None:
-                    adx_col = next((c for c in adx_df.columns if c.startswith('ADX_')), None)
-                    cur_adx = _safe(adx_df[adx_col], default=30) if adx_col else 30
-                    dmp_col = next((c for c in adx_df.columns if c.startswith('DMP_')), None)
-                    dmn_col = next((c for c in adx_df.columns if c.startswith('DMN_')), None)
-                    pos_di  = _safe(adx_df[dmp_col], default=20) if dmp_col else 20
-                    neg_di  = _safe(adx_df[dmn_col], default=20) if dmn_col else 20
+                # ADX < 25 (no trend yet — coiling) (pre-computed adx_df2)
+                if adx_df2 is not None:
+                    adx_col = next((c for c in adx_df2.columns if c.startswith('ADX_')), None)
+                    cur_adx = _safe(adx_df2[adx_col], default=30) if adx_col else 30
+                    dmp_col = next((c for c in adx_df2.columns if c.startswith('DMP_')), None)
+                    dmn_col = next((c for c in adx_df2.columns if c.startswith('DMN_')), None)
+                    pos_di  = _safe(adx_df2[dmp_col], default=20) if dmp_col else 20
+                    neg_di  = _safe(adx_df2[dmn_col], default=20) if dmn_col else 20
                     if cur_adx < 25:
                         signals_hit.append(f"ADX Low (No Trend Yet) ({cur_adx:.0f})")
                         consensus += 1
@@ -2755,9 +2770,7 @@ def run_strategy_scan(tickers_list, strategy_key, start=None, end=None, fresh_on
                 else:
                     cur_adx = 15; pos_di = 20; neg_di = 20
 
-                # Price holding above EMA (bias bullish)
-                ema20 = ta.ema(close, length=20)
-                e20 = _safe(ema20, default=cp)
+                # Price holding above EMA (pre-computed e20)
                 if cp > e20:
                     signals_hit.append("Price Above EMA20")
                     consensus += 1

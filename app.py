@@ -80,6 +80,10 @@ st.markdown("""
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
     .stApp, .stApp * { font-family: 'Inter', system-ui, -apple-system, sans-serif !important; }
+    .stApp { background: #111111 !important; }
+    section[data-testid="stSidebar"] { background: #111111 !important; }
+    [data-testid="stAppViewContainer"] { background: #111111 !important; }
+    [data-testid="stMain"] { background: #111111 !important; }
 
     #MainMenu, footer, header,
 
@@ -135,7 +139,7 @@ st.markdown("""
 
     .stCheckbox > label { font-size: 1.05rem !important; padding: 0.4rem 0 !important; }
 
-    .block-container { padding-top: 1rem !important; padding-bottom: 1rem !important; }
+    .block-container { padding-top: 0.25rem !important; padding-bottom: 1rem !important; }
 
     h2, h3 { margin-top: 0 !important; margin-bottom: 1rem !important; }
 
@@ -1034,7 +1038,7 @@ def main():
 
             padding-right: 0 !important;
 
-            padding-top: 1.4rem !important;
+            padding-top: 0.25rem !important;
 
             padding-bottom: 3rem !important;
 
@@ -2647,8 +2651,8 @@ def main():
             border: none !important; box-shadow: none !important; padding: 0 !important;
         }}
         .st-key-right_panel > div:first-child {{
-            background: #181c1f !important;
-            border: 1px solid #252b2e !important;
+            background: #181818 !important;
+            border: 1px solid #282828 !important;
             border-radius: 20px !important;
             padding: 1.8rem !important;
             height: 100% !important;
@@ -2657,11 +2661,11 @@ def main():
 
         /* ── Tab strip ────────────────────────────────────────────────────── */
         .st-key-right_panel .stTabs [data-baseweb="tab-list"] {{
-            background: #0f1214 !important;
+            background: #111111 !important;
             border-radius: 12px !important;
             padding: 4px !important;
             gap: 2px !important;
-            border: 1px solid #252b2e !important;
+            border: 1px solid #282828 !important;
             margin-bottom: 1.4rem !important;
         }}
         .st-key-right_panel .stTabs [data-baseweb="tab"] {{
@@ -2699,140 +2703,218 @@ def main():
         }}
 
         /* ── Action buttons ─────────────────────────────────────────────────── */
-        .st-key-btn_saved .stButton > button {{
-            background: rgba(38,166,154,0.07) !important;
-            border: 1px solid rgba(38,166,154,0.2) !important;
+        .st-key-btn_saved .stButton > button,
+        .st-key-btn_user .stButton > button,
+        .st-key-btn_champions .stButton > button {{
+            background: #181818 !important;
+            border: 1px solid #282828 !important;
+            border-radius: 10px !important;
+            color: #8a9bb0 !important;
+            font-size: 0.72rem !important; font-weight: 700 !important;
+            width: 100% !important; padding: 0.52rem 0.3rem !important;
+            height: auto !important; white-space: nowrap !important;
+            letter-spacing: 0.3px !important; text-transform: uppercase !important;
+            transition: all 0.15s ease !important;
+        }}
+        .st-key-btn_saved .stButton > button:hover,
+        .st-key-btn_user .stButton > button:hover,
+        .st-key-btn_champions .stButton > button:hover {{
+            background: #1e2530 !important;
+            border-color: #3d5060 !important;
+            color: #c8d6e5 !important;
+        }}
+        /* Active state for scanner button */
+        .st-key-btn_champions_active .stButton > button {{
+            background: rgba(38,166,154,0.1) !important;
+            border: 1px solid rgba(38,166,154,0.35) !important;
             border-radius: 10px !important;
             color: #26A69A !important;
-            font-size: 0.77rem !important; font-weight: 700 !important;
+            font-size: 0.72rem !important; font-weight: 700 !important;
             width: 100% !important; padding: 0.52rem 0.3rem !important;
             height: auto !important; white-space: nowrap !important;
-            letter-spacing: 0.2px !important;
+            letter-spacing: 0.3px !important; text-transform: uppercase !important;
         }}
-        .st-key-btn_saved .stButton > button:hover {{
-            background: rgba(38,166,154,0.15) !important;
-            border-color: rgba(38,166,154,0.45) !important;
-        }}
-        .st-key-btn_user .stButton > button {{
-            background: rgba(255,255,255,0.03) !important;
-            border: 1px solid #252b2e !important;
+        .st-key-btn_journal_active .stButton > button {{
+            background: rgba(74,158,255,0.1) !important;
+            border: 1px solid rgba(74,158,255,0.35) !important;
             border-radius: 10px !important;
-            color: #6b7a86 !important;
-            font-size: 0.77rem !important; font-weight: 600 !important;
+            color: #4A9EFF !important;
+            font-size: 0.72rem !important; font-weight: 700 !important;
             width: 100% !important; padding: 0.52rem 0.3rem !important;
             height: auto !important; white-space: nowrap !important;
-        }}
-        .st-key-btn_user .stButton > button:hover {{
-            background: rgba(255,255,255,0.07) !important;
-            border-color: #3a4550 !important; color: #c8d6e5 !important;
-        }}
-        .st-key-btn_champions .stButton > button {{
-            background: rgba(167,139,250,0.07) !important;
-            border: 1px solid rgba(167,139,250,0.22) !important;
-            border-radius: 10px !important; color: #a78bfa !important;
-            font-size: 0.77rem !important; font-weight: 700 !important;
-            width: 100% !important; padding: 0.52rem 0.3rem !important;
-            height: auto !important; white-space: nowrap !important;
-        }}
-        .st-key-btn_champions .stButton > button:hover {{
-            background: rgba(167,139,250,0.16) !important;
-            border-color: rgba(167,139,250,0.5) !important;
+            letter-spacing: 0.3px !important; text-transform: uppercase !important;
         }}
         [class*="st-key-rcbtn_u_"] .stButton > button {{
             width: 100% !important;
             border-radius: 0 0 14px 14px !important;
-            background: #0a0d0f !important;
+            background: #111111 !important;
             border: none !important;
-            border-top: 1px solid #181c1f !important;
-            color: #363636 !important;
+            border-top: 1px solid #222222 !important;
+            color: #3a4550 !important;
             font-size: 0.76rem !important; font-weight: 700 !important;
             padding: 0.55rem 1rem !important;
             transition: all 0.18s ease !important;
-            letter-spacing: 0.2px !important;
+            letter-spacing: 0.3px !important;
         }}
         [class*="st-key-rcbtn_u_"] .stButton > button:hover {{
-            background: rgba(167,139,250,0.08) !important;
-            color: #a78bfa !important;
-            border-top-color: rgba(167,139,250,0.35) !important;
+            background: rgba(38,166,154,0.07) !important;
+            color: #26A69A !important;
+            border-top-color: rgba(38,166,154,0.3) !important;
         }}
         [class*="st-key-rcbtn_s_"] .stButton > button {{
             width: 100% !important;
             border-radius: 0 0 14px 14px !important;
-            background: rgba(167,139,250,0.07) !important;
+            background: rgba(38,166,154,0.07) !important;
             border: none !important;
-            border-top: 1px solid rgba(167,139,250,0.25) !important;
-            color: #a78bfa !important;
+            border-top: 1px solid rgba(38,166,154,0.25) !important;
+            color: #26A69A !important;
             font-size: 0.76rem !important; font-weight: 800 !important;
             padding: 0.55rem 1rem !important;
             transition: all 0.18s ease !important;
-            letter-spacing: 0.2px !important;
+            letter-spacing: 0.3px !important;
         }}
         [class*="st-key-rcbtn_s_"] .stButton > button:hover {{
             background: rgba(239,83,80,0.08) !important;
             color: #ef5350 !important;
             border-top-color: rgba(239,83,80,0.3) !important;
         }}
-        .st-key-btn_pulse .stButton > button {{
-            background: rgba(74,158,255,0.07) !important;
-            border: 1px solid rgba(74,158,255,0.22) !important;
+        .st-key-btn_pulse .stButton > button,
+        .st-key-btn_journal .stButton > button {{
+            background: #181818 !important;
+            border: 1px solid #282828 !important;
             border-radius: 10px !important;
-            color: #4A9EFF !important;
-            font-size: 0.77rem !important; font-weight: 700 !important;
+            color: #8a9bb0 !important;
+            font-size: 0.72rem !important; font-weight: 700 !important;
             width: 100% !important; padding: 0.52rem 0.3rem !important;
             height: auto !important; white-space: nowrap !important;
-            letter-spacing: 0.2px !important;
+            letter-spacing: 0.3px !important; text-transform: uppercase !important;
+            transition: all 0.15s ease !important;
         }}
-        .st-key-btn_pulse .stButton > button:hover {{
-            background: rgba(74,158,255,0.16) !important;
-            border-color: rgba(74,158,255,0.5) !important;
+        .st-key-btn_pulse .stButton > button:hover,
+        .st-key-btn_journal .stButton > button:hover {{
+            background: #1e2530 !important;
+            border-color: #3d5060 !important;
+            color: #c8d6e5 !important;
         }}
 
         /* ── User panel ───────────────────────────────────────────────────── */
         .st-key-user_panel_wrap > div:first-child {{
-            background: #1a1e21 !important;
-            border: 1px solid #252b2e !important;
-            border-radius: 14px !important;
-            padding: 1.2rem !important;
-            max-width: 260px !important;
-            margin-bottom: 1rem !important;
+            background: #181818 !important;
+            border: 1px solid #282828 !important;
+            border-radius: 16px !important;
+            padding: 1.1rem !important;
+            margin-bottom: 0.75rem !important;
         }}
         .user-panel-hdr {{ display:flex; align-items:center; gap:0.8rem;
-           padding-bottom:0.9rem; border-bottom:1px solid #252b2e; margin-bottom:0.9rem; }}
-        .user-avatar {{ width:42px; height:42px; border-radius:10px;
+           padding-bottom:0.8rem; border-bottom:1px solid #222222; margin-bottom:0.8rem; }}
+        .user-avatar {{ width:38px; height:38px; border-radius:10px;
            background:linear-gradient(135deg,#26A69A,#00897b);
            display:flex; align-items:center; justify-content:center;
-           font-size:1.1rem; font-weight:700; color:#fff; flex-shrink:0; }}
-        .user-info-name {{ font-size:0.95rem; font-weight:700; color:#fff; }}
-        .user-info-role {{ font-size:0.68rem; color:#4a5568; margin-top:2px; }}
-        .user-panel-stats {{ display:flex; gap:0.6rem; margin-bottom:0.9rem; }}
-        .user-stat {{ flex:1; text-align:center; padding:0.6rem 0.4rem;
-           background:#252b2e; border-radius:9px; }}
-        .user-stat-value {{ font-size:1rem; font-weight:700; color:#26A69A; }}
-        .user-stat-label {{ font-size:0.58rem; color:#4a5568; text-transform:uppercase;
+           font-size:1rem; font-weight:700; color:#fff; flex-shrink:0; }}
+        .user-info-name {{ font-size:0.88rem; font-weight:700; color:#e8e8e8; }}
+        .user-info-role {{ font-size:0.62rem; color:#606060; margin-top:2px; text-transform:uppercase; letter-spacing:0.5px; }}
+        .user-panel-stats {{ display:flex; gap:0.5rem; margin-bottom:0.8rem; }}
+        .user-stat {{ flex:1; text-align:center; padding:0.55rem 0.3rem;
+           background:#1e1e1e; border:1px solid #282828; border-radius:9px; }}
+        .user-stat-value {{ font-size:0.95rem; font-weight:800; color:#26A69A; }}
+        .user-stat-label {{ font-size:0.55rem; color:#606060; text-transform:uppercase;
            letter-spacing:0.5px; margin-top:2px; }}
         .st-key-logout_btn .stButton > button {{
             background: rgba(239,83,80,0.07) !important;
             border: 1px solid rgba(239,83,80,0.22) !important;
             border-radius: 9px !important; color: #ef5350 !important;
-            font-size:0.8rem !important; font-weight:600 !important;
-            width:100% !important; padding:0.55rem !important;
+            font-size:0.75rem !important; font-weight:700 !important;
+            width:100% !important; padding:0.5rem !important;
+            text-transform:uppercase !important; letter-spacing:0.3px !important;
         }}
 
         /* ── Market stat cards ─────────────────────────────────────────────── */
-        .mstat-card {{
-            background: #0f1214;
-            border: 1px solid #1e2428;
-            border-radius: 14px;
-            padding: 1rem 1.1rem;
+        /* ── Unified Market Pulse card ─────────────────────────────────── */
+        .mpulse-card {{
+            background: #181818;
+            border: 1px solid #282828;
+            border-radius: 16px;
+            padding: 1rem 1.1rem 0.85rem;
             margin-top: 0.75rem;
+            position: relative;
+            overflow: hidden;
         }}
-        .mstat-label {{
-            font-size: 0.6rem; font-weight: 700; text-transform: uppercase;
-            letter-spacing: 0.8px; color: #3a4550; margin-bottom: 0.5rem;
+        .mpulse-card::before {{
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 2px;
+            border-radius: 16px 16px 0 0;
         }}
-        .mstat-value {{ font-size: 1.55rem; font-weight: 800; line-height: 1;
-            letter-spacing: -0.5px; color: #e8e8e8; }}
-        .mstat-sub {{ font-size: 0.65rem; color: #3a4550; margin-top: 0.35rem; }}
+        .mpulse-card.is-open::before  {{ background: linear-gradient(90deg,#26A69A,#26A69A55,transparent); }}
+        .mpulse-card.is-closed::before {{ background: linear-gradient(90deg,#ef5350,#ef535055,transparent); }}
+        .mpulse-top {{ display:flex; align-items:center; justify-content:space-between; margin-bottom:0.15rem; }}
+        .mpulse-time {{ font-size:1.5rem; font-weight:900; color:#e8e8e8; letter-spacing:-0.5px; line-height:1; }}
+        .mpulse-badge-open {{
+            display:inline-flex; align-items:center; gap:5px;
+            padding:4px 11px; border-radius:999px; font-size:0.58rem; font-weight:800;
+            letter-spacing:0.8px; text-transform:uppercase;
+            background:rgba(38,166,154,0.13); color:#26A69A;
+            border:1px solid rgba(38,166,154,0.3);
+            box-shadow:0 0 12px rgba(38,166,154,0.15);
+        }}
+        .mpulse-badge-closed {{
+            display:inline-flex; align-items:center; gap:5px;
+            padding:4px 11px; border-radius:999px; font-size:0.58rem; font-weight:800;
+            letter-spacing:0.8px; text-transform:uppercase;
+            background:rgba(239,83,80,0.1); color:#ef5350;
+            border:1px solid rgba(239,83,80,0.25);
+        }}
+        .mpulse-dot {{ width:6px; height:6px; border-radius:50%; flex-shrink:0; }}
+        .mpulse-badge-open  .mpulse-dot {{ background:#26A69A; animation:mpulse-ping 1.8s ease-in-out infinite; }}
+        .mpulse-badge-closed .mpulse-dot {{ background:#ef5350; }}
+        @keyframes mpulse-ping {{ 0%,100%{{opacity:1;transform:scale(1)}} 50%{{opacity:0.3;transform:scale(0.65)}} }}
+        .mpulse-sub {{ font-size:0.6rem; color:#888888; margin-bottom:0.7rem; font-weight:500; }}
+        .mpulse-div {{ height:1px; background:#222222; margin:0.6rem 0; }}
+        .mpulse-row {{ display:flex; align-items:center; justify-content:space-between; margin-bottom:0.5rem; }}
+        .mpulse-row-label {{ font-size:0.58rem; font-weight:700; color:#606060; text-transform:uppercase; letter-spacing:0.7px; }}
+        .mpulse-tasi-val {{ font-size:1.05rem; font-weight:900; letter-spacing:-0.3px; line-height:1; }}
+        .mpulse-perf-right {{ display:flex; align-items:center; gap:0.45rem; }}
+        .mpulse-perf-val {{ font-size:1.05rem; font-weight:900; letter-spacing:-0.3px; line-height:1; }}
+        .mpulse-sent {{
+            font-size:0.54rem; font-weight:800; padding:3px 8px;
+            border-radius:6px; text-transform:uppercase; letter-spacing:0.5px; white-space:nowrap;
+        }}
+        .mpulse-bar {{
+            display:flex; border-radius:5px; overflow:hidden;
+            height:8px; gap:2px; margin-bottom:0.45rem;
+        }}
+        .mpulse-bar-up   {{ background:#26A69A; border-radius:5px; }}
+        .mpulse-bar-down {{ background:#ef5350; border-radius:5px; }}
+        .mpulse-bar-flat {{ background:#252f3a; border-radius:5px; }}
+        .mpulse-pills {{ display:flex; gap:0.35rem; align-items:center; flex-wrap:wrap; }}
+        .mpulse-pill {{
+            display:inline-flex; align-items:center; gap:3px;
+            padding:3px 9px; border-radius:999px;
+            font-size:0.7rem; font-weight:800; line-height:1;
+        }}
+        .mpulse-pill-up   {{ background:rgba(38,166,154,0.12); color:#26A69A; border:1px solid rgba(38,166,154,0.28); }}
+        .mpulse-pill-down {{ background:rgba(239,83,80,0.12);  color:#ef5350; border:1px solid rgba(239,83,80,0.28); }}
+        .mpulse-pill-flat {{ background:rgba(42,52,64,0.7);    color:#888888; border:1px solid #282828; }}
+        .mpulse-ratio {{ margin-left:auto; font-size:0.58rem; font-weight:700; color:#888888;
+            background:#1e1e1e; border:1px solid #282828; border-radius:6px; padding:2px 7px; }}
+        /* keep mstat-card alias for tomorrow-forecast card */
+        .mstat-card {{
+            background:#181818; border:1px solid #282828;
+            border-radius:14px; padding:1rem 1.1rem; margin-top:0.75rem;
+        }}
+        .mstat-label {{ font-size:0.6rem; font-weight:700; text-transform:uppercase;
+            letter-spacing:0.8px; color:#3a4550; margin-bottom:0.5rem; }}
+        .mstat-value {{ font-size:1.55rem; font-weight:800; line-height:1;
+            letter-spacing:-0.5px; color:#e8e8e8; }}
+        .mstat-sub {{ font-size:0.65rem; color:#3a4550; margin-top:0.35rem; }}
+        .mstat-row {{ display:flex; align-items:center; justify-content:space-between; gap:0.5rem; }}
+        .mstat-breadth {{ margin-top:0.6rem; }}
+        .mstat-bar {{ display:flex; border-radius:6px; overflow:hidden; height:6px; margin-bottom:0.65rem; gap:2px; }}
+        .mstat-bar-up   {{ background:#26A69A; border-radius:6px; }}
+        .mstat-bar-down {{ background:#ef5350; border-radius:6px; }}
+        .mstat-bar-flat {{ background:#2a3240; border-radius:6px; }}
+        .mstat-bcells {{ display:flex; gap:0.5rem; }}
         .mstat-badge-open  {{ display:inline-flex; align-items:center; gap:5px;
             padding:3px 10px; border-radius:999px; font-size:0.6rem; font-weight:700;
             letter-spacing:0.5px; text-transform:uppercase;
@@ -2842,19 +2924,10 @@ def main():
             letter-spacing:0.5px; text-transform:uppercase;
             background:rgba(239,83,80,0.12); color:#ef5350; }}
         .mstat-dot {{ width:6px; height:6px; border-radius:50%;
-            animation: mstat-pulse 2s ease-in-out infinite; }}
+            animation:mstat-pulse 2s ease-in-out infinite; }}
         .mstat-badge-open  .mstat-dot {{ background:#26A69A; }}
         .mstat-badge-closed .mstat-dot {{ background:#ef5350; }}
         @keyframes mstat-pulse {{ 0%,100%{{opacity:1}} 50%{{opacity:0.3}} }}
-        .mstat-row {{ display:flex; align-items:center;
-            justify-content:space-between; gap:0.5rem; }}
-        .mstat-breadth {{ margin-top:0.6rem; }}
-        .mstat-bar {{ display:flex; border-radius:6px; overflow:hidden;
-            height:6px; margin-bottom:0.65rem; gap:2px; }}
-        .mstat-bar-up   {{ background:#26A69A; border-radius:6px; }}
-        .mstat-bar-down {{ background:#ef5350; border-radius:6px; }}
-        .mstat-bar-flat {{ background:#2a3240; border-radius:6px; }}
-        .mstat-bcells {{ display:flex; gap:0.5rem; }}
 
         /* ── Period selector pills ─────────────────────────────────────────── */
         .st-key-prd_row [data-testid="stHorizontalBlock"] {{ gap:0.18rem !important; margin-top:0.55rem !important; margin-bottom:0.2rem !important; }}
@@ -2865,16 +2938,17 @@ def main():
         .st-key-mkt_p_3m .stButton > button,
         .st-key-mkt_p_6m .stButton > button,
         .st-key-mkt_p_1y .stButton > button {{
-            background: transparent !important;
-            border: 1px solid #1e2428 !important;
-            color: #4a5568 !important;
-            font-size: 0.6rem !important;
+            background: #181818 !important;
+            border: 1px solid #282828 !important;
+            color: #606060 !important;
+            font-size: 0.62rem !important;
             font-weight: 700 !important;
-            padding: 0.22rem 0 !important;
+            padding: 0.25rem 0 !important;
             width: 100% !important;
-            border-radius: 6px !important;
-            letter-spacing: 0.03em !important;
+            border-radius: 7px !important;
+            letter-spacing: 0.05em !important;
             min-height: 0 !important;
+            transition: all 0.15s ease !important;
         }}
         .st-key-mkt_p_1d .stButton > button:hover,
         .st-key-mkt_p_1w .stButton > button:hover,
@@ -2884,6 +2958,7 @@ def main():
         .st-key-mkt_p_1y .stButton > button:hover {{
             border-color: #26A69A !important;
             color: #26A69A !important;
+            background: rgba(38,166,154,0.08) !important;
         }}
         .mstat-bcell {{ flex:1; text-align:center; padding:0.55rem 0.3rem;
             background:#0a0d0f; border:1px solid #1e2428; border-radius:10px; }}
@@ -2924,83 +2999,23 @@ def main():
 
         /* ── Toolbar wrap (no-op — layout handled by left_panel column CSS) ── */
         .st-key-btn_saved, .st-key-btn_user, .st-key-btn_champions {{ width: 100% !important; }}
+        /* Active state: user button when panel open */
+        .st-key-btn_user_active .stButton > button {{
+            background: rgba(38,166,154,0.1) !important;
+            border: 1px solid rgba(38,166,154,0.35) !important;
+            border-radius: 10px !important;
+            color: #26A69A !important;
+            font-size: 0.72rem !important; font-weight: 700 !important;
+            width: 100% !important; padding: 0.52rem 0.3rem !important;
+            height: auto !important; white-space: nowrap !important;
+            letter-spacing: 0.3px !important; text-transform: uppercase !important;
+        }}
         
         /* ═══════════════════════════════════════════════════════════════════
            USER PANEL DROPDOWN - Matches app panel style
            ═══════════════════════════════════════════════════════════════════ */
         .st-key-user_panel_wrap {{
-            margin-bottom: 1.25rem !important;
-        }}
-        .st-key-user_panel_wrap > div:first-child {{
-            background: #212121 !important;
-            border: 1px solid #303030 !important;
-            border-radius: 14px !important;
-            padding: 1.25rem !important;
-            max-width: 280px !important;
-        }}
-        .user-panel-hdr {{
-            display: flex;
-            align-items: center;
-            gap: 0.85rem;
-            padding-bottom: 1rem;
-            border-bottom: 1px solid #303030;
-            margin-bottom: 1rem;
-        }}
-        .user-avatar {{
-            width: 46px; height: 46px;
-            border-radius: 12px;
-            background: linear-gradient(135deg, #26A69A 0%, #00897b 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.2rem;
-            font-weight: 700;
-            color: #fff;
-            flex-shrink: 0;
-        }}
-        .user-info-name {{
-            font-size: 1rem;
-            font-weight: 700;
-            color: #ffffff;
-            margin-bottom: 2px;
-        }}
-        .user-info-role {{
-            font-size: 0.72rem;
-            color: #757575;
-        }}
-        .user-panel-stats {{
-            display: flex;
-            gap: 0.75rem;
-            margin-bottom: 1rem;
-        }}
-        .user-stat {{
-            flex: 1;
-            text-align: center;
-            padding: 0.65rem 0.5rem;
-            background: #303030;
-            border-radius: 10px;
-        }}
-        .user-stat-value {{
-            font-size: 1.1rem;
-            font-weight: 700;
-            color: #26A69A;
-        }}
-        .user-stat-label {{
-            font-size: 0.62rem;
-            color: #757575;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-top: 2px;
-        }}
-        .st-key-logout_btn .stButton > button {{
-            background: rgba(239,83,80,0.08) !important;
-            border: 1px solid rgba(239,83,80,0.25) !important;
-            border-radius: 10px !important;
-            color: #ef5350 !important;
-            font-size: 0.82rem !important;
-            font-weight: 600 !important;
-            width: 100% !important;
-            padding: 0.6rem !important;
+            margin-bottom: 0.75rem !important;
         }}
         .st-key-logout_btn .stButton > button:hover {{
             background: rgba(239,83,80,0.15) !important;
@@ -3008,15 +3023,16 @@ def main():
         }}
         .st-key-disconnect_btn .stButton > button {{
             background: transparent !important;
-            border: 1px solid #2a2a2a !important;
+            border: 1px solid #282828 !important;
             border-radius: 10px !important;
-            color: #4a4a4a !important;
-            font-size: 0.75rem !important;
+            color: #3a4550 !important;
+            font-size: 0.72rem !important;
             font-weight: 700 !important;
             width: 100% !important;
-            padding: 0.55rem !important;
-            margin-top: 0.5rem !important;
+            padding: 0.5rem !important;
+            margin-top: 0.4rem !important;
             letter-spacing: 0.3px !important;
+            text-transform: uppercase !important;
             transition: all 0.15s ease !important;
         }}
         .st-key-disconnect_btn .stButton > button:hover {{
@@ -3026,7 +3042,7 @@ def main():
         }}
 
         /* ═══════════════════════════════════════════════════════════════════
-           MARKET CARDS - Matching app panel style (#212121, #303030)
+           MARKET CARDS - Matching mpulse design language
            ═══════════════════════════════════════════════════════════════════ */
         .st-key-market_row {{
             margin-bottom: 1.5rem !important;
@@ -3037,18 +3053,18 @@ def main():
         .st-key-mcard_status > div:first-child,
         .st-key-mcard_perf > div:first-child,
         .st-key-mcard_breadth > div:first-child {{
-            background: #212121 !important;
-            border: 1px solid #303030 !important;
-            border-radius: 14px !important;
-            padding: 1.25rem !important;
+            background: #181818 !important;
+            border: 1px solid #282828 !important;
+            border-radius: 16px !important;
+            padding: 1.1rem !important;
         }}
         .mkt-title {{
-            font-size: 0.72rem;
-            font-weight: 600;
+            font-size: 0.58rem;
+            font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.8px;
-            color: #757575;
-            margin-bottom: 0.75rem;
+            color: #606060;
+            margin-bottom: 0.65rem;
         }}
         .mkt-main-row {{
             display: flex;
@@ -3057,81 +3073,82 @@ def main():
             gap: 0.75rem;
         }}
         .mkt-value {{
-            font-size: 1.65rem;
-            font-weight: 700;
-            color: #ffffff;
+            font-size: 1.5rem;
+            font-weight: 900;
+            color: #e8e8e8;
             letter-spacing: -0.5px;
             line-height: 1;
         }}
         .mkt-sub {{
-            font-size: 0.72rem;
-            color: #757575;
-            margin-top: 0.5rem;
+            font-size: 0.6rem;
+            color: #888888;
+            margin-top: 0.4rem;
         }}
         .mkt-badge {{
             display: inline-flex;
             align-items: center;
-            gap: 6px;
-            padding: 5px 12px;
-            border-radius: 8px;
-            font-size: 0.68rem;
-            font-weight: 700;
-            letter-spacing: 0.4px;
+            gap: 5px;
+            padding: 4px 11px;
+            border-radius: 999px;
+            font-size: 0.58rem;
+            font-weight: 800;
+            letter-spacing: 0.8px;
             text-transform: uppercase;
         }}
         .mkt-badge.open {{
-            background: rgba(38,166,154,0.12);
+            background: rgba(38,166,154,0.13);
             color: #26A69A;
+            border: 1px solid rgba(38,166,154,0.3);
+            box-shadow: 0 0 12px rgba(38,166,154,0.15);
         }}
         .mkt-badge.closed {{
-            background: rgba(239,83,80,0.12);
+            background: rgba(239,83,80,0.1);
             color: #ef5350;
+            border: 1px solid rgba(239,83,80,0.25);
         }}
         .mkt-dot {{
-            width: 7px; height: 7px;
+            width: 6px; height: 6px;
             border-radius: 50%;
-            animation: mkt-pulse 2s ease-in-out infinite;
         }}
-        .mkt-badge.open .mkt-dot {{ background: #26A69A; }}
+        .mkt-badge.open .mkt-dot {{ background: #26A69A; animation: mpulse-ping 1.8s ease-in-out infinite; }}
         .mkt-badge.closed .mkt-dot {{ background: #ef5350; }}
-        @keyframes mkt-pulse {{
-            0%, 100% {{ opacity: 1; }}
-            50% {{ opacity: 0.35; }}
-        }}
         .mkt-sent {{
-            padding: 5px 12px;
-            border-radius: 8px;
-            font-size: 0.68rem;
-            font-weight: 700;
-            letter-spacing: 0.3px;
+            padding: 3px 9px;
+            border-radius: 6px;
+            font-size: 0.54rem;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
         }}
         .mkt-breadth-grid {{
             display: flex;
-            gap: 0.65rem;
+            gap: 0.5rem;
             margin-top: 0.25rem;
         }}
         .mkt-breadth-box {{
             flex: 1;
             text-align: center;
-            padding: 0.7rem 0.5rem;
-            background: #303030;
-            border-radius: 10px;
+            padding: 0.55rem 0.3rem;
+            background: #1e1e1e;
+            border: 1px solid #282828;
+            border-radius: 9px;
         }}
         .mkt-breadth-num {{
-            font-size: 1.35rem;
-            font-weight: 700;
+            font-size: 1.15rem;
+            font-weight: 900;
             line-height: 1;
         }}
         .mkt-breadth-num.up {{ color: #26A69A; }}
         .mkt-breadth-num.down {{ color: #ef5350; }}
-        .mkt-breadth-num.flat {{ color: #757575; }}
+        .mkt-breadth-num.flat {{ color: #888888; }}
         .mkt-breadth-lbl {{
-            font-size: 0.62rem;
-            color: #757575;
+            font-size: 0.55rem;
+            color: #606060;
             text-transform: uppercase;
-            letter-spacing: 0.4px;
-            margin-top: 4px;
-        }}
+            letter-spacing: 0.5px;
+            margin-top: 3px;
+        }}.mstat-bcell {{ flex:1; text-align:center; padding:0.55rem 0.3rem;
+            background:#1e1e1e; border:1px solid #282828; border-radius:10px; }}
         </style>
         """, unsafe_allow_html=True)
 
@@ -3200,8 +3217,10 @@ def main():
                     fav_count = len(st.session_state.get('favorites', []))
                     _bu1, _bu2, _bu3 = st.columns([1, 1, 1], gap="small")
                     with _bu1:
-                        with st.container(key="btn_user"):
-                            _usr_lbl = f"◉  {username[:10]}"
+                        _user_active = st.session_state.show_user_panel
+                        _user_key = "btn_user_active" if _user_active else "btn_user"
+                        with st.container(key=_user_key):
+                            _usr_lbl = username[:12].upper()
                             if st.button(_usr_lbl, key="toolbar_user", use_container_width=True):
                                 st.session_state.show_user_panel = not st.session_state.show_user_panel
                                 if st.session_state.show_user_panel:
@@ -3209,9 +3228,10 @@ def main():
                                     st.session_state.show_trade_journal = False
                                 st.rerun()
                     with _bu2:
-                        with st.container(key="btn_champions"):
-                            _cv_is_active = st.session_state.get('show_champions_vault', False)
-                            _cv_lbl = "✕  Scanner" if _cv_is_active else "⟳  Scanner"
+                        _cv_is_active = st.session_state.get('show_champions_vault', False)
+                        _scanner_key = "btn_champions_active" if _cv_is_active else "btn_champions"
+                        with st.container(key=_scanner_key):
+                            _cv_lbl = "Close" if _cv_is_active else "Scanner"
                             if st.button(_cv_lbl, key="toolbar_champions", use_container_width=True):
                                 st.session_state.show_champions_vault = not _cv_is_active
                                 if not _cv_is_active:
@@ -3219,9 +3239,10 @@ def main():
                                     st.session_state.show_trade_journal = False
                                 st.rerun()
                     with _bu3:
-                        with st.container(key="btn_journal"):
-                            _tj_active = st.session_state.get('show_trade_journal', False)
-                            _tj_lbl = "✕  Journal" if _tj_active else "📒  Journal"
+                        _tj_active = st.session_state.get('show_trade_journal', False)
+                        _journal_key = "btn_journal_active" if _tj_active else "btn_journal"
+                        with st.container(key=_journal_key):
+                            _tj_lbl = "Close" if _tj_active else "Journal"
                             if st.button(_tj_lbl, key="toolbar_journal", use_container_width=True):
                                 st.session_state.show_trade_journal = not _tj_active
                                 if not _tj_active:
@@ -3243,65 +3264,66 @@ def main():
                                 f'<div class="user-stat"><div class="user-stat-value">Pro</div>'
                                 f'<div class="user-stat-label">Plan</div></div></div>',
                                 unsafe_allow_html=True)
-                    # Market Status card
-                    open_badge = (
-                        f'<span class="mstat-badge-open"><span class="mstat-dot"></span>OPEN</span>'
-                        if is_open else
-                        f'<span class="mstat-badge-closed"><span class="mstat-dot"></span>CLOSED</span>'
-                    )
+                    # ── Unified Market Pulse card ─────────────────────────
+                    _total_b    = max(gainers + losers + unchanged, 1)
+                    _up_pct     = gainers   / _total_b * 100
+                    _dn_pct     = losers    / _total_b * 100
+                    _fl_pct     = unchanged / _total_b * 100
+                    _tasi_color = '#26A69A' if tasi_change >= 0 else '#ef5350'
+                    _tasi_sign  = '+' if tasi_change >= 0 else ''
+                    _ad_ratio   = gainers / max(losers, 1)
+                    _ad_label   = (f'{_ad_ratio:.1f}:1 bulls' if gainers >= losers
+                                   else f'{1/_ad_ratio:.1f}:1 bears')
+                    _open_cls   = 'is-open' if is_open else 'is-closed'
+                    _badge_cls  = 'mpulse-badge-open' if is_open else 'mpulse-badge-closed'
+                    _badge_txt  = 'OPEN' if is_open else 'CLOSED'
                     st.markdown(
-                        f'<div class="mstat-card">'
-                        f'<div class="mstat-label">Market Status</div>'
-                        f'<div class="mstat-row">'
-                        f'<div class="mstat-value">{market_time}</div>'
-                        f'{open_badge}'
-                        f'</div>'
-                        f'<div class="mstat-sub">{status_detail}</div>'
-                        f'</div>',
-                        unsafe_allow_html=True)
+                        f'<div class="mpulse-card {_open_cls}">'
 
-                    # Performance card
-                    st.markdown(
-                        f'<div class="mstat-card">'
-                        f'<div class="mstat-label">Performance</div>'
-                        f'<div class="mstat-row">'
-                        f'<div class="mstat-value" style="color:{perf_color}">'
-                        f'{perf_sign}{avg_change:.2f}%</div>'
-                        f'<span style="padding:3px 10px;border-radius:8px;font-size:0.65rem;'
-                        f'font-weight:700;background:{sent_color}18;color:{sent_color};">'
-                        f'{sentiment}</span>'
+                        # ── Row 1: time + open/closed badge
+                        f'<div class="mpulse-top">'
+                        f'<div class="mpulse-time">{market_time}</div>'
+                        f'<span class="{_badge_cls}"><span class="mpulse-dot"></span>{_badge_txt}</span>'
                         f'</div>'
-                        f'<div class="mstat-sub">{_perf_subtitle} · avg of {gainers+losers+unchanged} stocks</div>'
-                        f'</div>',
-                        unsafe_allow_html=True)
+                        f'<div class="mpulse-sub">{status_detail}</div>'
 
-                    # Breadth card
-                    _total_b = max(gainers + losers + unchanged, 1)
-                    _up_pct   = gainers   / _total_b * 100
-                    _dn_pct   = losers    / _total_b * 100
-                    _fl_pct   = unchanged / _total_b * 100
-                    _tasi_color = "#26A69A" if tasi_change >= 0 else "#ef5350"
-                    _tasi_sign = "+" if tasi_change >= 0 else ""
-                    _tasi_help = info_icon("TASI is the Saudi market index change for today. Green means the market closed higher, red means it closed lower.")
-                    st.markdown(
-                        f'<div class="mstat-card">'
-                        f'<div class="mstat-label">Market Breadth</div>'
-                        f'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,0.08);">'
-                        f'<div style="font-size:0.72rem;color:#9aa0a6;font-weight:600;">TASI {_tasi_help}</div>'
-                        f'<div style="font-size:0.9rem;font-weight:800;color:{_tasi_color};">{_tasi_sign}{tasi_change:.2f}%</div>'
+                        f'<div class="mpulse-div"></div>'
+
+                        # ── Row 2: TASI
+                        f'<div class="mpulse-row">'
+                        f'<span class="mpulse-row-label">TASI</span>'
+                        f'<span class="mpulse-tasi-val" style="color:{_tasi_color};">'
+                        f'{_tasi_sign}{tasi_change:.2f}%</span>'
                         f'</div>'
-                        f'<div class="mstat-breadth">'
-                        f'<div class="mstat-bar">'
-                        f'<div class="mstat-bar-up"   style="width:{_up_pct:.1f}%"></div>'
-                        f'<div class="mstat-bar-down" style="width:{_dn_pct:.1f}%"></div>'
-                        f'<div class="mstat-bar-flat" style="width:{_fl_pct:.1f}%"></div>'
-                        f'</div>'
-                        f'<div class="mstat-bcells">'
-                        f'<div class="mstat-bcell"><div class="mstat-bv" style="color:#26A69A">{gainers}</div><div class="mstat-bl">▲ Up</div></div>'
-                        f'<div class="mstat-bcell"><div class="mstat-bv" style="color:#ef5350">{losers}</div><div class="mstat-bl">▼ Down</div></div>'
-                        f'<div class="mstat-bcell"><div class="mstat-bv" style="color:#3a4550">{unchanged}</div><div class="mstat-bl">━ Flat</div></div>'
+
+                        # ── Row 3: Avg performance + sentiment
+                        f'<div class="mpulse-row">'
+                        f'<span class="mpulse-row-label">Avg Move</span>'
+                        f'<div class="mpulse-perf-right">'
+                        f'<span class="mpulse-perf-val" style="color:{perf_color};">'
+                        f'{perf_sign}{avg_change:.2f}%</span>'
+                        f'<span class="mpulse-sent" style="background:{sent_color}15;color:{sent_color};'
+                        f'border:1px solid {sent_color}25;">{sentiment}</span>'
                         f'</div>'
                         f'</div>'
+
+                        f'<div class="mpulse-div"></div>'
+
+                        # ── Breadth bar
+                        f'<div class="mpulse-bar">'
+                        f'<div class="mpulse-bar-up"   style="width:{_up_pct:.1f}%;"></div>'
+                        f'<div class="mpulse-bar-down" style="width:{_dn_pct:.1f}%;"></div>'
+                        f'<div class="mpulse-bar-flat" style="width:{_fl_pct:.1f}%;"></div>'
+                        f'</div>'
+
+                        # ── Breadth pills + A/D ratio
+                        f'<div class="mpulse-pills">'
+                        f'<span class="mpulse-pill mpulse-pill-up">▲ {gainers}</span>'
+                        f'<span class="mpulse-pill mpulse-pill-down">▼ {losers}</span>'
+                        f'<span class="mpulse-pill mpulse-pill-flat">— {unchanged}</span>'
+                        f'<span class="mpulse-ratio">{_ad_label}</span>'
+                        f'</div>'
+
                         f'</div>',
                         unsafe_allow_html=True)
 
@@ -3490,60 +3512,26 @@ def main():
                                 f'</div>'
                             )
 
-                    # ── All factors — premium row design
-                    # Each row: colored side-bar | name + ? + context above bar | numeric pill
-                    def _signal_bar(_val, _max=20):
-                        _pct = min(abs(_val) / _max * 100, 100)
-                        _col = '#26A69A' if _val >= 0 else '#ef5350' if _val < 0 else '#7f878d'
-                        _side = 'right' if _val >= 0 else 'left'
-                        return (
-                            f'<div style="position:relative;height:5px;background:rgba(0,0,0,0.4);border-radius:999px;margin-top:5px;overflow:hidden;'
-                            f'border:1px solid rgba(255,255,255,0.04);">'
-                            f'<div style="position:absolute;top:0;{_side}:50%;height:100%;width:{_pct/2:.1f}%;'
-                            f'background:linear-gradient(90deg,{_col}aa,{_col});box-shadow:0 0 8px {_col}88;border-radius:999px;"></div>'
-                            f'<div style="position:absolute;top:-2px;left:calc(50% - 1px);width:2px;height:9px;'
-                            f'background:rgba(255,255,255,0.35);border-radius:1px;box-shadow:0 0 3px rgba(255,255,255,0.4);"></div>'
-                            f'</div>'
-                        )
-
-                    _factors_html = ''
+                    # ── All factors — compact 2-col grid
+                    _factors_html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;">'
                     for _sname, _sval, _sdesc, _shelp in _signals:
                         if _sval > 0:
                             _sc, _rgb, _arrow = '#26A69A', '38,166,154', '▲'
                         elif _sval < 0:
                             _sc, _rgb, _arrow = '#ef5350', '239,83,80', '▼'
                         else:
-                            _sc, _rgb, _arrow = '#7f878d', '127,135,141', '–'
+                            _sc, _rgb, _arrow = '#888', '136,136,136', '—'
 
                         _factors_html += (
-                            f'<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;margin-bottom:5px;'
-                            f'background:linear-gradient(135deg,rgba({_rgb},0.06),rgba(255,255,255,0.01));'
-                            f'border:1px solid rgba({_rgb},0.18);border-radius:10px;'
-                            f'box-shadow:inset 0 1px 0 rgba(255,255,255,0.02);">'
-                            # Left accent bar
-                            f'<div style="width:3px;align-self:stretch;background:linear-gradient(180deg,{_sc},rgba({_rgb},0.3));'
-                            f'border-radius:2px;box-shadow:0 0 6px {_sc}88;flex-shrink:0;"></div>'
-                            # Middle: name + ? on top row, context on right; bar below
-                            f'<div style="flex:1;min-width:0;">'
-                            f'<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">'
-                            f'<span style="font-size:0.62rem;color:#d0d4d8;font-weight:700;display:inline-flex;align-items:center;gap:5px;letter-spacing:0.2px;">{_sname} {_shelp}</span>'
-                            f'<span style="font-size:0.55rem;color:#909090;font-weight:600;background:rgba(0,0,0,0.25);'
-                            f'padding:2px 7px;border-radius:999px;border:1px solid rgba(255,255,255,0.05);">{_sdesc}</span>'
-                            f'</div>'
-                            f'{_signal_bar(_sval)}'
-                            f'</div>'
-                            # Right: glowing number pill with arrow
-                            f'<div style="flex-shrink:0;display:inline-flex;align-items:center;gap:3px;'
-                            f'font-size:0.7rem;font-weight:900;color:{_sc};'
-                            f'background:rgba({_rgb},0.14);border:1px solid rgba({_rgb},0.35);'
-                            f'padding:5px 9px;border-radius:999px;letter-spacing:-0.2px;min-width:46px;justify-content:center;'
-                            f'box-shadow:0 0 10px rgba({_rgb},0.18), inset 0 1px 0 rgba(255,255,255,0.05);'
-                            f'text-shadow:0 0 8px {_sc}66;">'
-                            f'<span style="font-size:0.55rem;opacity:0.85;">{_arrow}</span>'
-                            f'<span>{_sval:+.0f}</span>'
-                            f'</div>'
+                            f'<div style="display:flex;align-items:center;justify-content:space-between;'
+                            f'padding:6px 9px;background:#1e1e1e;border:1px solid #282828;border-radius:9px;">'
+                            f'<span style="font-size:0.6rem;font-weight:600;color:#aaa;">{_sname}</span>'
+                            f'<span style="font-size:0.62rem;font-weight:800;color:{_sc};'
+                            f'background:rgba({_rgb},0.12);border:1px solid rgba({_rgb},0.25);'
+                            f'padding:2px 7px;border-radius:999px;">{_arrow} {_sval:+.0f}</span>'
                             f'</div>'
                         )
+                    _factors_html += '</div>'
 
                     _forecast_help = info_icon("Predicts tomorrow's market direction by analyzing 7 real-time signals from today's session: how broadly stocks moved, where they closed in their range, whether big volume backed the moves, momentum persistence, structural trend health, TASI's conviction, and extreme overbought/oversold conditions. Score range: -100 (strong sell) to +100 (strong buy). High confidence = most factors agree.")
                     _forecast_label_text = "Last Session Forecast" if market_is_stale else "Tomorrow Outlook"
@@ -3556,87 +3544,80 @@ def main():
                     ) if market_is_stale else ''
 
                     st.markdown(
-                        f'<div class="mstat-card" style="background:#1b1b1b;border:1px solid #272727;border-radius:14px;padding:1.1rem 1.2rem;">'
-                        # Verdict box — premium gradient + accent border + glow
-                        f'<div style="position:relative;padding:1.1rem 1.15rem;border-radius:16px;'
-                        f'background:linear-gradient(135deg,{_tf_tone_color}1f 0%,{_tf_tone_color}0a 50%,#161616 100%);'
-                        f'border:1px solid {_tf_tone_color}55;'
-                        f'box-shadow:0 0 24px {_tf_tone_color}1a, inset 0 1px 0 rgba(255,255,255,0.04);'
-                        f'margin-bottom:14px;overflow:hidden;">'
-                        # Decorative top accent strip
-                        f'<div style="position:absolute;top:0;left:0;right:0;height:2px;'
-                        f'background:linear-gradient(90deg,transparent,{_tf_tone_color},transparent);"></div>'
-                        # Soft glow corner
-                        f'<div style="position:absolute;top:-40px;right:-40px;width:120px;height:120px;'
-                        f'background:radial-gradient(circle,{_tf_tone_color}22 0%,transparent 70%);pointer-events:none;"></div>'
+                        # ── Outer card — matches mpulse style
+                        f'<div style="background:#181818;border:1px solid #282828;border-radius:16px;'
+                        f'padding:1rem 1.1rem 0.9rem;margin-top:0.75rem;position:relative;overflow:hidden;">'
 
-                        # Top row — outlook label + icon (left) | score + confidence (right)
-                        f'<div style="position:relative;display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;flex-wrap:wrap;">'
-                        f'<div style="display:flex;align-items:center;gap:14px;min-width:0;flex:1;">'
-                        f'<span style="font-size:2rem;line-height:1;color:{_tf_tone_color};'
-                        f'text-shadow:0 0 16px {_tf_tone_color}88;">{_fc_icon}</span>'
-                        f'<div style="min-width:0;">'
-                        f'<div style="display:flex;align-items:center;gap:5px;font-size:0.55rem;color:{_tf_tone_color};font-weight:800;text-transform:uppercase;letter-spacing:1.2px;opacity:0.85;margin-bottom:2px;">{_forecast_label_text} {_forecast_help}</div>'
-                        f'<div style="font-size:1.15rem;font-weight:900;color:{_tf_tone_color};letter-spacing:-0.4px;line-height:1.1;'
-                        f'text-shadow:0 0 14px {_tf_tone_color}44;">{_fc_label}</div>'
-                        f'</div>'
-                        f'</div>'
-                        f'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;">'
-                        f'<div style="display:flex;align-items:baseline;gap:3px;">'
-                        f'<span style="font-size:1.55rem;font-weight:900;color:{_tf_tone_color};letter-spacing:-0.6px;line-height:1;'
-                        f'text-shadow:0 0 16px {_tf_tone_color}55;">{_mom_score:+d}</span>'
-                        f'<span style="font-size:0.7rem;font-weight:700;color:#707070;">/100</span>'
-                        f'</div>'
-                        f'<span style="font-size:0.55rem;font-weight:800;color:{_conf_color};'
-                        f'background:rgba({_conf_rgb},0.15);padding:3px 9px;border-radius:999px;letter-spacing:0.5px;'
-                        f'border:1px solid rgba({_conf_rgb},0.3);">{_conf_label} CONF</span>'
-                        f'</div>'
-                        f'</div>'
+                        # Top accent strip (tone-colored, like mpulse open/closed bar)
+                        f'<div style="position:absolute;top:0;left:0;right:0;height:2px;border-radius:16px 16px 0 0;'
+                        f'background:linear-gradient(90deg,{_tf_tone_color},{_tf_tone_color}55,transparent);"></div>'
 
-                        # Score gauge bar
-                        f'<div style="position:relative;height:8px;background:rgba(0,0,0,0.35);border-radius:999px;margin-bottom:6px;overflow:hidden;'
-                        f'border:1px solid rgba(255,255,255,0.04);">'
-                        f'<div style="position:absolute;top:0;{_fc_bar_side}:50%;height:100%;width:{_fc_bar_w/2:.1f}%;'
-                        f'background:linear-gradient(90deg,{_tf_tone_color}aa,{_tf_tone_color});'
-                        f'box-shadow:0 0 14px {_tf_tone_color}99;border-radius:999px;"></div>'
-                        f'<div style="position:absolute;top:-2px;left:calc(50% - 1px);width:2px;height:12px;'
-                        f'background:rgba(255,255,255,0.4);border-radius:1px;box-shadow:0 0 4px rgba(255,255,255,0.3);"></div>'
-                        f'</div>'
-                        f'<div style="display:flex;justify-content:space-between;font-size:0.52rem;color:#707070;margin-bottom:12px;font-weight:700;letter-spacing:0.4px;">'
-                        f'<span>-100 SELL</span><span style="color:#909090;">NEUTRAL</span><span>BUY +100</span>'
-                        f'</div>'
-
-                        # Plain-English summary in a tinted card
-                        f'<div style="font-size:0.74rem;color:#dadde0;line-height:1.6;font-weight:500;'
-                        f'padding:10px 12px;background:rgba(0,0,0,0.25);border-radius:10px;'
-                        f'border-left:3px solid {_tf_tone_color};">{_fc_summary}</div>'
-                        f'</div>'
-
-                        # Next session odds
-                        f'<div style="margin-bottom:14px;">'
-                        f'<div style="font-size:0.55rem;color:#606060;font-weight:800;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Next Session Odds</div>'
-                        f'<div style="display:flex;height:9px;border-radius:999px;overflow:hidden;background:#0a0a0a;">'
-                        f'<div style="background:#26A69A;width:{_p_up:.1f}%;"></div>'
-                        f'<div style="background:#7f878d;width:{_p_fl:.1f}%;"></div>'
-                        f'<div style="background:#ef5350;width:{_p_dn:.1f}%;"></div>'
-                        f'</div>'
-                        f'<div style="display:flex;justify-content:space-between;margin-top:5px;font-size:0.6rem;font-weight:700;">'
-                        f'<span style="color:#26A69A;">▲ Up {_p_up:.0f}%</span>'
-                        f'<span style="color:#7f878d;">— Flat {_p_fl:.0f}%</span>'
-                        f'<span style="color:#ef5350;">▼ Down {_p_dn:.0f}%</span>'
-                        f'</div>'
-                        f'</div>'
-
-                        # All signals (centered bar style)
+                        # ── Header row: label (left) + score badge (right)
+                        f'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.15rem;">'
+                        f'<div style="display:flex;align-items:center;gap:8px;">'
+                        f'<span style="font-size:1.5rem;line-height:1;color:{_tf_tone_color};">{_fc_icon}</span>'
                         f'<div>'
-                        f'<div style="display:flex;align-items:center;gap:7px;margin-bottom:8px;">'
-                        f'<span style="width:3px;height:11px;background:linear-gradient(180deg,#4A9EFF,rgba(74,158,255,0.3));'
-                        f'border-radius:2px;box-shadow:0 0 6px rgba(74,158,255,0.5);"></span>'
-                        f'<span style="font-size:0.58rem;color:#a0a4a8;font-weight:800;text-transform:uppercase;letter-spacing:1.2px;">All Signals</span>'
-                        f'<span style="flex:1;height:1px;background:linear-gradient(90deg,rgba(74,158,255,0.2),transparent);"></span>'
+                        f'<div style="font-size:0.55rem;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:{_tf_tone_color};opacity:0.8;margin-bottom:1px;">{_forecast_label_text} {_forecast_help}</div>'
+                        f'<div style="font-size:1.05rem;font-weight:900;color:{_tf_tone_color};letter-spacing:-0.3px;line-height:1.1;">{_fc_label}</div>'
                         f'</div>'
+                        f'</div>'
+                        f'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;">'
+                        f'<div style="display:flex;align-items:baseline;gap:2px;">'
+                        f'<span style="font-size:1.55rem;font-weight:900;color:{_tf_tone_color};letter-spacing:-0.6px;line-height:1;">{_mom_score:+d}</span>'
+                        f'<span style="font-size:0.65rem;font-weight:700;color:#555;">/100</span>'
+                        f'</div>'
+                        f'<span style="font-size:0.54rem;font-weight:800;color:{_conf_color};'
+                        f'background:rgba({_conf_rgb},0.13);padding:2px 8px;border-radius:999px;letter-spacing:0.5px;'
+                        f'border:1px solid rgba({_conf_rgb},0.28);">{_conf_label} CONF</span>'
+                        f'</div>'
+                        f'</div>'
+
+                        # Sub text (like mpulse-sub)
+                        f'<div style="font-size:0.6rem;color:#888;margin-bottom:0.7rem;font-weight:500;">{_fc_summary}</div>'
+
+                        # Divider
+                        f'<div style="height:1px;background:#222;margin:0.6rem 0;"></div>'
+
+                        # Score gauge bar (like mpulse breadth bar)
+                        f'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">'
+                        f'<span style="font-size:0.58rem;font-weight:700;color:#606060;text-transform:uppercase;letter-spacing:0.7px;">Score</span>'
+                        f'</div>'
+                        f'<div style="position:relative;height:8px;background:#111;border-radius:999px;margin-bottom:5px;overflow:hidden;">'
+                        f'<div style="position:absolute;top:0;{_fc_bar_side}:50%;height:100%;width:{_fc_bar_w/2:.1f}%;'
+                        f'background:{_tf_tone_color};border-radius:999px;box-shadow:0 0 10px {_tf_tone_color}88;"></div>'
+                        f'<div style="position:absolute;top:0;left:calc(50% - 1px);width:2px;height:100%;background:rgba(255,255,255,0.3);border-radius:1px;"></div>'
+                        f'</div>'
+                        f'<div style="display:flex;justify-content:space-between;font-size:0.52rem;color:#444;margin-bottom:0.7rem;font-weight:700;letter-spacing:0.4px;">'
+                        f'<span>-100</span><span style="color:#666;">NEUTRAL</span><span>+100</span>'
+                        f'</div>'
+
+                        # Divider
+                        f'<div style="height:1px;background:#222;margin:0.6rem 0;"></div>'
+
+                        # Next session odds (row label + bar like mpulse)
+                        f'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">'
+                        f'<span style="font-size:0.58rem;font-weight:700;color:#606060;text-transform:uppercase;letter-spacing:0.7px;">Next Session</span>'
+                        f'</div>'
+                        f'<div style="display:flex;border-radius:5px;overflow:hidden;height:8px;gap:2px;margin-bottom:5px;">'
+                        f'<div style="background:#26A69A;width:{_p_up:.1f}%;border-radius:5px;"></div>'
+                        f'<div style="background:#555;width:{_p_fl:.1f}%;border-radius:5px;"></div>'
+                        f'<div style="background:#ef5350;width:{_p_dn:.1f}%;border-radius:5px;"></div>'
+                        f'</div>'
+                        f'<div style="display:flex;gap:0.35rem;align-items:center;flex-wrap:wrap;margin-bottom:0.7rem;">'
+                        f'<span style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:999px;'
+                        f'font-size:0.7rem;font-weight:800;background:rgba(38,166,154,0.12);color:#26A69A;border:1px solid rgba(38,166,154,0.28);">▲ {_p_up:.0f}%</span>'
+                        f'<span style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:999px;'
+                        f'font-size:0.7rem;font-weight:800;background:rgba(85,85,85,0.2);color:#888;border:1px solid #333;">— {_p_fl:.0f}%</span>'
+                        f'<span style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:999px;'
+                        f'font-size:0.7rem;font-weight:800;background:rgba(239,83,80,0.12);color:#ef5350;border:1px solid rgba(239,83,80,0.28);">▼ {_p_dn:.0f}%</span>'
+                        f'</div>'
+
+                        # Divider
+                        f'<div style="height:1px;background:#222;margin:0.6rem 0;"></div>'
+
+                        # All signals section header
+                        f'<div style="font-size:0.58rem;font-weight:700;color:#606060;text-transform:uppercase;letter-spacing:0.7px;margin-bottom:8px;">All Signals</div>'
                         f'{_factors_html}'
-                        f'</div>'
                         f'{_stale_banner_html}'
                         f'</div>',
                         unsafe_allow_html=True)
@@ -5450,42 +5431,6 @@ def main():
                 f'</div>'
                 f'</div>'
 
-                # ══ WHY THIS STOCK + MARKET CONTEXT — side by side ══════════
-                f'<div style="display:grid;grid-template-columns:1fr 1fr;border-top:1px solid #2a2a2a;">'
-
-                # LEFT — Why This Stock
-                f'<div style="padding:1.1rem 1.4rem;border-right:1px solid #1e1e1e;background:#0e0e0e;">'
-                f'<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.8rem;">'
-                f'<div style="width:4px;height:18px;background:#10a37f;border-radius:2px;"></div>'
-                f'<span style="font-size:0.68rem;color:#b0b0b0;font-weight:900;text-transform:uppercase;'
-                f'letter-spacing:1.2px;">Why This Stock</span>'
-                f'<span title="Key reasons why this stock was flagged as a buy signal based on technical analysis."'
-                f' style="font-size:0.6rem;color:#444;cursor:help;font-weight:900;">&#63;</span>'
-                f'</div>'
-                + bullet_html +
-                f'</div>'
-
-                # RIGHT — Market Context
-                f'<div style="padding:1.1rem 1.3rem;background:#0b0b0b;">'
-                f'<div style="display:flex;align-items:center;justify-content:space-between;'
-                f'margin-bottom:0.8rem;">'
-                f'<div style="display:flex;align-items:center;gap:0.5rem;">'
-                f'<div style="width:4px;height:18px;background:#4A9EFF;border-radius:2px;"></div>'
-                f'<span style="font-size:0.68rem;color:#b0b0b0;font-weight:900;'
-                f'text-transform:uppercase;letter-spacing:1.2px;">Market Context</span>'
-                f'</div>'
-                f'<span style="font-size:0.6rem;font-weight:800;'
-                f'color:{_sprof.get("color","#888")};'
-                f'background:{_sprof.get("color","#888")}15;'
-                f'padding:0.2rem 0.7rem;border-radius:6px;'
-                f'border:1px solid {_sprof.get("color","#888")}30;'
-                f'white-space:nowrap;">{_sprof.get("label", sector or "General")}</span>'
-                f'</div>'
-                + _stock_ctx_html +
-                f'</div>'
-
-                f'</div>'
-
                 f'</div>',
                 unsafe_allow_html=True,
             )
@@ -5669,260 +5614,20 @@ def main():
         _acpts_watch = [s for s in _acpts_scored if 55 <= s['v14_score'] < 70]
         _acpts_rej   = [s for s in _acpts_scored if s['v14_score'] < 55]
 
-        tab_best, tab_buy, tab_acpts = st.tabs([
-            f"Perfect Setups  {len(_perfect_list)}",
-            f"Buy Signals  {len(all_buy)}",
-            f"🏛 Institutional  {len(_acpts_inst)}",
-        ])
-
-        with tab_best:
-            if not _perfect_list:
-                st.markdown(
-                    "<div class='msr-empty'>"
-                    "No stocks pass all quality gates right now — check Buy Signals for broader candidates."
-                    "</div>",
-                    unsafe_allow_html=True)
-            else:
-                _rank_colors = ["#FFD700", "#C0C0C0", "#CD7F32"]
-                for _i, s in enumerate(_perfect_list):
-                    _rc       = _rank_colors[_i] if _i < 3 else "#10a37f"
-                    _rank_num = ["#1", "#2", "#3"][_i] if _i < 3 else f"#{_i+1}"
-                    _render_card(s, 'buy', tier_color=_rc, rank_num=_rank_num, is_perfect=True)
-                    _analyse_btn(s, f"ps{_i}")
-
-        with tab_buy:
-            filtered_buy = _f_all_buy
-            if not filtered_buy:
-                st.markdown(
-                    "<div class='msr-empty'>No buy signals found — "
-                    "the scanner requires Score ≥ 3, Conviction ≥ 25% and R:R ≥ 0.8×.<br>"
-                    "Try a wider period or run a full market scan.</div>",
-                    unsafe_allow_html=True)
-            else:
-                # ── 3-tier quality split ─────────────────────────────────────
-                # Tier 1 — STRONG BUY: high conviction, great R:R, strong technicals
-                _t1 = [s for s in filtered_buy
-                       if s.get('score', 0) >= 7
-                       and s.get('rr_ratio', 0) >= 1.5
-                       and s.get('conviction', 0) >= 65]
-                # Tier 2 — BUY: solid setup but not quite elite
-                _t2 = [s for s in filtered_buy
-                       if s not in _t1
-                       and s.get('score', 0) >= 5
-                       and s.get('rr_ratio', 0) >= 1.2
-                       and s.get('conviction', 0) >= 40]
-                # Tier 3 — WATCHLIST: passed basic gates, worth watching
-                _t3 = [s for s in filtered_buy if s not in _t1 and s not in _t2]
-
-                # ── Quality summary banner ───────────────────────────────────
-                st.markdown(
-                    f'<div style="background:#141414;border:1px solid #222;border-radius:10px;'
-                    f'padding:0.85rem 1.2rem;margin-bottom:1rem;display:flex;'
-                    f'flex-wrap:wrap;gap:1.5rem;align-items:center;">'
-                    f'<div style="font-size:0.7rem;color:#505050;font-weight:700;'
-                    f'text-transform:uppercase;letter-spacing:0.8px;">Quality Filter</div>'
-                    # gates
-                    f'<div style="display:flex;gap:0.9rem;flex-wrap:wrap;">'
-                    f'<span style="font-size:0.74rem;color:#666;">Score ≥ 3</span>'
-                    f'<span style="color:#282828;">|</span>'
-                    f'<span style="font-size:0.74rem;color:#666;">Conviction ≥ 25%</span>'
-                    f'<span style="color:#282828;">|</span>'
-                    f'<span style="font-size:0.74rem;color:#666;">R:R ≥ 0.8×</span>'
-                    f'</div>'
-                    f'<div style="margin-left:auto;display:flex;gap:0.6rem;flex-shrink:0;">'
-                    f'<span style="font-size:0.74rem;font-weight:800;padding:0.22rem 0.75rem;'
-                    f'border-radius:6px;background:#10a37f18;color:#10a37f;border:1px solid #10a37f30;">'
-                    f'Strong Buy {len(_t1)}</span>'
-                    f'<span style="font-size:0.74rem;font-weight:800;padding:0.22rem 0.75rem;'
-                    f'border-radius:6px;background:#4A9EFF18;color:#4A9EFF;border:1px solid #4A9EFF30;">'
-                    f'Buy {len(_t2)}</span>'
-                    f'<span style="font-size:0.74rem;font-weight:800;padding:0.22rem 0.75rem;'
-                    f'border-radius:6px;background:#fbbf2418;color:#fbbf24;border:1px solid #fbbf2430;">'
-                    f'Watchlist {len(_t3)}</span>'
-                    f'</div>'
-                    f'</div>',
-                    unsafe_allow_html=True,
-                )
-
-                # ── Tier 1: STRONG BUY ───────────────────────────────────────
-                if _t1:
-                    st.markdown(
-                        f'<div class="msr-sec-row"><div class="msr-sec-dot buy"></div>'
-                        f'<span class="msr-sec-title buy">STRONG BUY</span>'
-                        f'<span style="font-size:0.68rem;color:#555;margin-left:0.3rem;">'
-                        f'Score ≥ 7 · R:R ≥ 1.5× · Conviction ≥ 65%</span>'
-                        f'<span class="msr-sec-count">{len(_t1)} stocks</span>'
-                        f'</div>',
-                        unsafe_allow_html=True)
-                    for _ti, s in enumerate(_t1):
-                        _render_card(s, 'buy', tier_color='#10a37f')
-                        _analyse_btn(s, f"t1_{_ti}")
-
-                # ── Tier 2: BUY ─────────────────────────────────────────────
-                if _t2:
-                    st.markdown(
-                        f'<div class="msr-sec-row" style="border-left:3px solid #4A9EFF22;">'
-                        f'<div class="msr-sec-dot" style="background:#4A9EFF;"></div>'
-                        f'<span class="msr-sec-title" style="color:#4A9EFF;">BUY</span>'
-                        f'<span style="font-size:0.68rem;color:#555;margin-left:0.3rem;">'
-                        f'Score ≥ 5 · R:R ≥ 1.2× · Conviction ≥ 40%</span>'
-                        f'<span class="msr-sec-count">{len(_t2)} stocks</span>'
-                        f'</div>',
-                        unsafe_allow_html=True)
-                    for _ti, s in enumerate(_t2):
-                        _render_card(s, 'buy', tier_color='#4A9EFF')
-                        _analyse_btn(s, f"t2_{_ti}")
-
-                # ── Tier 3: WATCHLIST ────────────────────────────────────────
-                if _t3:
-                    st.markdown(
-                        f'<div class="msr-sec-row" style="border-left:3px solid #fbbf2422;">'
-                        f'<div class="msr-sec-dot" style="background:#fbbf24;"></div>'
-                        f'<span class="msr-sec-title" style="color:#fbbf24;">WATCHLIST</span>'
-                        f'<span style="font-size:0.68rem;color:#555;margin-left:0.3rem;">'
-                        f'Passes basic gates — monitor before entering</span>'
-                        f'<span class="msr-sec-count">{len(_t3)} stocks</span>'
-                        f'</div>',
-                        unsafe_allow_html=True)
-                    for _ti, s in enumerate(_t3):
-                        _render_card(s, 'buy', tier_color='#fbbf24')
-                        _analyse_btn(s, f"t3_{_ti}")
-
-        with tab_acpts:
-            from acpts_tab_v2 import _render_institutional_card, _render_watch_card, _render_reject_table, _render_rules_section, _render_portfolio_summary
-            _REG_CLR = {"TREND": "#26A69A", "RANGE": "#fbbf24", "VOLATILE": "#ef4444"}
-            _REG_LBL = {"TREND": "BULLISH TREND", "RANGE": "SIDEWAYS RANGE", "VOLATILE": "BEARISH / VOLATILE"}
-            _REG_ICON = {"TREND": "🟢", "RANGE": "🟡", "VOLATILE": "🔴"}
-            _REG_DESC = {
-                "TREND": "Active — full risk budget available",
-                "RANGE": "Limited — only 1 position allowed",
-                "VOLATILE": "Full stop — 100% cash, no entries",
-            }
-            _rc = _REG_CLR[_acpts_regime]
-            _regime_pct = round(_acpts_regime_score * 100)
-            _n_above200  = sum(1 for s in all_stocks if s.get('above_ema200', False))
-            _avg_adx_a   = round(sum(s.get('adx', 20) for s in all_stocks) / max(len(all_stocks), 1), 1)
-            _n_weekly    = sum(1 for s in all_stocks if s.get('weekly_bullish', False))
-            _pct_above   = round(_n_above200 / max(len(all_stocks), 1) * 100)
-            _pct_weekly  = round(_n_weekly  / max(len(all_stocks), 1) * 100)
-
+        # ── Perfect Setups only ───────────────────────────────────────────────
+        if not _perfect_list:
             st.markdown(
-                f'<div style="background:linear-gradient(135deg, {_rc}08 0%, #141414 100%);'
-                f'border:1px solid #222;border-left:4px solid {_rc};border-radius:12px;'
-                f'padding:1.3rem 1.5rem;margin-bottom:1rem;">'
-                f'<div style="font-size:0.58rem;color:#555;font-weight:700;text-transform:uppercase;'
-                f'letter-spacing:1.2px;margin-bottom:0.5rem;">MARKET REGIME'
-                f'{_acpts_tip("Weighted composite: Breadth(35%) + ADX Strength(25%) + Macro Return(25%) + Low Volatility(15%). Score > 55% = Trend, 30-55% = Range, < 30% = Volatile.")}'
-                f'</div>'
-                f'<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;">'
-                f'<div>'
-                f'<div style="font-size:1.4rem;font-weight:900;color:{_rc};line-height:1;">'
-                f'{_REG_ICON[_acpts_regime]} {_REG_LBL[_acpts_regime]}</div>'
-                f'<div style="font-size:0.75rem;color:#888;margin-top:0.2rem;">{_REG_DESC[_acpts_regime]}</div>'
-                f'</div>'
-                f'<div style="text-align:right;">'
-                f'<div style="font-size:0.55rem;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:1px;">REGIME SCORE</div>'
-                f'<div style="font-size:1.5rem;font-weight:900;color:{_rc};line-height:1;">'
-                f'{_regime_pct}<span style="font-size:0.7rem;color:{_rc}66;">%</span></div>'
-                f'</div></div>'
-                f'<div style="height:6px;background:#1c1c1c;border-radius:3px;overflow:hidden;margin:0.8rem 0 0.6rem;">'
-                f'<div style="width:{_regime_pct}%;height:100%;background:{_rc};border-radius:3px;"></div></div>'
-                f'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.6rem;">'
-                + _acpts_msr("Above EMA200", f"{_pct_above}%", "#10a37f" if _pct_above > 50 else "#ef4444",
-                             tip_text="% of scanned stocks above their 200-day EMA.")
-                + _acpts_msr("Avg ADX", f"{_avg_adx_a}", "#fff" if _avg_adx_a > 25 else "#666",
-                             tip_text="Average trend strength. Above 25 = strong trend.")
-                + _acpts_msr("Weekly Bullish", f"{_pct_weekly}%", "#10a37f" if _pct_weekly > 50 else "#fbbf24",
-                             tip_text="% of stocks with bullish weekly structure.")
-                + _acpts_msr("Max Positions", f"{_acpts_max_pos}", _rc,
-                             tip_text="Regime-adjusted max simultaneous positions. Bull=3, Range=1, Bear=0.")
-                + '</div></div>',
+                "<div class='msr-empty'>"
+                "No stocks pass all quality gates right now."
+                "</div>",
                 unsafe_allow_html=True)
-
-            if _acpts_regime == "VOLATILE":
-                st.markdown(
-                    '<div style="text-align:center;padding:1.5rem;background:#0e0e0e;border-radius:12px;'
-                    'border:1px dashed #ef444444;color:#ef4444;margin-bottom:1rem;">'
-                    '<div style="font-size:1.1rem;font-weight:900;margin-bottom:0.3rem;">⚠ FULL STOP — No Entries Allowed</div>'
-                    '<div style="font-size:0.8rem;color:#888;line-height:1.6;">'
-                    'Bear / Volatile regime detected. Cash is the best position. '
-                    'Stocks below are scored for reference only.</div></div>',
-                    unsafe_allow_html=True)
-
-            _acpts_cap_col, _acpts_risk_col = st.columns([2, 1])
-            with _acpts_cap_col:
-                _acpts_capital = st.number_input(
-                    "Available Capital (SAR)",
-                    min_value=10000, max_value=50000000,
-                    value=st.session_state.get('acpts_capital', 100000),
-                    step=10000, key='acpts_capital_input')
-                st.session_state['acpts_capital'] = _acpts_capital
-            with _acpts_risk_col:
-                _acpts_risk_sel = st.selectbox(
-                    "Risk per Trade",
-                    ["0.5% — Ultra Conservative", "1.0% — Conservative"],
-                    index=0, key='acpts_risk_level')
-            _acpts_risk_pct = 0.5 if "0.5%" in _acpts_risk_sel else 1.0
-
-            st.markdown(
-                f'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.6rem;margin:1rem 0;">'
-                + _acpts_msr("Scanned", str(scanned), "#888", tip_text="Total stocks analyzed.")
-                + _acpts_msr("Institutional", str(len(_acpts_inst)), "#FFD700", sub="Score ≥ 70",
-                             tip_text="Passed the 70/110 institutional threshold. Only these qualify for entry.")
-                + _acpts_msr("Watchlist", str(len(_acpts_watch)), "#4A9EFF", sub="Score 55-69",
-                             tip_text="Close but not there yet. Monitor for improvement.")
-                + _acpts_msr("Rejected", str(len(_acpts_rej)), "#555", sub="Score < 55",
-                             tip_text="Did not meet minimum criteria.")
-                + '</div>',
-                unsafe_allow_html=True)
-
-            _at_inst, _at_watch, _at_rej, _at_rules = st.tabs([
-                f"🏛 Institutional ({len(_acpts_inst)})",
-                f"👁 Watchlist ({len(_acpts_watch)})",
-                f"✗ Rejected ({len(_acpts_rej)})",
-                "📋 System Rules",
-            ])
-
-            with _at_inst:
-                if not _acpts_inst:
-                    st.markdown(
-                        '<div style="text-align:center;padding:2.5rem 1.5rem;color:#555;'
-                        'font-size:0.85rem;background:#0e0e0e;border-radius:12px;border:1px dashed #262626;">'
-                        '<div style="font-size:1rem;font-weight:800;color:#FFD700;margin-bottom:0.5rem;">'
-                        'Cash is the Default Decision</div>'
-                        '<div style="color:#666;">No stock meets the institutional entry threshold '
-                        '(Score ≥ 70/110).<br>When no opportunity qualifies, staying in cash '
-                        'protects your capital.</div></div>',
-                        unsafe_allow_html=True)
-                else:
-                    for _idx, _is in enumerate(_acpts_inst):
-                        _render_institutional_card(_is, _idx + 1, _acpts_capital, _acpts_risk_pct)
-                    _total_invested = 0
-                    for _is in _acpts_inst:
-                        _rv = _is.get('risk', 2) / 100 * _is.get('price', 0)
-                        if _rv > 0:
-                            _pv = (_acpts_capital * _acpts_risk_pct / 100) / _rv * _is.get('price', 0)
-                            _total_invested += min(_pv, _acpts_capital * 0.30)
-                    _inv_pct  = min(round(_total_invested / _acpts_capital * 100), 75) if _acpts_capital > 0 else 0
-                    _cash_pct = 100 - _inv_pct
-                    _tot_risk = len(_acpts_inst) * _acpts_risk_pct
-                    _render_portfolio_summary(_acpts_inst, _inv_pct, _cash_pct, _tot_risk, _acpts_max_pos)
-
-            with _at_watch:
-                if not _acpts_watch:
-                    st.markdown('<div style="text-align:center;padding:2rem;color:#555;">No stocks in watchlist range (55-69)</div>', unsafe_allow_html=True)
-                else:
-                    for _ws in _acpts_watch[:10]:
-                        _render_watch_card(_ws)
-
-            with _at_rej:
-                if not _acpts_rej:
-                    st.markdown('<div style="text-align:center;padding:2rem;color:#555;">No rejected stocks</div>', unsafe_allow_html=True)
-                else:
-                    _render_reject_table(_acpts_rej[:15])
-
-            with _at_rules:
-                _render_rules_section()
+        else:
+            _rank_colors = ["#FFD700", "#C0C0C0", "#CD7F32"]
+            for _i, s in enumerate(_perfect_list):
+                _rc       = _rank_colors[_i] if _i < 3 else "#10a37f"
+                _rank_num = ["#1", "#2", "#3"][_i] if _i < 3 else f"#{_i+1}"
+                _render_card(s, 'buy', tier_color=_rc, rank_num=_rank_num, is_perfect=True)
+                _analyse_btn(s, f"ps{_i}")
 
     elif st.session_state.show_macro:
 

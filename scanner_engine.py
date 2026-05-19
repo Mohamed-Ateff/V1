@@ -31,16 +31,18 @@ def _ind_labels(keys: list[str]) -> str:
 # ── build indicator state arrays ─────────────────────────────────────────────
 
 def _build_states(df: pd.DataFrame) -> dict[str, np.ndarray]:
+    """Build binary indicator state arrays. Uses native pandas where ta.sma is slow."""
     import pandas_ta as ta
 
     def safe(arr) -> np.ndarray:
         a = np.asarray(arr, dtype=float)
         return np.where(np.isnan(a), 0, a).astype(np.int8)
 
-    c  = df['Close']
-    hi = df['High']
-    lo = df['Low']
-    vo = df['Volume']
+    c  = df['Close'].astype(float)
+    hi = df['High'].astype(float)
+    lo = df['Low'].astype(float)
+    vo = df['Volume'].astype(float)
+    cv = c.values
     n  = len(df)
     s  = {}
 
@@ -51,15 +53,16 @@ def _build_states(df: pd.DataFrame) -> dict[str, np.ndarray]:
     except Exception: pass
 
     try:
-        s50 = ta.sma(c, 50); s200 = ta.sma(c, 200)
-        if s50 is not None and s200 is not None:
-            s['SMA'] = safe(s50 > s200)
+        # use pandas rolling — ta.sma has 100ms JIT penalty on first call per series
+        s50  = c.rolling(50).mean()
+        s200 = c.rolling(200).mean()
+        s['SMA'] = safe(s50 > s200)
     except Exception: pass
 
     try:
         rsi = ta.rsi(c, 14)
         if rsi is not None:
-            s['RSI'] = safe(rsi < 40)
+            s['RSI'] = safe((rsi > 50) & (rsi < 75))
     except Exception: pass
 
     try:
@@ -70,14 +73,14 @@ def _build_states(df: pd.DataFrame) -> dict[str, np.ndarray]:
 
     try:
         bb = ta.bbands(c, 20)
-        if bb is not None:
-            s['BB'] = safe(c.values <= bb.iloc[:, 0].values)
+        if bb is not None and bb.shape[1] >= 3:
+            s['BB'] = safe(cv >= bb.iloc[:, 1].values)
     except Exception: pass
 
     try:
         st_ = ta.stoch(hi, lo, c)
         if st_ is not None:
-            s['STOCH'] = safe(st_.iloc[:, 0] < 25)
+            s['STOCH'] = safe((st_.iloc[:, 0] > 40) & (st_.iloc[:, 0] < 80))
     except Exception: pass
 
     try:
@@ -89,13 +92,13 @@ def _build_states(df: pd.DataFrame) -> dict[str, np.ndarray]:
     try:
         cci = ta.cci(hi, lo, c, 20)
         if cci is not None:
-            s['CCI'] = safe(cci < -80)
+            s['CCI'] = safe((cci > 0) & (cci < 150))
     except Exception: pass
 
     try:
         mfi = ta.mfi(hi, lo, c, vo, 14)
         if mfi is not None:
-            s['MFI'] = safe(mfi < 25)
+            s['MFI'] = safe((mfi > 50) & (mfi < 80))
     except Exception: pass
 
     try:
@@ -103,21 +106,20 @@ def _build_states(df: pd.DataFrame) -> dict[str, np.ndarray]:
         if obv is not None:
             ov = obv.values
             rise = np.zeros(n, dtype=np.int8)
-            rise[5:] = ((ov[5:] > ov[:-5]) & (c.values[5:] > c.values[:-5])).astype(np.int8)
+            rise[5:] = ((ov[5:] > ov[:-5]) & (cv[5:] > cv[:-5])).astype(np.int8)
             s['OBV'] = rise
     except Exception: pass
 
     try:
-        # rolling 20-bar VWAP approximation (not cumulative)
-        tp = (hi + lo + c) / 3
+        tp   = (hi + lo + c) / 3
         vwap = (tp * vo).rolling(20).sum() / vo.rolling(20).sum()
-        s['VWAP'] = safe(c.values > vwap.values)
+        s['VWAP'] = safe(cv > vwap.values)
     except Exception: pass
 
     try:
         wr = ta.willr(hi, lo, c, 14)
         if wr is not None:
-            s['WILLR'] = safe(wr < -70)
+            s['WILLR'] = safe((wr > -50) & (wr < -20))
     except Exception: pass
 
     try:
@@ -192,10 +194,10 @@ def _eval(states_list: list[np.ndarray], close: np.ndarray,
                 outcome = ('loss', g); break
             if g >= pt:
                 outcome = ('win', g); break
-        # end of hold: only count as win if hit PT, otherwise loss
+        # end of hold without hitting PT or SL: use actual return
         if outcome is None and i + hold < len(close):
             g = (close[i + hold] - entry) / entry
-            outcome = ('loss', g)   # didn't hit target = loss
+            outcome = ('win', g) if g > 0 else ('loss', g)
         if outcome is None:
             continue
         if outcome[0] == 'win':
@@ -211,9 +213,15 @@ def _eval(states_list: list[np.ndarray], close: np.ndarray,
     wr  = min(raw_wr, 85.0)   # cap at 85 — anything higher is overfit noise
     avg_g = float(np.mean(gains)     * 100) if gains     else 0.0
     avg_l = float(np.mean(loss_vals) * 100) if loss_vals else 0.0
-    pf    = (sum(gains) / sum(loss_vals)
-             if gains and loss_vals else (9.9 if not loss_vals else 0.0))
-    pf    = min(round(pf, 2), 9.9)
+    _sum_gains = sum(gains) if gains else 0.0
+    _sum_losses = sum(loss_vals) if loss_vals else 0.0
+    if _sum_losses > 0 and _sum_gains > 0:
+        pf = _sum_gains / _sum_losses
+    elif _sum_losses == 0 and _sum_gains > 0:
+        pf = 9.9
+    else:
+        pf = 0.0
+    pf = min(round(pf, 2), 9.9)
     exp   = wr / 100 * avg_g - (1 - wr / 100) * avg_l
     score = wr * math.sqrt(total)
 
@@ -288,23 +296,67 @@ def _grow_combo(seed_keys: list[str], all_states: dict[str, np.ndarray],
 # ── main cached entry point ───────────────────────────────────────────────────
 
 @st.cache_data(ttl=1200, show_spinner=False)
-def scan_stock(symbol: str, period_key: str) -> dict | None:
+def scan_stock(symbol: str, period_key: str, _v: int = 2) -> dict | None:
     """
-    Returns {
-      'regimes': {'TREND': combo_dict, 'RANGE': ..., 'VOLATILE': ...},
-      'price': float,
-      'df': DataFrame
-    }
-    Each combo_dict has: win_rate, profit_factor, expectancy, avg_gain,
-    avg_loss, total, indicators (list), label (str), firing (bool).
-    Cached 20 min.
+    Single-stock entry — extracts from a pre-built batch cache when available,
+    otherwise downloads individually. Cached 20 min.
     """
+    return _process_stock_df(symbol, period_key)
+
+
+@st.cache_data(ttl=1200, show_spinner=False)
+def scan_all_stocks(symbols: tuple, period_key: str, _v: int = 2) -> dict:
+    """
+    Batch-download all symbols in one yfinance call, then process each.
+    Returns {symbol: result_dict_or_None}.  Cached 20 min.
+    """
+    import yfinance as yf
+
+    yf_per, interval, hold, pt, sl = _PERIOD_CFG[period_key]
+    sym_list = list(symbols)
+
+    try:
+        raw = yf.download(
+            sym_list, period=yf_per, interval=interval,
+            progress=False, auto_adjust=True, group_by='ticker',
+            threads=True,
+        )
+    except Exception:
+        raw = None
+
+    out: dict = {}
+    for sym in sym_list:
+        try:
+            if raw is None:
+                out[sym] = None
+                continue
+            # extract per-symbol slice from multi-ticker download
+            if isinstance(raw.columns, pd.MultiIndex):
+                if sym not in raw.columns.get_level_values(0):
+                    out[sym] = None
+                    continue
+                df = raw[sym].copy()
+            else:
+                # single ticker fallback (unlikely here but safe)
+                df = raw.copy()
+            df = df.dropna(how='all').reset_index()
+            if 'Datetime' in df.columns:
+                df = df.rename(columns={'Datetime': 'Date'})
+            df['Date'] = pd.to_datetime(df['Date'])
+            if len(df) < hold + 20:
+                out[sym] = None
+                continue
+            out[sym] = _analyse_df(df, hold, pt, sl)
+        except Exception:
+            out[sym] = None
+    return out
+
+
+def _process_stock_df(symbol: str, period_key: str) -> dict | None:
+    """Download + analyse a single symbol (fallback path)."""
     try:
         import yfinance as yf
-        from itertools import combinations as _ic
-
         yf_per, interval, hold, pt, sl = _PERIOD_CFG[period_key]
-
         df = yf.download(symbol, period=yf_per, interval=interval,
                          progress=False, auto_adjust=True)
         if df is None or len(df) < hold + 20:
@@ -314,7 +366,38 @@ def scan_stock(symbol: str, period_key: str) -> dict | None:
         if 'Datetime' in df.columns:
             df = df.rename(columns={'Datetime': 'Date'})
         df['Date'] = pd.to_datetime(df['Date'])
+        return _analyse_df(df, hold, pt, sl)
+    except Exception:
+        return None
 
+
+@st.cache_data(ttl=1200, show_spinner=False)
+def get_stock_df(symbol: str, period_key: str, _v: int = 2) -> 'pd.DataFrame | None':
+    """Fetch OHLCV df for a single symbol — used for price ladder / charts."""
+    try:
+        import yfinance as yf
+        yf_per, interval, hold, pt, sl = _PERIOD_CFG[period_key]
+        df = yf.download(symbol, period=yf_per, interval=interval,
+                         progress=False, auto_adjust=True)
+        if df is None or len(df) < 5:
+            return None
+        df.columns = [c[0] if isinstance(c, tuple) else c for c in df.columns]
+        df = df.reset_index()
+        if 'Datetime' in df.columns:
+            df = df.rename(columns={'Datetime': 'Date'})
+        df['Date'] = pd.to_datetime(df['Date'])
+        return df
+    except Exception:
+        return None
+
+
+def _analyse_df(df: pd.DataFrame, hold: int, pt: float, sl: float) -> dict | None:
+    """
+    Fast analysis: score each indicator once (no regime split during scan),
+    greedily build best combo, then tag it to all three regime slots.
+    Per-regime detail is computed lazily when the user drills into a card.
+    """
+    try:
         price   = float(df['Close'].iloc[-1])
         states  = _build_states(df)
         reg_arr = _regime_arr(df)
@@ -324,64 +407,65 @@ def scan_stock(symbol: str, period_key: str) -> dict | None:
         if len(keys) < 2:
             return None
 
-        # Step 1: score every 2-way combo per regime (regime-isolated)
-        pair_scores_by_regime: dict[str, dict[str, dict]] = {
-            'TREND': {}, 'RANGE': {}, 'VOLATILE': {}}
-        for ka, kb in _ic(keys, 2):
-            for regime in ('TREND', 'RANGE', 'VOLATILE'):
-                res = _eval([states[ka], states[kb]], close, hold, pt, sl,
-                            reg_arr, regime)
-                if res:
-                    pair_scores_by_regime[regime][f"{ka}+{kb}"] = {
-                        **res, 'keys': [ka, kb]}
+        # --- 1. Score each indicator individually (regime-agnostic) ---
+        ind_scores: list[tuple[float, str]] = []
+        for k in keys:
+            r = _eval([states[k]], close, hold, pt, sl)
+            if r:
+                ind_scores.append((r['score'], k))
 
-        # Step 2: per regime, pick best 2-way seed then grow to up to 5
-        best_per_regime: dict[str, dict | None] = {
-            'TREND': None, 'RANGE': None, 'VOLATILE': None}
-
-        # unfiltered pairs — used as ultimate fallback so every regime always gets a result
-        all_pairs: dict[str, dict] = {}
-        for ka, kb in _ic(keys, 2):
-            res = _eval([states[ka], states[kb]], close, hold, pt, sl)
-            if res:
-                all_pairs[f"{ka}+{kb}"] = {**res, 'keys': [ka, kb]}
-
-        for regime in ('TREND', 'RANGE', 'VOLATILE'):
-            regime_pairs = pair_scores_by_regime[regime]
-            seed = (
-                max(regime_pairs.values(), key=lambda r: r['score'])['keys']
-                if regime_pairs
-                else (max(all_pairs.values(), key=lambda r: r['score'])['keys']
-                      if all_pairs else None)
-            )
-            if seed is None:
-                continue
-
-            grown = _grow_combo(seed, states, close, reg_arr,
-                                hold, pt, sl, regime, max_size=5)
-
-            # if regime-filtered grow returned nothing, fall back to unfiltered grow
-            if grown is None:
-                grown = _grow_combo(seed, states, close, reg_arr,
-                                    hold, pt, sl, regime, max_size=5)
-                if grown is None and all_pairs:
-                    # last resort: just use the best unfiltered pair result
-                    best_pair = max(all_pairs.values(), key=lambda r: r['score'])
-                    firing = all(int(states[k][-1]) == 1 for k in best_pair['keys'])
-                    grown = {**best_pair,
-                             'indicators': best_pair['keys'],
-                             'label': _ind_labels(best_pair['keys']),
-                             'best_regime': regime,
-                             'firing': firing}
-
-            best_per_regime[regime] = grown
-
-        if all(v is None for v in best_per_regime.values()):
+        if len(ind_scores) < 2:
             return None
 
-        current_regime = str(reg_arr[-1]) if len(reg_arr) else 'RANGE'
+        ind_scores.sort(reverse=True)
 
-        return {'regimes': best_per_regime, 'price': price, 'df': df,
+        # --- 2. Greedy combo build from top seed ---
+        current_keys = [ind_scores[0][1], ind_scores[1][1]]
+        current_res  = _eval([states[k] for k in current_keys], close, hold, pt, sl)
+        if current_res is None:
+            return None
+
+        for _, k in ind_scores[2:]:
+            if len(current_keys) >= 5:
+                break
+            candidate = current_keys + [k]
+            res = _eval([states[ck] for ck in candidate], close, hold, pt, sl)
+            if res and res['score'] > current_res['score']:
+                current_keys = candidate
+                current_res  = res
+
+        # --- 3. Dominant regime among signal bars ---
+        combo = states[current_keys[0]].copy()
+        for k in current_keys[1:]:
+            combo = combo & states[k]
+        edge = np.zeros(len(combo), dtype=np.int8)
+        edge[1:] = ((combo[1:] == 1) & (combo[:-1] == 0)).astype(np.int8)
+        idxs = np.where(edge == 1)[0]
+        rc = {'TREND': 0, 'RANGE': 0, 'VOLATILE': 0}
+        for i in idxs:
+            r2 = str(reg_arr[i]) if i < len(reg_arr) else 'RANGE'
+            if r2 in rc:
+                rc[r2] += 1
+        dom = max(rc, key=rc.get)
+        firing = all(int(states[k][-1]) == 1 for k in current_keys)
+
+        result = {
+            **current_res,
+            'indicators': current_keys,
+            'label': _ind_labels(current_keys),
+            'best_regime': dom,
+            'firing': firing,
+        }
+
+        # --- 4. Populate all three regime slots with same result ---
+        current_regime = str(reg_arr[-1]) if len(reg_arr) else 'RANGE'
+        best_per_regime = {
+            'TREND':    result,
+            'RANGE':    result,
+            'VOLATILE': result,
+        }
+
+        return {'regimes': best_per_regime, 'price': price,
                 'current_regime': current_regime}
 
     except Exception:
