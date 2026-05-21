@@ -3906,6 +3906,106 @@ def main():
                             label_visibility="collapsed",
                         )
 
+                        # ── Strategy description card ────────────────────────
+                        _strat_desc_map = {
+                            "All Strategies": {
+                                "icon": "⚡",
+                                "what": "Runs all 5 strategies in one pass and returns the strongest hits across all signal types.",
+                                "indicators": "EMA · SuperTrend · ADX · MACD · RSI · Stoch · CCI · Williams%R · ROC · OBV · MFI · ATR · BB · Keltner · VWAP · S&R · RS vs TASI",
+                                "best_for": "Full market overview — discover opportunities you'd miss by watching one strategy",
+                            },
+                            "Trend Breakout": {
+                                "icon": "📈",
+                                "what": "Confirms trend on 7 layers: EMA stack, SuperTrend, ADX strength, MACD expansion, RSI zone, volume surge, and OBV. Fires only when multiple layers agree.",
+                                "indicators": "EMA 20/50/200 stack · SuperTrend · ADX + DI± · MACD histogram · RSI · ROC · Volume surge · OBV · BB position · S&R · Market regime",
+                                "best_for": "Trending markets — enter as momentum builds across all indicators",
+                            },
+                            "Oversold Bounce": {
+                                "icon": "🔄",
+                                "what": "Cross-validates oversold conditions across 6 oscillators — RSI, Stochastic, Williams %R, CCI, MFI, and BB lower band. Requires multiple extremes to confirm capitulation.",
+                                "indicators": "RSI · Stochastic K/D · Williams %R · CCI · MFI · BB Lower Band · Volume climax · EMA200 trend · Support proximity · Market regime",
+                                "best_for": "Correcting markets — buy genuine capitulation, not just cheap stocks",
+                            },
+                            "Momentum Surge": {
+                                "icon": "🚀",
+                                "what": "Stacks momentum confirmation from MACD, RSI power zone, ROC, CCI, OBV, volume, VWAP, and RS vs TASI. Needs trend + momentum aligned together.",
+                                "indicators": "MACD crossover + histogram · RSI 45–72 · ROC · CCI · EMA alignment · ADX · OBV · Volume surge · VWAP · RS vs TASI · Market regime",
+                                "best_for": "Bull markets — ride stocks already moving with institutional backing",
+                            },
+                            "Squeeze Setup": {
+                                "icon": "🎯",
+                                "what": "Detects volatility compression via BB inside Keltner + ATR collapse + narrow BB width + volume dry-up. Direction confirmed by EMA, MACD, and support proximity.",
+                                "indicators": "BB inside Keltner (squeeze) · ATR compression · BB width · ADX < 25 · EMA20/50 · MACD histogram · Volume dry-up · OBV flat · MFI neutral · Support",
+                                "best_for": "Any market — the tighter the coil, the bigger the eventual explosion",
+                            },
+                            "Smart Money": {
+                                "icon": "🏦",
+                                "what": "Tracks institutional accumulation via OBV slope, MFI, volume vs price calm, VWAP position, and RSI divergence. Finds stealth buying before the crowd notices.",
+                                "indicators": "OBV 20-bar + 5-bar slope · MFI · Volume vs price divergence · EMA20/50/200 · SuperTrend · RSI divergence · MACD divergence · VWAP · ATR · Support · RS vs TASI",
+                                "best_for": "Position trades — follow institutional footprints before the public move",
+                            },
+                        }
+                        _desc = _strat_desc_map.get(_strat_sel, _strat_desc_map["All Strategies"])
+                        st.markdown(
+                            f'<div style="background:#1c1c1c;border:1px solid #2a2a2a;border-radius:10px;'
+                            f'padding:0.8rem 1rem;margin:0.5rem 0 0.6rem;">'
+                            f'<div style="font-size:0.85rem;font-weight:800;color:#e0e0e0;margin-bottom:0.4rem;">'
+                            f'{_desc["icon"]} {_strat_sel}</div>'
+                            f'<div style="font-size:0.72rem;color:#aaa;line-height:1.5;margin-bottom:0.5rem;">'
+                            f'{_desc["what"]}</div>'
+                            f'<div style="font-size:0.65rem;color:#26A69A;font-weight:700;margin-bottom:0.2rem;">'
+                            f'INDICATORS &nbsp;·&nbsp; <span style="color:#999;font-weight:500;">{_desc["indicators"]}</span></div>'
+                            f'<div style="font-size:0.65rem;color:#fbbf24;font-weight:700;">'
+                            f'BEST FOR &nbsp;·&nbsp; <span style="color:#999;font-weight:500;">{_desc["best_for"]}</span></div>'
+                            f'</div>',
+                            unsafe_allow_html=True,
+                        )
+
+                        # ── Strategy comparison table ─────────────────────────
+                        _strat_rows = [
+                            ("📈", "Trend Breakout",  "EMA stack · SuperTrend · ADX · MACD · RSI · ROC · OBV · Volume · S&R",          "Trending",   "#26A69A"),
+                            ("🔄", "Oversold Bounce", "RSI · Stoch · Williams%R · CCI · MFI · BB Lower · Volume climax · Support",     "Correcting", "#4A9EFF"),
+                            ("🚀", "Momentum Surge",  "MACD · RSI zone · ROC · CCI · OBV · VWAP · Volume · RS vs TASI · ADX",          "Bull run",   "#a78bfa"),
+                            ("🎯", "Squeeze Setup",   "BB inside KC · ATR · BB width · ADX<25 · EMA · MACD hist · Vol dry-up · OBV",   "Any",        "#fbbf24"),
+                            ("🏦", "Smart Money",     "OBV slope · MFI · Vol divergence · VWAP · RSI div · MACD div · ATR · RS/TASI",  "Any",        "#f97316"),
+                        ]
+                        _tbl_rows_html = ""
+                        for _sico, _sname, _sinds, _smkt, _scol in _strat_rows:
+                            _is_active = (_strat_sel == _sname) or (_strat_sel == "All Strategies")
+                            _row_bg    = f"{_scol}12" if (_strat_sel == _sname) else "transparent"
+                            _row_border = f"border-left:2px solid {_scol};" if (_strat_sel == _sname) else "border-left:2px solid transparent;"
+                            _name_col  = f'<span style="font-weight:800;color:{_scol};">{_sico} {_sname}</span>'
+                            _inds_col  = f'<span style="color:#888;font-size:0.6rem;">{_sinds}</span>'
+                            _mkt_pill  = (f'<span style="background:{_scol}22;border:1px solid {_scol}44;'
+                                          f'color:{_scol};font-size:0.58rem;font-weight:700;'
+                                          f'padding:0.1rem 0.45rem;border-radius:20px;">{_smkt}</span>')
+                            _tbl_rows_html += (
+                                f'<tr style="background:{_row_bg};{_row_border}">'
+                                f'<td style="padding:0.35rem 0.6rem 0.35rem 0.7rem;font-size:0.68rem;white-space:nowrap;">{_name_col}</td>'
+                                f'<td style="padding:0.35rem 0.6rem;font-size:0.6rem;">{_inds_col}</td>'
+                                f'<td style="padding:0.35rem 0.7rem 0.35rem 0.4rem;text-align:right;">{_mkt_pill}</td>'
+                                f'</tr>'
+                            )
+                        st.markdown(
+                            f'<div style="background:#181818;border:1px solid #262626;border-radius:10px;'
+                            f'overflow:hidden;margin-bottom:0.8rem;">'
+                            f'<table style="width:100%;border-collapse:collapse;">'
+                            f'<thead>'
+                            f'<tr style="border-bottom:1px solid #2a2a2a;">'
+                            f'<th style="padding:0.3rem 0.7rem;font-size:0.58rem;font-weight:700;color:#505050;'
+                            f'text-transform:uppercase;letter-spacing:0.8px;text-align:left;">Strategy</th>'
+                            f'<th style="padding:0.3rem 0.6rem;font-size:0.58rem;font-weight:700;color:#505050;'
+                            f'text-transform:uppercase;letter-spacing:0.8px;text-align:left;">Key Signals</th>'
+                            f'<th style="padding:0.3rem 0.7rem;font-size:0.58rem;font-weight:700;color:#505050;'
+                            f'text-transform:uppercase;letter-spacing:0.8px;text-align:right;">Market</th>'
+                            f'</tr>'
+                            f'</thead>'
+                            f'<tbody>{_tbl_rows_html}</tbody>'
+                            f'</table>'
+                            f'</div>',
+                            unsafe_allow_html=True,
+                        )
+
                         # ── Sector & Min Score ───────────────────────────────
                         _sc1, _sc2 = st.columns(2)
                         with _sc1:
@@ -3982,40 +4082,56 @@ def main():
                                 disabled=not st.session_state.get("scan_fresh_only", True),
                             )
 
-                        # ── Date range ───────────────────────────────────────
-                        _dc1, _dc2 = st.columns(2)
-                        with _dc1:
-                            st.markdown("<div class='cp-input-label'>From</div>", unsafe_allow_html=True)
-                            _scan_start = st.date_input(
-                                "From",
-                                value=(datetime.now() - timedelta(days=180)).date(),
-                                key="scan_start",
-                                label_visibility="collapsed",
-                            )
-                        with _dc2:
-                            st.markdown("<div class='cp-input-label'>To</div>", unsafe_allow_html=True)
-                            _scan_end = st.date_input(
-                                "To",
-                                value=datetime.now().date(),
-                                key="scan_end",
-                                label_visibility="collapsed",
-                            )
+                        # ── Data Period ──────────────────────────────────────
+                        st.markdown(
+                            "<div class='cp-input-label' style='display:flex;align-items:center;gap:0.35rem;'>"
+                            "Data Period"
+                            "<span class='ind-tip'>?<span class='ind-tt'>"
+                            "How far back to pull price history for each stock. "
+                            "1 Month = fast, recent signals only. "
+                            "3 Months = standard for swing trading. "
+                            "6 Months = more context, slower. "
+                            "1 Year = full trend picture. "
+                            "2 Years = deep history, longest scan time."
+                            "</span></span></div>",
+                            unsafe_allow_html=True,
+                        )
+                        _period_labels  = ["1 Month", "3 Months", "6 Months", "1 Year", "2 Years"]
+                        _period_values  = ["1mo", "3mo", "6mo", "1y", "2y"]
+                        _period_default = _period_values.index(st.session_state.get("scan_period", "6mo"))
+                        _period_sel     = st.selectbox(
+                            "Data Period",
+                            _period_labels,
+                            index=_period_default,
+                            key="scan_period_label",
+                            label_visibility="collapsed",
+                        )
+                        _scan_period = _period_values[_period_labels.index(_period_sel)]
+                        st.session_state["scan_period"] = _scan_period
 
                         if "ma_results" not in st.session_state:
                             st.session_state.ma_results = None
 
-                        def run_full_scan_callback():
-                            _tickers    = st.session_state.get("_scan_tickers_snap", [])
-                            _strat_sel  = st.session_state.get("scan_strategy_sel", "All Strategies")
-                            _sector     = st.session_state.get("scan_sector", "All Sectors")
-                            _min_score  = st.session_state.get("scan_min_score", 2)
-                            _fo         = st.session_state.get("scan_fresh_only", True)
-                            _fm         = "strict" if st.session_state.get("scan_fresh_mode", "Strict") == "Strict" else "loose"
-                            _sd         = st.session_state.get("scan_start", (datetime.now() - timedelta(days=180)).date())
-                            _ed         = st.session_state.get("scan_end",   datetime.now().date())
-                            if not _tickers:
-                                st.warning("No tickers to scan.")
-                                return
+                        st.session_state["_scan_tickers_snap"] = _scan_tickers
+
+                        st.markdown("<div class='cp-run-wrap'>", unsafe_allow_html=True)
+                        _do_scan = st.button(
+                            "Scan Market",
+                            type="secondary",
+                            width="stretch",
+                            key="ma_run_btn_strat",
+                        )
+                        st.markdown("</div>", unsafe_allow_html=True)
+
+                        if _do_scan:
+                            from market_data import _fetch_market_data, _fetch_tasi_baseline
+                            _tickers   = st.session_state.get("_scan_tickers_snap", [])
+                            _strat_sel = st.session_state.get("scan_strategy_sel", "All Strategies")
+                            _sector    = st.session_state.get("scan_sector", "All Sectors")
+                            _min_score = st.session_state.get("scan_min_score", 2)
+                            _fo        = st.session_state.get("scan_fresh_only", True)
+                            _fm        = "strict" if st.session_state.get("scan_fresh_mode", "Strict") == "Strict" else "loose"
+                            _scan_period = st.session_state.get("scan_period", "6mo")
 
                             if _strat_sel == "All Strategies":
                                 _run_keys = list(SCAN_STRATEGIES.keys())
@@ -4026,22 +4142,25 @@ def main():
                                 _lbl      = _strat_sel
                                 _col      = SCAN_STRATEGIES[_run_keys[0]]["color"] if _run_keys else "#26A69A"
 
-                            _all_buy, _all_sell, _all_hold = [], [], []
-                            for _sk in _run_keys:
-                                try:
-                                    _res = run_strategy_scan(
-                                        _tickers,
-                                        strategy_key=_sk,
-                                        start=_sd,
-                                        end=_ed,
-                                        fresh_only=_fo,
-                                        fresh_mode=_fm,
-                                    )
-                                    _all_buy  += _res.get("buy",  [])
-                                    _all_sell += _res.get("sell", [])
-                                    _all_hold += _res.get("hold", [])
-                                except Exception:
-                                    pass
+                            with st.spinner(f"Scanning {len(_tickers)} stocks..."):
+                                _prefetched = _fetch_market_data(_tickers, period=_scan_period)
+                                _tasi_base  = _fetch_tasi_baseline()
+                                _all_buy, _all_sell, _all_hold = [], [], []
+                                for _sk in _run_keys:
+                                    try:
+                                        _res = run_strategy_scan(
+                                            _tickers,
+                                            strategy_key=_sk,
+                                            period=_scan_period,
+                                            fresh_only=_fo, fresh_mode=_fm,
+                                            _prefetched_data=_prefetched,
+                                            _tasi_baseline=_tasi_base,
+                                        )
+                                        _all_buy  += _res.get("buy",  [])
+                                        _all_sell += _res.get("sell", [])
+                                        _all_hold += _res.get("hold", [])
+                                    except Exception:
+                                        pass
 
                             def _dedup(lst):
                                 seen, out = {}, []
@@ -4055,13 +4174,11 @@ def main():
                             _sell_all = _dedup(_all_sell)
                             _hold_all = _dedup(_all_hold)
 
-                            # Apply sector filter
                             if _sector and _sector != "All Sectors":
                                 _buy_all  = [s for s in _buy_all  if s.get("sector", "") == _sector]
                                 _sell_all = [s for s in _sell_all if s.get("sector", "") == _sector]
                                 _hold_all = [s for s in _hold_all if s.get("sector", "") == _sector]
 
-                            # Apply min score filter
                             _buy_all  = [s for s in _buy_all  if s.get("score", 0) >= _min_score]
                             _sell_all = [s for s in _sell_all if s.get("score", 0) >= _min_score]
                             _hold_all = [s for s in _hold_all if s.get("score", 0) >= _min_score]
@@ -4070,18 +4187,7 @@ def main():
                             st.session_state.ma_scanned_count    = len(_tickers)
                             st.session_state.ma_scan_params      = {"strategy_label": _lbl, "strategy_color": _col}
                             st.session_state.show_market_results = True
-
-                        st.session_state["_scan_tickers_snap"] = _scan_tickers
-
-                        st.markdown("<div class='cp-run-wrap'>", unsafe_allow_html=True)
-                        st.button(
-                            "Scan Market",
-                            type="secondary",
-                            width="stretch",
-                            on_click=run_full_scan_callback,
-                            key="ma_run_btn_strat",
-                        )
-                        st.markdown("</div>", unsafe_allow_html=True)
+                            st.rerun()
 
     elif st.session_state.show_champions_vault:
 
@@ -4302,7 +4408,7 @@ def main():
         for _ps in _perfect_list:
             _rr = _ps.get('rr_ratio', 0)
             _sc = _ps.get('score', 0)
-            _ps['entry_strategy'] = (f"ENTER NOW — Perfect Setup with score {_sc}/20 and "
+            _ps['entry_strategy'] = (f"ENTER NOW — Perfect Setup · Score {_sc} pts · "
                                      f"R:R {_rr:.1f}. All filters passed, enter at market price")
 
         _hit_rate = round(len(all_buy) / scanned * 100) if scanned > 0 else 0
@@ -5159,7 +5265,7 @@ def main():
                 f'white-space:nowrap;margin-bottom:0.3rem;">Signal Score</div>'
                 f'<div style="font-size:1.4rem;font-weight:900;color:{_sc2};'
                 f'line-height:1;white-space:nowrap;">'
-                f'{score}<span style="font-size:0.75rem;color:{_sc2}66;font-weight:600;">/20</span>'
+                f'{score}<span style="font-size:0.75rem;color:{_sc2}66;font-weight:600;"> pts</span>'
                 f'</div>'
                 f'</div>'
 
@@ -5299,138 +5405,6 @@ def main():
 
                 f'</div>'  # end 3-col grid
 
-                f'</div>'
-
-                # ══ PERFORMANCE HEATMAP + SCORE BREAKDOWN ══════════════════
-                f'<div style="display:grid;grid-template-columns:1fr 1fr;border-top:1px solid #2a2a2a;">'
-
-                # LEFT — Performance Heatmap
-                f'<div style="padding:0.9rem 1.3rem;border-right:1px solid #1e1e1e;">'
-                f'<div style="display:flex;align-items:center;gap:0.35rem;margin-bottom:0.6rem;">'
-                f'<span style="font-size:0.65rem;color:#606060;font-weight:800;text-transform:uppercase;'
-                f'letter-spacing:1px;">Performance</span>'
-                f'<span title="How this stock performed over different time periods. Green = gain, Red = loss. 52W shows where the price sits between its yearly low and high."'
-                f' style="font-size:0.6rem;color:#444;cursor:help;font-weight:900;">&#63;</span>'
-                f'</div>'
-                # 4 rows: 5D, 1M, 3M, 52W — horizontal bars with numbers
-                f'<div style="display:flex;flex-direction:column;gap:0.4rem;">'
-
-                # 5D
-                f'<div style="display:flex;align-items:center;gap:0.5rem;">'
-                f'<span style="font-size:0.6rem;font-weight:700;color:#888;min-width:1.8rem;">5D</span>'
-                f'<div style="flex:1;height:8px;background:#1e1e1e;border-radius:4px;overflow:hidden;position:relative;">'
-                f'<div style="position:absolute;{"left:50%" if _perf_5d >= 0 else "right:50%"};top:0;height:100%;'
-                f'width:{min(50, abs(_perf_5d) * 2.5)}%;'
-                f'background:{"#10a37f" if _perf_5d >= 0 else "#ef4444"};'
-                f'border-radius:4px;"></div>'
-                f'</div>'
-                f'<span style="font-size:0.75rem;font-weight:800;min-width:3.5rem;text-align:right;'
-                f'color:{"#10a37f" if _perf_5d >= 0 else "#ef4444"};">'
-                f'{"+" if _perf_5d >= 0 else ""}{_perf_5d:.1f}%</span>'
-                f'</div>'
-
-                # 1M
-                f'<div style="display:flex;align-items:center;gap:0.5rem;">'
-                f'<span style="font-size:0.6rem;font-weight:700;color:#888;min-width:1.8rem;">1M</span>'
-                f'<div style="flex:1;height:8px;background:#1e1e1e;border-radius:4px;overflow:hidden;position:relative;">'
-                f'<div style="position:absolute;{"left:50%" if _perf_1m >= 0 else "right:50%"};top:0;height:100%;'
-                f'width:{min(50, abs(_perf_1m) * 2)}%;'
-                f'background:{"#10a37f" if _perf_1m >= 0 else "#ef4444"};'
-                f'border-radius:4px;"></div>'
-                f'</div>'
-                f'<span style="font-size:0.75rem;font-weight:800;min-width:3.5rem;text-align:right;'
-                f'color:{"#10a37f" if _perf_1m >= 0 else "#ef4444"};">'
-                f'{"+" if _perf_1m >= 0 else ""}{_perf_1m:.1f}%</span>'
-                f'</div>'
-
-                # 3M
-                f'<div style="display:flex;align-items:center;gap:0.5rem;">'
-                f'<span style="font-size:0.6rem;font-weight:700;color:#888;min-width:1.8rem;">3M</span>'
-                f'<div style="flex:1;height:8px;background:#1e1e1e;border-radius:4px;overflow:hidden;position:relative;">'
-                f'<div style="position:absolute;{"left:50%" if _perf_3m >= 0 else "right:50%"};top:0;height:100%;'
-                f'width:{min(50, abs(_perf_3m) * 1.5)}%;'
-                f'background:{"#10a37f" if _perf_3m >= 0 else "#ef4444"};'
-                f'border-radius:4px;"></div>'
-                f'</div>'
-                f'<span style="font-size:0.75rem;font-weight:800;min-width:3.5rem;text-align:right;'
-                f'color:{"#10a37f" if _perf_3m >= 0 else "#ef4444"};">'
-                f'{"+" if _perf_3m >= 0 else ""}{_perf_3m:.1f}%</span>'
-                f'</div>'
-
-                # 52W Position
-                f'<div style="display:flex;align-items:center;gap:0.5rem;">'
-                f'<span style="font-size:0.6rem;font-weight:700;color:#888;min-width:1.8rem;">52W</span>'
-                f'<div style="flex:1;height:8px;background:#1e1e1e;border-radius:4px;overflow:hidden;">'
-                f'<div style="height:100%;width:{min(100, max(0, _w52_pos))}%;'
-                f'background:#4A9EFF;border-radius:4px;"></div>'
-                f'</div>'
-                f'<span style="font-size:0.75rem;font-weight:800;min-width:3.5rem;text-align:right;'
-                f'color:#4A9EFF;">{_w52_pos:.0f}%</span>'
-                f'</div>'
-
-                f'</div>'
-                f'</div>'
-
-                # RIGHT — Score Breakdown + Risk
-                f'<div style="padding:0.9rem 1.3rem;">'
-                f'<div style="display:flex;align-items:center;gap:0.35rem;margin-bottom:0.6rem;">'
-                f'<span style="font-size:0.65rem;color:#606060;font-weight:800;text-transform:uppercase;'
-                f'letter-spacing:1px;">Score Breakdown</span>'
-                f'<span title="Total signal strength score out of 20. Indicators ({_ind_score} pts) = RSI, MACD, Stochastic, Bollinger Bands, Volume, ADX. Price Action ({_pa_score} pts) = candlestick patterns, support/resistance, EMA crossovers. Both combine into one score — higher is better."'
-                f' style="font-size:0.6rem;color:#444;cursor:help;font-weight:900;">&#63;</span>'
-                f'</div>'
-                # Score big number centered
-                f'<div style="text-align:center;margin-bottom:0.5rem;">'
-                f'<span style="font-size:1.6rem;font-weight:900;color:{_sc2};">{score}</span>'
-                f'<span style="font-size:0.8rem;font-weight:700;color:#444;">/20</span>'
-                f'</div>'
-                # Segmented score bar
-                f'<div style="margin-bottom:0.45rem;">'
-                f'<div style="display:flex;height:10px;border-radius:5px;overflow:hidden;gap:2px;">'
-                f'<div style="width:{max(5, _ind_score / max(1, abs(score)) * 100) if score != 0 else 50}%;'
-                f'background:#4A9EFF;border-radius:5px 0 0 5px;" title="Indicators: {_ind_score}"></div>'
-                f'<div style="width:{max(5, _pa_score / max(1, abs(score)) * 100) if score != 0 else 50}%;'
-                f'background:#a78bfa;border-radius:0 5px 5px 0;" title="Price Action: {_pa_score}"></div>'
-                f'</div>'
-                f'<div style="display:flex;justify-content:space-between;margin-top:0.25rem;">'
-                f'<div style="display:flex;align-items:center;gap:0.25rem;">'
-                f'<div style="width:8px;height:8px;border-radius:2px;background:#4A9EFF;"></div>'
-                f'<span style="font-size:0.55rem;color:#4A9EFF;font-weight:700;">Indicators: {_ind_score} pts</span>'
-                f'</div>'
-                f'<div style="display:flex;align-items:center;gap:0.25rem;">'
-                f'<div style="width:8px;height:8px;border-radius:2px;background:#a78bfa;"></div>'
-                f'<span style="font-size:0.55rem;color:#a78bfa;font-weight:700;">Price Action: {_pa_score} pts</span>'
-                f'</div>'
-                f'</div>'
-                f'</div>'
-
-                # Risk Profile — inline row
-                f'<div style="margin-top:0.6rem;padding-top:0.5rem;border-top:1px solid #1e1e1e;">'
-                f'<div style="display:flex;align-items:center;gap:0.35rem;margin-bottom:0.45rem;">'
-                f'<span style="font-size:0.65rem;color:#606060;font-weight:800;text-transform:uppercase;'
-                f'letter-spacing:1px;">Risk Profile</span>'
-                f'<span title="Risk class based on stop-loss distance. Position size is the recommended % of portfolio to allocate."'
-                f' style="font-size:0.6rem;color:#444;cursor:help;font-weight:900;">&#63;</span>'
-                f'</div>'
-                f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.35rem;">'
-                # Risk Class
-                f'<div style="background:#181818;border:1px solid #222;border-radius:8px;'
-                f'padding:0.4rem 0.6rem;text-align:center;">'
-                f'<div style="font-size:0.48rem;color:#555;font-weight:700;margin-bottom:0.15rem;">RISK</div>'
-                f'<div style="font-size:0.78rem;font-weight:900;color:'
-                f'{"#10a37f" if _risk_class == "Low" else ("#fbbf24" if _risk_class == "Medium" else "#ef4444")};">'
-                f'{_risk_class}</div>'
-                f'</div>'
-                # Position Size
-                f'<div style="background:#181818;border:1px solid #222;border-radius:8px;'
-                f'padding:0.4rem 0.6rem;text-align:center;">'
-                f'<div style="font-size:0.48rem;color:#555;font-weight:700;margin-bottom:0.15rem;">POSITION SIZE</div>'
-                f'<div style="font-size:0.78rem;font-weight:900;color:#4A9EFF;">{_pos_size:.1f}%</div>'
-                f'</div>'
-                f'</div>'
-                f'</div>'
-
-                f'</div>'
                 f'</div>'
 
                 f'</div>',

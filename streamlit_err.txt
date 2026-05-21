@@ -49,3 +49,282 @@ For `use_container_width=True`, use `width='stretch'`. For `use_container_width=
 `use_container_width` will be removed after 2025-12-31.
 
 For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-05-19 16:50:02.212 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+$^TASI: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+
+1 Failed download:
+['^TASI']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+$^TASI: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+
+1 Failed download:
+['^TASI']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+$^TASI: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+
+1 Failed download:
+['^TASI']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+$^TASI: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+
+1 Failed download:
+['^TASI']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+$^TASI: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+
+1 Failed download:
+['^TASI']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+2026-05-19 17:09:36.733 Script compilation error
+Traceback (most recent call last):
+  File "C:\Users\moham\OneDrive\Desktop\My app\.venv\Lib\site-packages\streamlit\runtime\scriptrunner\script_runner.py", line 591, in _run_script
+    code = self._script_cache.get_bytecode(script_path)
+  File "C:\Users\moham\OneDrive\Desktop\My app\.venv\Lib\site-packages\streamlit\runtime\scriptrunner\script_cache.py", line 72, in get_bytecode
+    filebody = magic.add_magic(filebody, script_path)
+  File "C:\Users\moham\OneDrive\Desktop\My app\.venv\Lib\site-packages\streamlit\runtime\scriptrunner\magic.py", line 45, in add_magic
+    tree = ast.parse(code, script_path, "exec")
+  File "C:\Users\moham\AppData\Local\Programs\Python\Python313\Lib\ast.py", line 50, in parse
+    return compile(source, filename, mode, flags,
+                   _feature_version=feature_version, optimize=optimize)
+  File "C:\Users\moham\OneDrive\Desktop\My app\app.py", line 5026
+    st.markdown(
+               ^
+SyntaxError: '(' was never closed
+2026-05-19 17:09:36.904 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-05-19 17:24:59.881 Script compilation error
+Traceback (most recent call last):
+  File "C:\Users\moham\OneDrive\Desktop\My app\.venv\Lib\site-packages\streamlit\runtime\scriptrunner\script_runner.py", line 591, in _run_script
+    code = self._script_cache.get_bytecode(script_path)
+  File "C:\Users\moham\OneDrive\Desktop\My app\.venv\Lib\site-packages\streamlit\runtime\scriptrunner\script_cache.py", line 72, in get_bytecode
+    filebody = magic.add_magic(filebody, script_path)
+  File "C:\Users\moham\OneDrive\Desktop\My app\.venv\Lib\site-packages\streamlit\runtime\scriptrunner\magic.py", line 45, in add_magic
+    tree = ast.parse(code, script_path, "exec")
+  File "C:\Users\moham\AppData\Local\Programs\Python\Python313\Lib\ast.py", line 50, in parse
+    return compile(source, filename, mode, flags,
+                   _feature_version=feature_version, optimize=optimize)
+  File "C:\Users\moham\OneDrive\Desktop\My app\app.py", line 5026
+    st.markdown(
+               ^
+SyntaxError: '(' was never closed
+2026-05-19 17:24:59.884 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+$TASI.SR: possibly delisted; no timezone found
+
+1 Failed download:
+['TASI.SR']: possibly delisted; no timezone found
+$TASI.SR: possibly delisted; no timezone found
+
+1 Failed download:
+['TASI.SR']: possibly delisted; no timezone found
+$TASI.SR: possibly delisted; no timezone found
+
+1 Failed download:
+['TASI.SR']: possibly delisted; no timezone found
+2026-05-19 17:46:33.987 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-05-19 17:47:40.537 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-05-19 17:47:41.253 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-05-19 17:47:41.576 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+$^TASI: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+
+1 Failed download:
+['^TASI']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+$^TASI: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+
+1 Failed download:
+['^TASI']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+$^TASI: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+
+1 Failed download:
+['^TASI']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+$^TASI: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+
+1 Failed download:
+['^TASI']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+$^TASI: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+
+1 Failed download:
+['^TASI']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+$^TASI: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+
+1 Failed download:
+['^TASI']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+$^TASI: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+
+1 Failed download:
+['^TASI']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+$^TASI: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+$^TASI: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+$^TASI: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+
+1 Failed download:
+['^TASI']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+$^TASI: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+
+1 Failed download:
+['^TASI']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+$^TASI: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+
+1 Failed download:
+['^TASI']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+$^TASI: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+
+1 Failed download:
+['^TASI']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+$^TASI: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+
+1 Failed download:
+['^TASI']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+$^TASI: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+
+1 Failed download:
+['^TASI']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+$^TASI: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+
+1 Failed download:
+['^TASI']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+$^TASI: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+
+1 Failed download:
+['^TASI']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+
+1 Failed download:
+
+1 Failed download:
+['^TASI']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+['^TASI']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+$^TASI: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+
+1 Failed download:
+
+1 Failed download:
+['^TASI']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+['^TASI']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+
+1 Failed download:
+['^TASI']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+$^TASI: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+$^TASI: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+$TASI.SR: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+$TASI.SR: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+$TASI.SR: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+
+2 Failed downloads:
+
+2 Failed downloads:
+
+2 Failed downloads:
+
+2 Failed downloads:
+['^TASI', 'TASI.SR']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+['^TASI', 'TASI.SR']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+['^TASI', 'TASI.SR']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+['^TASI', 'TASI.SR']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+$^TASI: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+$^TASI: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+$^TASI: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+
+1 Failed download:
+
+1 Failed download:
+
+1 Failed download:
+
+1 Failed download:
+['^TASI']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+['^TASI']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+['^TASI']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+['^TASI']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+$^TASI: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+$TASI.SR: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+
+2 Failed downloads:
+['^TASI', 'TASI.SR']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+
+2 Failed downloads:
+
+2 Failed downloads:
+
+2 Failed downloads:
+['^TASI', 'TASI.SR']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+['^TASI', 'TASI.SR']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+['^TASI', 'TASI.SR']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+$^TASI: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+
+1 Failed download:
+['^TASI']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+
+1 Failed download:
+
+1 Failed download:
+['^TASI']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+
+1 Failed download:
+['^TASI']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+['^TASI']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+$^TASI: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+$^TASI: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+
+1 Failed download:
+['^TASI']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+
+1 Failed download:
+['^TASI']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+
+1 Failed download:
+
+1 Failed download:
+['^TASI']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+['^TASI']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+$^TASI: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+
+1 Failed download:
+
+1 Failed download:
+['^TASI']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+
+1 Failed download:
+
+1 Failed download:
+['^TASI']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+['^TASI']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+['^TASI']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+$^TASI: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+$^TASI: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+
+1 Failed download:
+['^TASI']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+$^TASI: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+$^TASI: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+$^TASI: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+$^TASI: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+$^TASI: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+
+22 Failed downloads:
+['4323.SR', '4009.SR', '4070.SR', '4018.SR', '4326.SR', '4322.SR', '1303.SR', '4321.SR', '4020.SR', '4265.SR', '4072.SR', '4071.SR', '4061.SR', '4147.SR', '4005.SR', '4220.SR', '4015.SR', '4148.SR', '2370.SR', '4017.SR', '4260.SR', '4004.SR']: TypeError("'NoneType' object is not subscriptable")
+
+50 Failed downloads:
+['8070.SR', '4348.SR', '8240.SR', '8160.SR', '8180.SR', '5110.SR', '7020.SR', '4344.SR', '8210.SR', '8020.SR', '4349.SR', '4346.SR', '8012.SR', '8010.SR', '4332.SR', '8100.SR', '8040.SR', '7204.SR', '4334.SR', '8200.SR', '4330.SR', '4337.SR', '8230.SR', '8150.SR', '7030.SR', '7010.SR', '7201.SR', '7211.SR', '4336.SR', '8050.SR', '4342.SR', '4335.SR', '4350.SR', '4338.SR', '4340.SR', '4331.SR', '7040.SR', '8120.SR', '7200.SR', '8170.SR', '8190.SR', '7203.SR', '8060.SR', '4345.SR', '8250.SR', '4339.SR', '7202.SR', '8030.SR', '4333.SR', '4347.SR']: TypeError("'NoneType' object is not subscriptable")
+
+50 Failed downloads:
+['8311.SR', '9585.SR', '9579.SR', '9575.SR', '9561.SR', '9549.SR', '9551.SR', '8313.SR', '9576.SR', '9584.SR', '9521.SR', '9571.SR', '9568.SR', '9535.SR', '9542.SR', '9562.SR', '9527.SR', '9553.SR', '8280.SR', '9540.SR', '9546.SR', '9545.SR', '8310.SR', '9552.SR', '9541.SR', '9570.SR', '9558.SR', '9543.SR', '9513.SR', '9565.SR', '9581.SR', '9523.SR', '9564.SR', '9537.SR', '9578.SR', '9586.SR', '9524.SR', '9516.SR', '8260.SR', '9557.SR', '9559.SR', '9517.SR', '9569.SR', '9574.SR', '8300.SR', '9548.SR', '9530.SR', '9550.SR', '9539.SR', '9510.SR']: TypeError("'NoneType' object is not subscriptable")
+
+33 Failed downloads:
+['9616.SR', '9630.SR', '9623.SR', '9595.SR', '9628.SR', '9617.SR', '9588.SR', '9613.SR', '9639.SR', '9619.SR', '9589.SR', '9633.SR', '9651.SR', '9622.SR', '9653.SR', '9621.SR', '9647.SR', '9637.SR', '9626.SR', '9625.SR', '9604.SR', '9627.SR', '9611.SR', '9645.SR', '9606.SR', '9591.SR', '9610.SR', '9615.SR', '9642.SR', '9599.SR', '9634.SR', '9632.SR', '9640.SR']: TypeError("'NoneType' object is not subscriptable")
+$^TASI: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")
+
+1 Failed download:
+['^TASI']: possibly delisted; no price data found  (period=3mo) (Yahoo error = "No data found, symbol may be delisted")

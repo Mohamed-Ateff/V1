@@ -2425,7 +2425,7 @@ SCAN_STRATEGIES = {
 }
 
 
-def _fetch_market_data(tickers_list, start=None, end=None):
+def _fetch_market_data(tickers_list, start=None, end=None, period=None):
     """Download OHLCV for all tickers in one batched call. Returns combined DataFrame."""
     import time as _time
     _BATCH = 100
@@ -2435,6 +2435,7 @@ def _fetch_market_data(tickers_list, start=None, end=None):
         _chunks[-2].append(_chunks[-1][0])
         _chunks.pop()
     _frames = []
+    _use_period = period or "6mo"
     for _ci, _chunk in enumerate(_chunks):
         for _try in range(2):
             try:
@@ -2442,7 +2443,7 @@ def _fetch_market_data(tickers_list, start=None, end=None):
                 if start and end:
                     _part = yf.download(list(_chunk), start=str(start)[:10], end=str(end)[:10], **kw)
                 else:
-                    _part = yf.download(list(_chunk), period="6mo", **kw)
+                    _part = yf.download(list(_chunk), period=_use_period, **kw)
                 if _part is not None and not _part.empty:
                     _frames.append(_part)
                     break
@@ -2476,7 +2477,7 @@ def _fetch_tasi_baseline():
     return 0.0, False
 
 
-def run_strategy_scan(tickers_list, strategy_key, start=None, end=None, fresh_only=True, fresh_mode="strict",
+def run_strategy_scan(tickers_list, strategy_key, start=None, end=None, period=None, fresh_only=True, fresh_mode="strict",
                       _prefetched_data=None, _tasi_baseline=None):
     """
     Fast strategy-specific scan. Only computes the indicators each strategy needs.
@@ -2503,7 +2504,7 @@ def run_strategy_scan(tickers_list, strategy_key, start=None, end=None, fresh_on
     if _prefetched_data is not None:
         all_data = _prefetched_data
     else:
-        all_data = _fetch_market_data(tickers_list, start=start, end=end)
+        all_data = _fetch_market_data(tickers_list, start=start, end=end, period=period)
 
     if all_data is None or all_data.empty:
         return results
@@ -2589,238 +2590,525 @@ def run_strategy_scan(tickers_list, strategy_key, start=None, end=None, fresh_on
             e200 = _safe(ema200, default=cp)
             cur_rsi = _safe(rsi14, default=50)
 
-            # ── STRATEGY-SPECIFIC INDICATOR LOGIC ────────────────────────────
+            # ── Compute shared indicators used across strategies ─────────────
+            # ADX / DI
+            cur_adx, pos_di, neg_di = 15.0, 20.0, 20.0
+            if adx_df2 is not None:
+                _adx_col = next((c for c in adx_df2.columns if c.startswith('ADX_')), None)
+                _dmp_col = next((c for c in adx_df2.columns if c.startswith('DMP_')), None)
+                _dmn_col = next((c for c in adx_df2.columns if c.startswith('DMN_')), None)
+                cur_adx = _safe(adx_df2[_adx_col], default=15) if _adx_col else 15.0
+                pos_di  = _safe(adx_df2[_dmp_col], default=20) if _dmp_col else 20.0
+                neg_di  = _safe(adx_df2[_dmn_col], default=20) if _dmn_col else 20.0
 
-            if strategy_key == "trend_breakout":
-                e20 = _safe(ema20, default=cp)
-                e50 = _safe(ema50, default=cp)
-                e200 = _safe(ema200, default=cp)
-                if cp > e20 > e50 > e200:
-                    signals_hit.append("Full EMA Stack Bullish")
-                    consensus += 2
-                    score += 4
-                elif cp > e50 and cp > e20:
-                    signals_hit.append("EMA20 & EMA50 Bullish")
-                    consensus += 1
-                    score += 2
-                else:
-                    direction = "hold"
+            # Bollinger Band values
+            bbl_v = bbu_v = bbm_v = None
+            bb_pct_b = 0.5
+            if bb_df is not None:
+                _bbl_col = next((c for c in bb_df.columns if 'BBL' in c), None)
+                _bbu_col = next((c for c in bb_df.columns if 'BBU' in c), None)
+                _bbm_col = next((c for c in bb_df.columns if 'BBM' in c), None)
+                if _bbl_col and _bbu_col:
+                    bbl_v = _safe(bb_df[_bbl_col], default=cp * 0.97)
+                    bbu_v = _safe(bb_df[_bbu_col], default=cp * 1.03)
+                    bbm_v = _safe(bb_df[_bbm_col], default=cp) if _bbm_col else (bbl_v + bbu_v) / 2
+                    bb_pct_b = (cp - bbl_v) / (bbu_v - bbl_v) if (bbu_v - bbl_v) > 0 else 0.5
 
-                # SuperTrend
+            # Stochastic
+            cur_stoch_k = cur_stoch_d = 50.0
+            if stoch_df is not None:
+                _sk_col = next((c for c in stoch_df.columns if 'STOCHk' in c), None)
+                _sd_col = next((c for c in stoch_df.columns if 'STOCHd' in c), None)
+                cur_stoch_k = _safe(stoch_df[_sk_col], default=50) if _sk_col else 50.0
+                cur_stoch_d = _safe(stoch_df[_sd_col], default=50) if _sd_col else 50.0
+
+            # MACD
+            macd_line = macd_sig = macd_hist = macd_hist_p = 0.0
+            if macd_df is not None:
                 try:
-                    _st = ta.supertrend(high, low, close, length=10, multiplier=3.0)
-                    if _st is not None:
-                        _std_col = next((c for c in _st.columns if c.startswith('SUPERTd_')), None)
-                        if _std_col and int(_safe(_st[_std_col], default=0)) == 1:
-                            signals_hit.append("SuperTrend Bullish")
-                            consensus += 1
-                            score += 2
+                    macd_line   = _safe(macd_df['MACD_12_26_9'])
+                    macd_sig    = _safe(macd_df['MACDs_12_26_9'])
+                    macd_hist   = _safe(macd_df['MACDh_12_26_9'])
+                    macd_hist_p = _safe(macd_df['MACDh_12_26_9'], -2)
                 except Exception:
                     pass
 
-                # ADX (use pre-computed adx_df2)
-                if adx_df2 is not None:
-                    adx_col = next((c for c in adx_df2.columns if c.startswith('ADX_')), None)
-                    dmp_col = next((c for c in adx_df2.columns if c.startswith('DMP_')), None)
-                    dmn_col = next((c for c in adx_df2.columns if c.startswith('DMN_')), None)
-                    cur_adx = _safe(adx_df2[adx_col], default=15) if adx_col else 15
-                    pos_di  = _safe(adx_df2[dmp_col], default=20) if dmp_col else 20
-                    neg_di  = _safe(adx_df2[dmn_col], default=20) if dmn_col else 20
-                    if cur_adx > 25 and pos_di > neg_di:
-                        signals_hit.append(f"ADX Strong Trend ({cur_adx:.0f})")
-                        consensus += 1
-                        score += 2
-                else:
-                    cur_adx = 15; pos_di = 20; neg_di = 20
+            # OBV
+            obv_ser = ta.obv(close, volume)
+            obv_vals = obv_ser.dropna() if obv_ser is not None else pd.Series(dtype=float)
 
-                # Volume surge
-                if vol_ratio > 1.5 and perf_5d > 0:
-                    signals_hit.append(f"Volume Surge ({vol_ratio:.1f}x)")
-                    consensus += 1
-                    score += 1
+            # MFI
+            mfi_ser  = ta.mfi(high, low, close, volume, length=14)
+            cur_mfi  = _safe(mfi_ser, default=50)
 
-            elif strategy_key == "oversold_bounce":
-                # RSI (pre-computed)
-                if cur_rsi < 25:
-                    signals_hit.append(f"RSI Deeply Oversold ({cur_rsi:.0f})")
-                    consensus += 2
-                    score += 4
-                elif cur_rsi < 35:
-                    signals_hit.append(f"RSI Oversold ({cur_rsi:.0f})")
-                    consensus += 1
-                    score += 2
+            # CCI
+            cci_ser  = ta.cci(high, low, close, length=20)
+            cur_cci  = _safe(cci_ser, default=0)
+
+            # Williams %R
+            willr    = ta.willr(high, low, close, length=14)
+            cur_willr = _safe(willr, default=-50)
+
+            # ROC (Rate of Change — momentum)
+            roc_ser  = ta.roc(close, length=10)
+            cur_roc  = _safe(roc_ser, default=0)
+
+            # RSI prev values for slope
+            cur_rsi_3p = _safe(rsi14, -3, default=50)
+            cur_rsi_p  = _safe(rsi14, -2, default=50)
+
+            # Keltner Channel
+            kc_df = ta.kc(high, low, close, length=20)
+            kcu_v = kcl_v = None
+            if kc_df is not None:
+                _kcu_col = next((c for c in kc_df.columns if c.startswith('KCUe')), None)
+                _kcl_col = next((c for c in kc_df.columns if c.startswith('KCLe')), None)
+                if _kcu_col and _kcl_col:
+                    kcu_v = _safe(kc_df[_kcu_col], default=cp * 1.02)
+                    kcl_v = _safe(kc_df[_kcl_col], default=cp * 0.98)
+
+            # SuperTrend
+            st_bullish = False
+            try:
+                _st_df = ta.supertrend(high, low, close, length=10, multiplier=3.0)
+                if _st_df is not None:
+                    _std_col = next((c for c in _st_df.columns if c.startswith('SUPERTd_')), None)
+                    if _std_col and int(_safe(_st_df[_std_col], default=0)) == 1:
+                        st_bullish = True
+            except Exception:
+                pass
+
+            # VWAP (rolling 20-bar approximation)
+            try:
+                typical = (high + low + close) / 3
+                vwap_val = float((typical * volume).iloc[-20:].sum() / volume.iloc[-20:].sum()) if volume.iloc[-20:].sum() > 0 else cp
+            except Exception:
+                vwap_val = cp
+
+            # ATR percent
+            cur_atr_pct = cur_atr / cp if cp > 0 else 0.02
+
+            # 20-bar support / resistance
+            support_20  = float(low.iloc[-20:].min())
+            resist_20   = float(high.iloc[-20:].max())
+            support_60  = float(low.iloc[-60:].min())  if len(low)  >= 60 else support_20
+            resist_60   = float(high.iloc[-60:].max()) if len(high) >= 60 else resist_20
+            near_support = (cp - support_20) / cp < 0.04   # within 4% of 20-bar low
+            near_resist  = (resist_20 - cp)  / cp < 0.03   # within 3% of 20-bar high
+
+            # Perf metrics
+            perf_3m = ((cp / float(close.iloc[-60])) - 1) * 100 if len(close) >= 60 else perf_1m
+
+            # Market regime (trend vs range via ADX + BB width)
+            bb_width_pct = ((bbu_v - bbl_v) / bbm_v * 100) if (bbu_v and bbm_v and bbm_v > 0) else 5.0
+            regime_trending = cur_adx > 22
+            regime_ranging  = cur_adx < 20 and bb_width_pct < 6.0
+
+            # ── STRATEGY-SPECIFIC INDICATOR LOGIC ────────────────────────────
+
+            if strategy_key == "trend_breakout":
+                # ── TREND layer ──────────────────────────────────────────────
+                if cp > e20 > e50 > e200:
+                    signals_hit.append("Full EMA Stack Aligned (20>50>200)")
+                    consensus += 2; score += 3
+                elif cp > e50 > e200 and cp > e20:
+                    signals_hit.append("EMA Stack Bullish (20/50/200)")
+                    consensus += 1; score += 2
+                elif cp > e50 and cp > e20:
+                    signals_hit.append("Price Above EMA20 & EMA50")
+                    consensus += 1; score += 1
                 else:
                     direction = "hold"
 
-                # Bollinger Bands (pre-computed bb_df)
-                if bb_df is not None:
-                    bbl_col = next((c for c in bb_df.columns if 'BBL' in c), None)
-                    bbu_col = next((c for c in bb_df.columns if 'BBU' in c), None)
-                    if bbl_col and bbu_col:
-                        bbl = _safe(bb_df[bbl_col], default=cp * 0.98)
-                        bbu = _safe(bb_df[bbu_col], default=cp * 1.02)
-                        bb_pct = (cp - bbl) / (bbu - bbl) if (bbu - bbl) > 0 else 0.5
-                        if bb_pct < 0.15:
-                            signals_hit.append("BB Lower Band Touch")
-                            consensus += 1
-                            score += 2
+                if st_bullish:
+                    signals_hit.append("SuperTrend Bullish Signal")
+                    consensus += 1; score += 2
 
-                # Stochastic (pre-computed stoch_df)
-                if stoch_df is not None:
-                    sk_col = next((c for c in stoch_df.columns if 'STOCHk' in c), None)
-                    if sk_col:
-                        sk = _safe(stoch_df[sk_col], default=50)
-                        if sk < 20:
-                            signals_hit.append(f"Stochastic Oversold ({sk:.0f})")
-                            consensus += 1
-                            score += 2
-                        elif sk < 30:
-                            signals_hit.append(f"Stochastic Near Oversold ({sk:.0f})")
-                            consensus += 1
-                            score += 1
+                # ── MOMENTUM layer ───────────────────────────────────────────
+                if cur_adx > 30 and pos_di > neg_di:
+                    signals_hit.append(f"ADX Strong Trend ({cur_adx:.0f}) — DI+ leads")
+                    consensus += 1; score += 2
+                elif cur_adx > 22 and pos_di > neg_di:
+                    signals_hit.append(f"ADX Trending ({cur_adx:.0f})")
+                    consensus += 1; score += 1
 
-                cur_adx = 15
-                pos_di = neg_di = 20
+                if macd_line > macd_sig and macd_hist > 0 and macd_hist > macd_hist_p:
+                    signals_hit.append("MACD Expanding Bullish")
+                    consensus += 1; score += 1
+
+                if 50 < cur_rsi < 75 and cur_rsi > cur_rsi_p:
+                    signals_hit.append(f"RSI Bullish Zone Rising ({cur_rsi:.0f})")
+                    consensus += 1; score += 1
+
+                if cur_roc > 3:
+                    signals_hit.append(f"ROC Positive ({cur_roc:.1f}%) — price accelerating")
+                    consensus += 1; score += 1
+
+                # ── VOLUME layer ─────────────────────────────────────────────
+                if vol_ratio > 2.0 and perf_5d > 0:
+                    signals_hit.append(f"Strong Volume Surge ({vol_ratio:.1f}x avg) on Up Day")
+                    consensus += 1; score += 2
+                elif vol_ratio > 1.5 and perf_5d > 0:
+                    signals_hit.append(f"Volume Surge ({vol_ratio:.1f}x avg)")
+                    consensus += 1; score += 1
+
+                if len(obv_vals) >= 10 and float(obv_vals.iloc[-1]) > float(obv_vals.iloc[-10]):
+                    signals_hit.append("OBV Rising — volume confirms trend")
+                    consensus += 1; score += 1
+
+                # ── VOLATILITY layer ─────────────────────────────────────────
+                if bbu_v and cp > bbu_v * 0.995:
+                    signals_hit.append("Price at BB Upper Band — breakout")
+                    consensus += 1; score += 1
+                if cur_atr_pct > 0.015:
+                    signals_hit.append(f"ATR Expanding ({cur_atr_pct*100:.1f}%) — volatility supporting move")
+                    score += 1
+
+                # ── S&R layer ────────────────────────────────────────────────
+                if near_resist:
+                    score -= 1  # headroom penalty — near resistance
+                if cp > resist_60 * 0.995:
+                    signals_hit.append("Price Near/Above 60-bar High — breakout zone")
+                    consensus += 1; score += 2
+
+                # ── MARKET REGIME filter ─────────────────────────────────────
+                if tasi_regime_bearish:
+                    score = max(0, score - 2)
+                if regime_trending:
+                    signals_hit.append(f"Market Regime: Trending (ADX {cur_adx:.0f})")
+                    score += 1
+
+            elif strategy_key == "oversold_bounce":
+                # ── MEAN REVERSION / MOMENTUM (oversold) layer ───────────────
+                if cur_rsi < 20:
+                    signals_hit.append(f"RSI Extreme Oversold ({cur_rsi:.0f}) — capitulation")
+                    consensus += 2; score += 4
+                elif cur_rsi < 30:
+                    signals_hit.append(f"RSI Deeply Oversold ({cur_rsi:.0f})")
+                    consensus += 2; score += 3
+                elif cur_rsi < 38:
+                    signals_hit.append(f"RSI Oversold ({cur_rsi:.0f})")
+                    consensus += 1; score += 2
+                else:
+                    direction = "hold"
+
+                if cur_stoch_k < 15 and cur_stoch_k > cur_stoch_d:
+                    signals_hit.append(f"Stochastic Extreme Oversold + Turning ({cur_stoch_k:.0f})")
+                    consensus += 2; score += 3
+                elif cur_stoch_k < 25:
+                    signals_hit.append(f"Stochastic Oversold ({cur_stoch_k:.0f})")
+                    consensus += 1; score += 2
+
+                if cur_willr < -85:
+                    signals_hit.append(f"Williams %R Extreme Oversold ({cur_willr:.0f})")
+                    consensus += 1; score += 2
+                elif cur_willr < -70:
+                    signals_hit.append(f"Williams %R Oversold ({cur_willr:.0f})")
+                    consensus += 1; score += 1
+
+                if cur_cci < -150:
+                    signals_hit.append(f"CCI Extreme Oversold ({cur_cci:.0f})")
+                    consensus += 1; score += 2
+                elif cur_cci < -100:
+                    signals_hit.append(f"CCI Oversold ({cur_cci:.0f})")
+                    consensus += 1; score += 1
+
+                # ── VOLATILITY / BB layer ────────────────────────────────────
+                if bbl_v and bb_pct_b < 0.05:
+                    signals_hit.append("Price at/Below BB Lower Band — extreme extension")
+                    consensus += 2; score += 3
+                elif bbl_v and bb_pct_b < 0.15:
+                    signals_hit.append("Price Near BB Lower Band")
+                    consensus += 1; score += 2
+
+                # ── VOLUME layer ─────────────────────────────────────────────
+                if cur_mfi < 20:
+                    signals_hit.append(f"MFI Extreme Oversold ({cur_mfi:.0f}) — sellers exhausted")
+                    consensus += 1; score += 2
+                elif cur_mfi < 35:
+                    signals_hit.append(f"MFI Oversold ({cur_mfi:.0f})")
+                    consensus += 1; score += 1
+
+                # Selling climax — high volume down day that may reverse
+                if vol_ratio > 2.5 and perf_5d < -3:
+                    signals_hit.append(f"Volume Selling Climax ({vol_ratio:.1f}x) — potential reversal")
+                    consensus += 1; score += 2
+
+                # ── S&R layer ────────────────────────────────────────────────
+                if near_support:
+                    signals_hit.append("Price Near 20-bar Support — structural floor")
+                    consensus += 1; score += 2
+
+                # ── TREND context ────────────────────────────────────────────
+                if cp > e200:
+                    signals_hit.append("Price Above EMA200 — bounce in uptrend")
+                    consensus += 1; score += 1
+                if cp > e50:
+                    signals_hit.append("Price Above EMA50 — mid-term trend intact")
+                    score += 1
+
+                # ── RSI turning up ───────────────────────────────────────────
+                if cur_rsi > cur_rsi_p > cur_rsi_3p and cur_rsi < 45:
+                    signals_hit.append("RSI Hooking Up — momentum turning")
+                    consensus += 1; score += 2
+
+                # ── MARKET REGIME ────────────────────────────────────────────
+                if not tasi_regime_bearish:
+                    signals_hit.append("Market Regime: Supportive for bounces")
+                    score += 1
+                else:
+                    score = max(0, score - 1)
 
             elif strategy_key == "momentum_surge":
-                # MACD crossover (pre-computed macd_df)
-                if macd_df is not None:
-                    ml   = _safe(macd_df['MACD_12_26_9'])
-                    ms   = _safe(macd_df['MACDs_12_26_9'])
-                    ml_p = _safe(macd_df['MACD_12_26_9'], -2)
-                    ms_p = _safe(macd_df['MACDs_12_26_9'], -2)
-                    if ml > ms and ml_p <= ms_p:
-                        signals_hit.append("MACD Bullish Crossover")
-                        consensus += 2
-                        score += 4
-                    elif ml > ms:
-                        signals_hit.append("MACD Bullish Momentum")
-                        consensus += 1
-                        score += 2
+                # ── MOMENTUM layer ───────────────────────────────────────────
+                if macd_line > macd_sig and macd_hist > 0 and macd_hist > macd_hist_p:
+                    signals_hit.append("MACD Bullish Crossover + Expanding Histogram")
+                    consensus += 2; score += 4
+                elif macd_line > macd_sig and macd_hist > 0:
+                    signals_hit.append("MACD Above Signal — positive momentum")
+                    consensus += 1; score += 2
+                else:
+                    direction = "hold"
+
+                if 45 < cur_rsi < 72 and cur_rsi > cur_rsi_p:
+                    signals_hit.append(f"RSI Rising in Power Zone ({cur_rsi:.0f}↑)")
+                    consensus += 1; score += 2
+                elif 40 < cur_rsi < 72 and cur_rsi > cur_rsi_p:
+                    signals_hit.append(f"RSI Rising ({cur_rsi:.0f}↑)")
+                    consensus += 1; score += 1
+
+                if cur_roc > 5:
+                    signals_hit.append(f"ROC Strong ({cur_roc:.1f}%) — price accelerating fast")
+                    consensus += 1; score += 2
+                elif cur_roc > 2:
+                    signals_hit.append(f"ROC Positive ({cur_roc:.1f}%)")
+                    consensus += 1; score += 1
+
+                if cur_cci > 100:
+                    signals_hit.append(f"CCI Strong Momentum ({cur_cci:.0f})")
+                    consensus += 1; score += 1
+
+                # ── TREND confirmation ───────────────────────────────────────
+                if cp > e20 > e50:
+                    signals_hit.append("Price Above EMA20 > EMA50 — trend aligned")
+                    consensus += 1; score += 1
+
+                if cur_adx > 25 and pos_di > neg_di:
+                    signals_hit.append(f"ADX Confirms Trend ({cur_adx:.0f})")
+                    consensus += 1; score += 1
+
+                if st_bullish:
+                    signals_hit.append("SuperTrend Bullish — trend intact")
+                    score += 1
+
+                # ── VOLUME layer ─────────────────────────────────────────────
+                if len(obv_vals) >= 5 and float(obv_vals.iloc[-1]) > float(obv_vals.iloc[-5]):
+                    signals_hit.append("OBV Rising — volume supports momentum")
+                    consensus += 1; score += 1
+
+                if vol_ratio > 1.8 and perf_5d > 1:
+                    signals_hit.append(f"Volume + Price Rising ({vol_ratio:.1f}x, +{perf_5d:.1f}%)")
+                    consensus += 1; score += 2
+                elif vol_ratio > 1.3 and perf_5d > 0:
+                    signals_hit.append(f"Volume Above Average ({vol_ratio:.1f}x)")
+                    score += 1
+
+                # ── VOLATILITY / BB layer ────────────────────────────────────
+                if bbu_v and cp > bbm_v and cp < bbu_v:
+                    signals_hit.append("Price in BB Upper Half — momentum zone")
+                    score += 1
+
+                # ── S&R / VWAP layer ─────────────────────────────────────────
+                if cp > vwap_val * 1.005:
+                    signals_hit.append("Price Above VWAP — buyers in control")
+                    consensus += 1; score += 1
+
+                # ── RS vs TASI ───────────────────────────────────────────────
+                if rs_vs_tasi > 5:
+                    signals_hit.append(f"Strong RS vs TASI (+{rs_vs_tasi:.1f}%)")
+                    consensus += 1; score += 2
+                elif rs_vs_tasi > 2:
+                    signals_hit.append(f"RS vs TASI +{rs_vs_tasi:.1f}%")
+                    consensus += 1; score += 1
+
+                # ── MARKET REGIME ────────────────────────────────────────────
+                if not tasi_regime_bearish and perf_3m > 5:
+                    signals_hit.append("Market Regime: Momentum-favorable")
+                    score += 1
+                if tasi_regime_bearish:
+                    score = max(0, score - 3)
+
+            elif strategy_key == "squeeze_setup":
+                # ── VOLATILITY COMPRESSION (core) ─────────────────────────────
+                squeeze_on = False
+                if bbu_v and bbl_v and kcu_v and kcl_v:
+                    bb_w = bbu_v - bbl_v
+                    kc_w = kcu_v - kcl_v
+                    if bb_w < kc_w and kc_w > 0:
+                        squeeze_on = True
+                        bb_kc_ratio = bb_w / kc_w
+                        if bb_kc_ratio < 0.5:
+                            signals_hit.append("Extreme Squeeze: BB deep inside Keltner")
+                            consensus += 3; score += 5
+                        else:
+                            signals_hit.append("Bollinger Inside Keltner — Squeeze Active")
+                            consensus += 2; score += 3
+
+                if not squeeze_on:
+                    direction = "hold"
+
+                if cur_atr_pct < 0.015:
+                    signals_hit.append(f"ATR Extremely Compressed ({cur_atr_pct*100:.1f}%)")
+                    consensus += 1; score += 3
+                elif cur_atr_pct < 0.025:
+                    signals_hit.append(f"ATR Compressed ({cur_atr_pct*100:.1f}%)")
+                    consensus += 1; score += 2
+
+                if bb_width_pct < 4.0:
+                    signals_hit.append(f"BB Width Narrow ({bb_width_pct:.1f}%) — coiling")
+                    consensus += 1; score += 2
+
+                # ── TREND context — direction of pending explosion ────────────
+                if cur_adx < 20:
+                    signals_hit.append(f"ADX Low ({cur_adx:.0f}) — no trend yet, energy building")
+                    consensus += 1; score += 2
+                elif cur_adx < 25:
+                    signals_hit.append(f"ADX Below 25 ({cur_adx:.0f}) — pre-breakout zone")
+                    consensus += 1; score += 1
+
+                if cp > e20:
+                    signals_hit.append("Price Above EMA20 — upside bias")
+                    consensus += 1; score += 1
+                if cp > e50:
+                    signals_hit.append("Price Above EMA50 — trend aligned bullish")
+                    score += 1
+
+                if macd_hist > 0 and macd_hist > macd_hist_p:
+                    signals_hit.append("MACD Histogram Rising — momentum building")
+                    consensus += 1; score += 1
+
+                # ── VOLUME layer — drying up confirms coil ───────────────────
+                if vol_ratio < 0.7:
+                    signals_hit.append(f"Volume Dry-Up ({vol_ratio:.1f}x) — classic pre-breakout")
+                    consensus += 1; score += 2
+                elif vol_ratio < 0.9:
+                    signals_hit.append(f"Volume Below Average ({vol_ratio:.1f}x) — quiet coil")
+                    score += 1
+
+                if len(obv_vals) >= 5:
+                    obv_slope = float(obv_vals.iloc[-1]) - float(obv_vals.iloc[-5])
+                    if abs(obv_slope) / (abs(float(obv_vals.iloc[-5])) + 1) < 0.02:
+                        signals_hit.append("OBV Flat — volume pause confirms squeeze")
+                        score += 1
+
+                # ── S&R layer ────────────────────────────────────────────────
+                if near_support:
+                    signals_hit.append("Price Near Support — coiling at base")
+                    consensus += 1; score += 1
+
+                # ── MFI neutral confirms no panic ────────────────────────────
+                if 40 < cur_mfi < 60:
+                    signals_hit.append(f"MFI Neutral ({cur_mfi:.0f}) — balanced accumulation")
+                    score += 1
+
+                # ── MARKET REGIME ────────────────────────────────────────────
+                if not tasi_regime_bearish:
+                    signals_hit.append("Market Regime: Neutral/Supportive for setups")
+                    score += 1
+
+            elif strategy_key == "smart_money":
+                # ── VOLUME ACCUMULATION (core) ────────────────────────────────
+                if len(obv_vals) >= 20:
+                    obv_slope_20 = float(obv_vals.iloc[-1]) - float(obv_vals.iloc[-20])
+                    obv_slope_5  = float(obv_vals.iloc[-1]) - float(obv_vals.iloc[-5])
+                    if obv_slope_20 > 0 and obv_slope_5 > 0:
+                        signals_hit.append("OBV Rising 20-bar + 5-bar — sustained accumulation")
+                        consensus += 2; score += 3
+                    elif obv_slope_20 > 0:
+                        signals_hit.append("OBV Rising 20-bar — institutional accumulation")
+                        consensus += 1; score += 2
+                    else:
+                        direction = "hold"
+                elif len(obv_vals) >= 10:
+                    if float(obv_vals.iloc[-1]) > float(obv_vals.iloc[-10]):
+                        signals_hit.append("OBV Rising 10-bar — accumulation building")
+                        consensus += 1; score += 2
                     else:
                         direction = "hold"
                 else:
                     direction = "hold"
 
-                # RSI rising from mid-zone (pre-computed)
-                cur_rsi_p = _safe(rsi14, -3, default=50)
-                if 35 < cur_rsi < 60 and cur_rsi > cur_rsi_p:
-                    signals_hit.append(f"RSI Rising ({cur_rsi:.0f}↑)")
-                    consensus += 1
-                    score += 1
-
-                # OBV
-                obv = ta.obv(close, volume)
-                if obv is not None:
-                    obv_c = obv.dropna()
-                    if len(obv_c) >= 5 and float(obv_c.iloc[-1]) > float(obv_c.iloc[-5]):
-                        signals_hit.append("OBV Accumulation")
-                        consensus += 1
-                        score += 1
-
-                # Momentum perf
-                if perf_5d > 2:
-                    signals_hit.append(f"5D Momentum +{perf_5d:.1f}%")
-                    consensus += 1
-                    score += 1
-
-                cur_adx = 15; pos_di = 20; neg_di = 20
-
-            elif strategy_key == "squeeze_setup":
-                # Bollinger Bands width (pre-computed bb_df)
-                bb = bb_df
-                kc = ta.kc(high, low, close, length=20)
-                squeeze_on = False
-                if bb is not None and kc is not None:
-                    bbu_col = next((c for c in bb.columns if 'BBU' in c), None)
-                    bbl_col = next((c for c in bb.columns if 'BBL' in c), None)
-                    kcu_col = next((c for c in kc.columns if c.startswith('KCUe')), None)
-                    kcl_col = next((c for c in kc.columns if c.startswith('KCLe')), None)
-                    if bbu_col and bbl_col and kcu_col and kcl_col:
-                        bb_w = _safe(bb[bbu_col]) - _safe(bb[bbl_col])
-                        kc_w = _safe(kc[kcu_col]) - _safe(kc[kcl_col])
-                        if bb_w < kc_w and kc_w > 0:
-                            squeeze_on = True
-                            signals_hit.append("Bollinger Inside Keltner (Squeeze)")
-                            consensus += 2
-                            score += 3
-
-                if not squeeze_on:
-                    direction = "hold"
-
-                # Low ATR (volatility compression)
-                cur_atr_pct = cur_atr / cp if cp > 0 else 0.02
-                if cur_atr_pct < 0.02:
-                    signals_hit.append(f"ATR Compressed ({cur_atr_pct*100:.1f}%)")
-                    consensus += 1
-                    score += 2
-
-                # ADX < 25 (no trend yet — coiling) (pre-computed adx_df2)
-                if adx_df2 is not None:
-                    adx_col = next((c for c in adx_df2.columns if c.startswith('ADX_')), None)
-                    cur_adx = _safe(adx_df2[adx_col], default=30) if adx_col else 30
-                    dmp_col = next((c for c in adx_df2.columns if c.startswith('DMP_')), None)
-                    dmn_col = next((c for c in adx_df2.columns if c.startswith('DMN_')), None)
-                    pos_di  = _safe(adx_df2[dmp_col], default=20) if dmp_col else 20
-                    neg_di  = _safe(adx_df2[dmn_col], default=20) if dmn_col else 20
-                    if cur_adx < 25:
-                        signals_hit.append(f"ADX Low (No Trend Yet) ({cur_adx:.0f})")
-                        consensus += 1
-                        score += 1
-                else:
-                    cur_adx = 15; pos_di = 20; neg_di = 20
-
-                # Price holding above EMA (pre-computed e20)
-                if cp > e20:
-                    signals_hit.append("Price Above EMA20")
-                    consensus += 1
-                    score += 1
-
-            elif strategy_key == "smart_money":
-                # OBV accumulation
-                obv = ta.obv(close, volume)
-                obv_c = obv.dropna() if obv is not None else pd.Series()
-                obv_rising = (float(obv_c.iloc[-1]) > float(obv_c.iloc[-10])) if len(obv_c) >= 10 else False
-                if obv_rising:
-                    signals_hit.append("OBV Accumulation (10-bar)")
-                    consensus += 1
-                    score += 2
-                else:
-                    direction = "hold"
-
-                # MFI
-                mfi = ta.mfi(high, low, close, volume, length=14)
-                cur_mfi = _safe(mfi, default=50)
                 if cur_mfi < 30:
-                    signals_hit.append(f"MFI Oversold ({cur_mfi:.0f}) — smart money accumulating")
-                    consensus += 2
-                    score += 3
+                    signals_hit.append(f"MFI Oversold ({cur_mfi:.0f}) — smart money accumulating cheap")
+                    consensus += 2; score += 3
                 elif cur_mfi < 45:
-                    signals_hit.append(f"MFI Low ({cur_mfi:.0f}) — accumulation zone")
-                    consensus += 1
-                    score += 1
+                    signals_hit.append(f"MFI Low ({cur_mfi:.0f}) — quiet accumulation zone")
+                    consensus += 1; score += 2
+                elif cur_mfi > 55 and vol_ratio > 1.5:
+                    signals_hit.append(f"MFI Rising ({cur_mfi:.0f}) with Volume — demand increasing")
+                    consensus += 1; score += 1
 
-                # Volume surge on up day
-                if vol_ratio > 2.0 and perf_5d > 0.5:
-                    signals_hit.append(f"Heavy Volume + Price Up ({vol_ratio:.1f}x avg)")
-                    consensus += 1
-                    score += 2
+                # Heavy volume + price calm or rising slightly
+                if vol_ratio > 2.5 and abs(perf_5d) < 2:
+                    signals_hit.append(f"High Volume + Calm Price ({vol_ratio:.1f}x avg) — accumulation signature")
+                    consensus += 2; score += 3
+                elif vol_ratio > 2.0 and perf_5d > 0:
+                    signals_hit.append(f"Strong Volume on Up Day ({vol_ratio:.1f}x avg)")
+                    consensus += 1; score += 2
                 elif vol_ratio > 1.5 and perf_5d > 0:
-                    signals_hit.append(f"Volume Surge ({vol_ratio:.1f}x avg)")
-                    consensus += 1
+                    signals_hit.append(f"Volume Surge on Up Day ({vol_ratio:.1f}x avg)")
+                    consensus += 1; score += 1
+
+                # ── TREND (stealth uptrend) ───────────────────────────────────
+                if cp > e50 and cp > e20:
+                    signals_hit.append("Price Above EMA20 & EMA50 — quiet uptrend")
+                    consensus += 1; score += 1
+
+                if cp > e200:
+                    signals_hit.append("Price Above EMA200 — long-term trend intact")
                     score += 1
 
-                # RS vs TASI
+                if st_bullish:
+                    signals_hit.append("SuperTrend Bullish — structural support")
+                    score += 1
+
+                # ── MOMENTUM — divergence signals ────────────────────────────
+                if cur_rsi < 50 and cur_rsi > cur_rsi_p and vol_ratio > 1.3:
+                    signals_hit.append(f"RSI Rising Below 50 + Volume — hidden strength ({cur_rsi:.0f}↑)")
+                    consensus += 1; score += 2
+
+                if macd_line > macd_sig and macd_hist > macd_hist_p and cp < e20 * 1.01:
+                    signals_hit.append("MACD Bullish while Price Quiet — institutional footprint")
+                    consensus += 1; score += 2
+
+                # ── S&R — accumulation near support ──────────────────────────
+                if near_support:
+                    signals_hit.append("Accumulating Near Support — defensive entry zone")
+                    consensus += 1; score += 2
+
+                if cp > vwap_val:
+                    signals_hit.append("Price Above VWAP — institutional buyers in control")
+                    consensus += 1; score += 1
+
+                # ── VOLATILITY — low vol accumulation ────────────────────────
+                if cur_atr_pct < 0.025 and vol_ratio > 1.3:
+                    signals_hit.append("Low Volatility + Rising Volume — stealth accumulation")
+                    consensus += 1; score += 2
+
+                # ── RS vs TASI ───────────────────────────────────────────────
                 if rs_vs_tasi > 4:
-                    signals_hit.append(f"Outperforming TASI by {rs_vs_tasi:.1f}%")
-                    consensus += 1
-                    score += 2
+                    signals_hit.append(f"Outperforming TASI by {rs_vs_tasi:.1f}% — money rotating in")
+                    consensus += 1; score += 2
                 elif rs_vs_tasi > 1:
-                    signals_hit.append(f"Slight RS vs TASI +{rs_vs_tasi:.1f}%")
-                    consensus += 1
-                    score += 1
+                    signals_hit.append(f"RS vs TASI +{rs_vs_tasi:.1f}% — mild outperformance")
+                    consensus += 1; score += 1
 
-                cur_adx = 15; pos_di = 20; neg_di = 20
+                # ── MARKET REGIME ────────────────────────────────────────────
+                if not tasi_regime_bearish:
+                    signals_hit.append("Market Regime: Supportive for accumulation")
+                    score += 1
+                else:
+                    score = max(0, score - 2)
 
             # ── Gate: minimum consensus required ─────────────────────────────
             min_cons = strategy.get('min_consensus', 2)
@@ -2872,7 +3160,7 @@ def run_strategy_scan(tickers_list, strategy_key, start=None, end=None, fresh_on
             else:
                 entry_quality = "Fair"
 
-            conviction = min(100, round(score / max(1, 12) * 100))
+            conviction = min(100, round(score / max(1, 20) * 100))
             priority_score = (score * 4 + rr_ratio * 8 + conviction * 0.3)
 
             ticker_key = ticker if ticker.endswith('.SR') else ticker + '.SR'
@@ -2883,6 +3171,10 @@ def run_strategy_scan(tickers_list, strategy_key, start=None, end=None, fresh_on
             w52_high  = float(high.iloc[-lookback:].max())
             w52_low   = float(low.iloc[-lookback:].min())
             w52_pos   = (cp - w52_low) / (w52_high - w52_low) * 100 if (w52_high - w52_low) > 0 else 50
+
+            _obv_rising_flag = (
+                (len(obv_vals) >= 10 and float(obv_vals.iloc[-1]) > float(obv_vals.iloc[-10]))
+            )
 
             record = {
                 'ticker':          ticker,
@@ -2897,10 +3189,12 @@ def run_strategy_scan(tickers_list, strategy_key, start=None, end=None, fresh_on
                 'conviction':      conviction,
                 'rr_ratio':        round(rr_ratio, 2),
                 'risk_pct':        round(risk_pct, 2),
+                'risk':            round(risk_pct, 2),
                 'potential':       round(potential, 2),
                 'entry_quality':   entry_quality,
                 'perf_5d':         round(perf_5d, 2),
                 'perf_1m':         round(perf_1m, 2),
+                'perf_3m':         round(perf_3m, 2),
                 'w52_pos':         round(w52_pos, 1),
                 'vol_ratio':       round(vol_ratio, 2),
                 'rs_vs_tasi':      round(rs_vs_tasi, 2),
@@ -2914,8 +3208,19 @@ def run_strategy_scan(tickers_list, strategy_key, start=None, end=None, fresh_on
                 'strategy_signals': signals_hit,
                 'signals':         [f"Strategy: {strategy['label']}"] + signals_hit,
                 'why_reasons':     signals_hit,
-                'regime':          'TREND' if score >= 6 else 'RANGE',
+                'regime':          'TREND' if cur_adx > 22 else ('SQUEEZE' if regime_ranging else 'RANGE'),
                 'entry_strategy':  f"Enter at market — {consensus} of {strategy.get('min_consensus', 2)}+ signals confirmed",
+                # Fields required by _score_stock / _detect_regime in acpts_tab_v2
+                'rsi':             round(cur_rsi, 1),
+                'adx':             round(cur_adx, 1),
+                'above_ema200':    cp > e200,
+                'obv_rising':      _obv_rising_flag,
+                'bb_pct':          round(bb_pct_b, 3),
+                'stoch_k':         round(cur_stoch_k, 1),
+                'range_pos':       round(_range_pos, 1),
+                'weekly_bullish':  cp > e50 and cp > e200,
+                'monthly_bullish': cp > e200 and perf_3m > 0,
+                'tasi_bearish_mkt': tasi_regime_bearish,
             }
 
             bucket = direction if direction in ('buy', 'sell') else 'hold'

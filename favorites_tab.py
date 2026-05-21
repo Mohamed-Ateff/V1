@@ -2003,34 +2003,45 @@ def render_auto_scanner_page() -> None:
            background:#181818;border:1px solid #252525;border-radius:6px;
            padding:0.15rem 0.5rem;}
 
-    /* ── regime card (Section 1) ─────────────────────────────────────────── */
-    .sc-rpill{font-size:0.6rem;font-weight:900;padding:0.18rem 0.58rem;
-              border-radius:20px;white-space:nowrap;flex-shrink:0;
-              text-transform:uppercase;letter-spacing:0.5px;}
-    .sc-rcard{border:1px solid #1e1e1e;border-radius:9px;overflow:hidden;
-              background:#0b0b0b;height:100%;}
-    .sc-rcard-top{display:flex;align-items:center;gap:0.4rem;
-                  padding:0.45rem 0.7rem;border-bottom:1px solid #1a1a1a;}
-    .sc-rcard-inds{padding:0.4rem 0.7rem;border-bottom:1px solid #161616;
-                   display:flex;flex-wrap:wrap;gap:0.25rem;}
-    .sc-rind-tag{display:inline-block;background:#141414;border:1px solid #222;
-                 border-radius:5px;padding:0.08rem 0.4rem;
-                 font-size:0.65rem;font-weight:700;color:#686868;letter-spacing:0.1px;}
-    .sc-rcard-stats{display:grid;grid-template-columns:repeat(4,1fr);}
-    .sc-rstat{padding:0.55rem 0.5rem;border-right:1px solid #161616;
-              text-align:center;position:relative;}
+    /* ── regime card (Section 1) ─ calm, spacious, solid-color pills ───── */
+    .sc-rpill{font-size:0.6rem;font-weight:800;padding:0.22rem 0.65rem;
+              border-radius:6px;white-space:nowrap;flex-shrink:0;
+              text-transform:uppercase;letter-spacing:0.6px;color:#0a0a0a;}
+    .sc-rcard{border:1px solid #1c1c1c;border-radius:10px;overflow:hidden;
+              background:#0c0c0c;height:100%;}
+    .sc-rcard-top{display:flex;align-items:center;gap:0.5rem;
+                  padding:0.7rem 0.9rem;border-bottom:1px solid #161616;}
+    .sc-rcard-inds{padding:0.65rem 0.9rem;border-bottom:1px solid #161616;
+                   display:flex;flex-wrap:wrap;gap:0.3rem;}
+    .sc-rind-tag{display:inline-block;background:#121212;border:1px solid #1f1f1f;
+                 border-radius:5px;padding:0.13rem 0.45rem;
+                 font-size:0.62rem;font-weight:700;color:#7a7a7a;letter-spacing:0.1px;}
+    .sc-rcard-stats{display:grid;grid-template-columns:repeat(3,1fr);}
+    .sc-rstat{padding:0.85rem 0.5rem 0.8rem;border-right:1px solid #161616;
+              text-align:center;}
     .sc-rstat:last-child{border-right:none;}
-    .sc-rstat-top{height:2px;position:absolute;top:0;left:0;right:0;}
-    .sc-rstat-v{font-size:0.92rem;font-weight:900;line-height:1;margin-bottom:0.18rem;}
-    .sc-rstat-l{font-size:0.5rem;font-weight:800;text-transform:uppercase;
-                letter-spacing:0.9px;color:#404040;}
+    .sc-rstat-v{font-size:1.05rem;font-weight:800;line-height:1;margin-bottom:0.4rem;}
+    .sc-rstat-l{font-size:0.6rem;font-weight:700;text-transform:uppercase;
+                letter-spacing:0.7px;color:#8a8a8a;
+                display:inline-flex;align-items:center;gap:0.3rem;}
+    .sc-help{display:inline-flex;align-items:center;justify-content:center;
+             width:13px;height:13px;border-radius:50%;
+             background:#181818;border:1px solid #303030;color:#888;
+             font-size:0.55rem;font-weight:900;cursor:help;}
+    .sc-rcard-stats2{display:grid;grid-template-columns:repeat(3,1fr);
+                     border-top:1px solid #161616;}
+    .sc-rstat2{padding:0.7rem 0.5rem 0.65rem;border-right:1px solid #161616;
+               text-align:center;}
+    .sc-rstat2:last-child{border-right:none;}
+    .sc-rstat2-v{font-size:0.9rem;font-weight:800;line-height:1;margin-bottom:0.35rem;}
+    .sc-rstat2-l{font-size:0.58rem;font-weight:700;text-transform:uppercase;
+                 letter-spacing:0.7px;color:#8a8a8a;}
     .sc-cempty{font-size:0.62rem;color:#252525;font-weight:700;
-               padding:1.4rem 0.65rem;text-align:center;}
-    .sc-cfire{display:inline-block;margin-left:auto;font-size:0.56rem;font-weight:900;
-              padding:0.12rem 0.5rem;border-radius:20px;
-              background:rgba(38,166,154,0.12);border:1px solid rgba(38,166,154,0.35);
-              color:#26A69A;letter-spacing:0.6px;text-transform:uppercase;
-              box-shadow:0 0 8px rgba(38,166,154,0.15);}
+               padding:1.6rem 0.65rem;text-align:center;}
+    .sc-cfire{display:inline-block;margin-left:auto;font-size:0.6rem;font-weight:800;
+              padding:0.22rem 0.6rem;border-radius:6px;
+              background:#26A69A;color:#0a0a0a;
+              letter-spacing:0.6px;text-transform:uppercase;}
 
     /* ── section divider ─────────────────────────────────────────────────── */
     .sc-sd{display:flex;align-items:center;gap:0.6rem;margin:2.5rem 0 1rem;}
@@ -2251,7 +2262,7 @@ def render_auto_scanner_page() -> None:
         _out  = []
         _prog = st.progress(0, text="Downloading market data…")
         _prog.progress(0.05, text="Downloading all Tadawul data in one request…")
-        _batch = scan_all_stocks(tuple(_ALL_SYMS), _sel_period, _v=3)
+        _batch = scan_all_stocks(tuple(_ALL_SYMS), _sel_period, _v=8)
         _prog.progress(0.6, text="Analysing strategies…")
         _tot = len(_ALL_SYMS)
         for _i, _sym in enumerate(_ALL_SYMS):
@@ -2293,20 +2304,12 @@ def render_auto_scanner_page() -> None:
     # ══════════════════════════════════════════════════════════════════════════
     # SECTION 1 — Scanned Strategy Grid
     # ══════════════════════════════════════════════════════════════════════════
-    _n_firing_rows = sum(1 for r in _rows if _has_firing(r))
     st.markdown(
         f"<div style='display:flex;align-items:center;gap:0.7rem;"
-        f"margin-bottom:0.9rem;flex-wrap:wrap;'>"
+        f"margin-bottom:0.9rem;'>"
         f"<span style='font-size:0.95rem;font-weight:900;color:#d0d0d0;letter-spacing:-0.2px;'>"
         f"Scanned Strategies</span>"
-        f"<span style='font-size:0.6rem;color:#303030;background:#141414;"
-        f"border:1px solid #222;border-radius:6px;padding:0.1rem 0.5rem;font-weight:700;'>"
-        f"{_sel_period}</span>"
-        + (f"<span style='font-size:0.6rem;color:#26A69A;background:rgba(38,166,154,0.08);"
-           f"border:1px solid rgba(38,166,154,0.25);border-radius:6px;"
-           f"padding:0.1rem 0.5rem;font-weight:900;'>⚡ {_n_firing_rows} firing</span>"
-           if _n_firing_rows else '')
-        + f"<span style='font-size:0.6rem;color:#2e2e2e;margin-left:auto;font-weight:700;'>"
+        f"<span style='font-size:0.6rem;color:#2e2e2e;margin-left:auto;font-weight:700;'>"
         f"{len(_rows)} stocks</span>"
         f"</div>",
         unsafe_allow_html=True)
@@ -2342,65 +2345,75 @@ def render_auto_scanner_page() -> None:
             + f"</div></div>",
             unsafe_allow_html=True)
 
+        _PF_HELP  = ("Profit Factor = total $ won ÷ total $ lost across all past "
+                     "signals. 1.0 = breakeven, 2.0+ = strong, 3.0+ = exceptional.")
+        _EXP_HELP = ("Expectancy = average % return per signal. +1.5% means each "
+                     "signal on average gained 1.5%. Negative = losing strategy.")
+
         for _rname, _col in zip(('TREND','RANGE','VOLATILE'), st.columns(3, gap="small")):
             _combo  = _regs.get(_rname)
             _rc_col = _REGIME_COLORS.get(_rname, '#888')
-            _ri     = _REGIME_ICONS.get(_rname, '★')
             with _col:
                 if not _combo:
                     st.markdown(
                         f"<div class='sc-rcard'>"
                         f"<div class='sc-rcard-top'>"
                         f"<span class='sc-rpill' style='background:#181818;color:#2a2a2a;'>"
-                        f"{_ri}&nbsp;{_rname.title()}</span>"
+                        f"{_rname.title()}</span>"
                         f"</div>"
                         f"<div class='sc-cempty'>—</div>"
                         f"</div>",
                         unsafe_allow_html=True)
                     continue
 
-                _wr   = float(_combo.get('win_rate', 0) or 0)
-                _pf   = float(_combo.get('profit_factor', 0) or 0)
-                _exp  = float(_combo.get('expectancy', 0) or 0)
-                _tot  = int(_combo.get('total', 0) or 0)
-                _inds = _combo.get('indicators', [])
-                _fire = _combo.get('firing', False)
-                _wc   = _wr_col(_wr)
-                _exp_c = '#26A69A' if _exp > 0 else '#ef5350'
+                _wr     = float(_combo.get('win_rate', 0) or 0)
+                _pf     = float(_combo.get('profit_factor', 0) or 0)
+                _exp    = float(_combo.get('expectancy', 0) or 0)
+                _tot    = int(_combo.get('total', 0) or 0)
+                _wins   = int(_combo.get('wins', 0) or 0)
+                _losses = int(_combo.get('losses', 0) or 0)
+                _inds   = _combo.get('indicators', [])
+                _fire   = _combo.get('firing', False)
+                _wc     = _wr_col(_wr)
+                _exp_c  = '#26A69A' if _exp > 0 else '#ef5350'
                 _ind_tags = ''.join(
                     f"<span class='sc-rind-tag'>{_ind_label([k])}</span>"
                     for k in _inds)
 
                 st.markdown(
-                    f"<div class='sc-rcard'"
-                    + (f" style='border-color:rgba(38,166,154,0.30);'" if _fire else '')
-                    + f">"
-                    f"<div class='sc-rcard-top'"
-                    + (f" style='background:rgba(38,166,154,0.05);'" if _fire else '')
-                    + f">"
-                    f"<span class='sc-rpill' style='background:{_rc_col};color:#0a0a0a;"
-                    f"box-shadow:0 0 8px {_rc_col}44;'>"
-                    f"{_ri}&thinsp;{_rname.title()}</span>"
-                    + (f"<span class='sc-cfire'>⚡ FIRING</span>" if _fire else '')
+                    f"<div class='sc-rcard'>"
+                    f"<div class='sc-rcard-top'>"
+                    # Solid color-filled regime pill — no icon
+                    f"<span class='sc-rpill' style='background:{_rc_col};'>"
+                    f"{_rname.title()}</span>"
+                    + (f"<span class='sc-cfire'>FIRING</span>" if _fire else '')
                     + f"</div>"
                     f"<div class='sc-rcard-inds'>{_ind_tags}</div>"
+                    # Primary row: Win Rate · Profit Factor · Expectancy
                     f"<div class='sc-rcard-stats'>"
                     f"<div class='sc-rstat'>"
-                    f"<div class='sc-rstat-top' style='background:{_wc};opacity:0.6;'></div>"
                     f"<div class='sc-rstat-v' style='color:{_wc};'>{_wr:.0f}%</div>"
                     f"<div class='sc-rstat-l'>Win Rate</div></div>"
                     f"<div class='sc-rstat'>"
-                    f"<div class='sc-rstat-top' style='background:#a78bfa;opacity:0.5;'></div>"
                     f"<div class='sc-rstat-v' style='color:#a78bfa;'>{_pf:.1f}×</div>"
-                    f"<div class='sc-rstat-l'>Profit Factor</div></div>"
+                    f"<div class='sc-rstat-l'>Profit Factor"
+                    f"<span class='sc-help' title='{_PF_HELP}'>?</span></div></div>"
                     f"<div class='sc-rstat'>"
-                    f"<div class='sc-rstat-top' style='background:{_exp_c};opacity:0.6;'></div>"
                     f"<div class='sc-rstat-v' style='color:{_exp_c};'>{_exp:+.1f}%</div>"
-                    f"<div class='sc-rstat-l'>Expectancy</div></div>"
-                    f"<div class='sc-rstat'>"
-                    f"<div class='sc-rstat-top' style='background:#4a9eff;opacity:0.4;'></div>"
-                    f"<div class='sc-rstat-v' style='color:#4a9eff;'>{_tot}</div>"
-                    f"<div class='sc-rstat-l'>Signals</div></div>"
+                    f"<div class='sc-rstat-l'>Expectancy"
+                    f"<span class='sc-help' title='{_EXP_HELP}'>?</span></div></div>"
+                    f"</div>"
+                    # Secondary row: Wins · Losses · Total
+                    f"<div class='sc-rcard-stats2'>"
+                    f"<div class='sc-rstat2'>"
+                    f"<div class='sc-rstat2-v' style='color:#26A69A;'>{_wins}</div>"
+                    f"<div class='sc-rstat2-l'>Wins</div></div>"
+                    f"<div class='sc-rstat2'>"
+                    f"<div class='sc-rstat2-v' style='color:#ef5350;'>{_losses}</div>"
+                    f"<div class='sc-rstat2-l'>Losses</div></div>"
+                    f"<div class='sc-rstat2'>"
+                    f"<div class='sc-rstat2-v' style='color:#a0a0a0;'>{_tot}</div>"
+                    f"<div class='sc-rstat2-l'>Total</div></div>"
                     f"</div>"
                     f"</div>",
                     unsafe_allow_html=True)
@@ -2440,22 +2453,20 @@ def render_auto_scanner_page() -> None:
                      'BB':'BB','STOCH':'Stoch','ADX':'ADX','CCI':'CCI',
                      'MFI':'MFI','OBV':'OBV','VWAP':'VWAP','WILLR':'W%R','ROC':'ROC'}
 
-    # collect firing rows, pick best-fit combo per stock, compute sort score
-    _fire_rows_raw = [r for r in _rows if _has_firing(r)]
+    # Only include stocks whose CURRENT regime's strategy is firing.
+    def _cur_regime_firing(row):
+        regs = row.get('regimes', {}) or {}
+        cur  = row.get('current_regime', 'RANGE')
+        return bool((regs.get(cur) or {}).get('firing'))
+
+    _fire_rows_raw = [r for r in _rows if _cur_regime_firing(r)]
 
     def _lsc_score(row):
-        regs = row.get('regimes', {})
+        regs = row.get('regimes', {}) or {}
         cur  = row.get('current_regime', 'RANGE')
-        # best-fit = current regime if firing, else highest-wr firing regime
-        firing = [rn for rn in ('TREND','RANGE','VOLATILE')
-                  if (regs.get(rn) or {}).get('firing')]
-        if not firing:
-            return 0
-        bf = cur if cur in firing else max(
-            firing, key=lambda rn: float((regs.get(rn) or {}).get('win_rate', 0) or 0))
-        cb = regs.get(bf) or {}
-        wr = float(cb.get('win_rate', 0) or 0)
-        tot = int(cb.get('total', 1) or 1)
+        cb   = regs.get(cur) or {}
+        wr   = float(cb.get('win_rate', 0) or 0)
+        tot  = int(cb.get('total', 1) or 1)
         return wr * _math.sqrt(tot)
 
     _fire_rows = sorted(_fire_rows_raw, key=_lsc_score, reverse=True)
@@ -2479,9 +2490,9 @@ def render_auto_scanner_page() -> None:
             "<div style='background:#0c0c0c;border:1px solid #1e1e1e;"
             "border-radius:14px;padding:3rem;text-align:center;'>"
             "<div style='font-size:0.75rem;font-weight:800;color:#2e2e2e;"
-            "text-transform:uppercase;letter-spacing:1.2px;'>No signals firing</div>"
+            "text-transform:uppercase;letter-spacing:1.2px;'>No best-fit signals</div>"
             "<div style='font-size:0.62rem;color:#222;margin-top:0.4rem;'>"
-            "All strategies in wait state</div></div>",
+            "No stock's current-regime strategy is firing right now</div></div>",
             unsafe_allow_html=True)
     else:
         # chart expand state
@@ -2504,24 +2515,21 @@ def render_auto_scanner_page() -> None:
 
               _firing_regimes = [rn for rn in ('TREND','RANGE','VOLATILE')
                                  if (_regs.get(rn) or {}).get('firing')]
-              if not _firing_regimes:
+              # Only surface the stock when its CURRENT regime's strategy is firing.
+              # If the stock is in TREND and TREND is firing → show it. Otherwise
+              # skip (do not advertise off-regime firings).
+              if _cur_regime not in _firing_regimes:
                   continue
 
-              # best-fit = current regime if firing, else highest WR firing regime
-              _best_rname = (_cur_regime if _cur_regime in _firing_regimes
-                             else max(_firing_regimes,
-                                      key=lambda rn: float((_regs.get(rn) or {}).get('win_rate', 0) or 0)))
+              _best_rname = _cur_regime
               _best_combo = (_regs.get(_best_rname) or {})
               _best_col   = _REGIME_COLORS.get(_best_rname, '#888')
-              _best_icon  = _REGIME_ICONS.get(_best_rname, '★')
-              _wr   = float(_best_combo.get('win_rate', 0) or 0)
-              _pf   = float(_best_combo.get('profit_factor', 0) or 0)
-              _exp  = float(_best_combo.get('expectancy', 0) or 0)
-              _tot  = int(_best_combo.get('total', 0) or 0)
-              _inds = _best_combo.get('indicators', [])
-              _wc   = _wr_col(_wr)
-              _exp_c = '#26A69A' if _exp > 0 else '#ef5350'
-              _rank  = _ri + 1
+              _wr     = float(_best_combo.get('win_rate', 0) or 0)
+              _tot    = int(_best_combo.get('total', 0) or 0)
+              _wins   = int(_best_combo.get('wins', 0) or 0)
+              _losses = int(_best_combo.get('losses', 0) or 0)
+              _inds   = _best_combo.get('indicators', [])
+              _wc     = _wr_col(_wr)
 
               # price ladder
               _ladder = ''; _en = _sl_p = _t1 = _t2 = 0.0
@@ -2585,176 +2593,45 @@ def render_auto_scanner_page() -> None:
                   except Exception:
                       pass
 
-              # ── context signals ───────────────────────────────────────────
-              _ctx_html = ''
+              # ── Compute "when did this strategy fire" (date + time) ───────
+              # Used inline next to the indicators row. No volume/trend/earnings
+              # context badges — the user only cares about the signal itself.
+              _fire_when_txt = ''
+              _fire_when_c   = '#FFD700'
               if _df_f is not None and len(_df_f) >= 21:
                   try:
                       import numpy as _np2
-                      import pandas as _pd2
-
-                      _c  = _df_f['Close'].astype(float)
-                      _h  = _df_f['High'].astype(float)
-                      _l  = _df_f['Low'].astype(float)
-                      _v  = _df_f['Volume'].astype(float)
+                      from scanner_engine import _build_states as _bs2
+                      _st2 = _bs2(_df_f)
                       _N2 = len(_df_f)
-
-                      # ── 1. Volume confirmation ────────────────────────────
-                      _vol_now  = float(_v.iloc[-1])
-                      _vol_avg  = float(_v.iloc[-21:-1].mean())
-                      _vol_rat  = (_vol_now / _vol_avg) if _vol_avg > 0 else 1.0
-                      if _vol_rat >= 1.5:
-                          _vol_lbl = 'Strong'; _vol_c = '#26A69A'
-                      elif _vol_rat >= 0.8:
-                          _vol_lbl = 'Normal'; _vol_c = '#888'
-                      else:
-                          _vol_lbl = 'Weak';   _vol_c = '#ef5350'
-                      _vol_txt = f"{_vol_rat:.1f}× avg"
-
-                      # ── 2. Trend alignment ────────────────────────────────
-                      _e20  = float(_c.rolling(20).mean().iloc[-1])  if _N2 >= 20  else float(_c.iloc[-1])
-                      _e50  = float(_c.rolling(50).mean().iloc[-1])  if _N2 >= 50  else float(_c.iloc[-1])
-                      _e200 = float(_c.rolling(200).mean().iloc[-1]) if _N2 >= 200 else float(_c.iloc[-1])
-                      _cp2  = float(_c.iloc[-1])
-                      _trend_pts = (
-                          (1 if _cp2 > _e20  else 0) +
-                          (1 if _cp2 > _e50  else 0) +
-                          (1 if _cp2 > _e200 else 0) +
-                          (1 if _e20 > _e50  else 0)
-                      )
-                      if _trend_pts >= 4:
-                          _tr_lbl = '↑ Strong Bull'; _tr_c = '#26A69A'
-                      elif _trend_pts == 3:
-                          _tr_lbl = '↗ Bullish';     _tr_c = '#8BC34A'
-                      elif _trend_pts == 2:
-                          _tr_lbl = '→ Neutral';     _tr_c = '#FFC107'
-                      elif _trend_pts == 1:
-                          _tr_lbl = '↘ Bearish';     _tr_c = '#FF7043'
-                      else:
-                          _tr_lbl = '↓ Strong Bear'; _tr_c = '#ef5350'
-
-                      # ── 3. Time since signal fired ────────────────────────
-                      # find last rising edge of the best combo
-                      _sig_age_txt = '—'
-                      _sig_age_c   = '#484848'
-                      try:
-                          from scanner_engine import _build_states as _bs2
-                          _st2 = _bs2(_df_f)
-                          if _inds and all(k in _st2 for k in _inds):
-                              _ca2 = _st2[_inds[0]].copy()
-                              for _ik2 in _inds[1:]:
-                                  _ca2 = _ca2 & _st2[_ik2]
-                              _ed2 = _np2.zeros(_N2, dtype=_np2.int8)
-                              _ed2[1:] = ((_ca2[1:] == 1) & (_ca2[:-1] == 0)).astype(_np2.int8)
-                              _fires2 = _np2.where(_ed2 == 1)[0]
-                              if len(_fires2):
-                                  _last_fire_i = int(_fires2[-1])
-                                  _bars_ago    = _N2 - 1 - _last_fire_i
-                                  if _bars_ago == 0:
-                                      _sig_age_txt = 'Today'; _sig_age_c = '#FFD700'
-                                  elif _bars_ago == 1:
-                                      _sig_age_txt = '1 day ago'; _sig_age_c = '#26A69A'
-                                  elif _bars_ago <= 5:
-                                      _sig_age_txt = f'{_bars_ago} days ago'; _sig_age_c = '#8BC34A'
-                                  elif _bars_ago <= 15:
-                                      _sig_age_txt = f'{_bars_ago} days ago'; _sig_age_c = '#FFC107'
-                                  else:
-                                      _sig_age_txt = f'{_bars_ago} days ago'; _sig_age_c = '#ef5350'
-                                  # actual date
-                                  if 'Date' in _df_f.columns:
-                                      _fire_date = str(_df_f['Date'].iloc[_last_fire_i])[:10]
-                                      _sig_age_txt += f' ({_fire_date})'
-                      except Exception:
-                          pass
-
-                      # ── 4. Earnings / events ──────────────────────────────
-                      _earn_html = ''
-                      try:
-                          import yfinance as _yf2
-                          _tk2  = _yf2.Ticker(_sym)
-                          _cal  = _tk2.calendar
-                          _earn_date = None
-                          if _cal is not None:
-                              if hasattr(_cal, 'get'):
-                                  _ed_raw = _cal.get('Earnings Date') or _cal.get('earnings_date')
-                                  if _ed_raw is not None:
-                                      if hasattr(_ed_raw, '__iter__') and not isinstance(_ed_raw, str):
-                                          _earn_date = list(_ed_raw)[0] if _ed_raw else None
-                                      else:
-                                          _earn_date = _ed_raw
-                              elif hasattr(_cal, 'iloc'):
-                                  # DataFrame format
-                                  try:
-                                      _earn_date = _cal.iloc[0, 0]
-                                  except Exception:
-                                      pass
-                          if _earn_date is not None:
-                              import datetime as _dt2
-                              try:
-                                  if hasattr(_earn_date, 'date'):
-                                      _ed_d = _earn_date.date()
-                                  else:
-                                      _ed_d = _pd2.Timestamp(_earn_date).date()
-                                  _today_d  = _dt2.date.today()
-                                  _days_to  = (_ed_d - _today_d).days
-                                  if -3 <= _days_to <= 14:
-                                      if _days_to < 0:
-                                          _earn_html = (f"<span style='font-size:0.58rem;font-weight:900;"
-                                                        f"padding:0.14rem 0.5rem;border-radius:20px;"
-                                                        f"background:rgba(255,193,7,0.1);"
-                                                        f"border:1px solid rgba(255,193,7,0.35);"
-                                                        f"color:#FFC107;'>📋 Earnings {abs(_days_to)}d ago</span>")
-                                      elif _days_to == 0:
-                                          _earn_html = (f"<span style='font-size:0.58rem;font-weight:900;"
-                                                        f"padding:0.14rem 0.5rem;border-radius:20px;"
-                                                        f"background:rgba(239,83,80,0.15);"
-                                                        f"border:1px solid rgba(239,83,80,0.5);"
-                                                        f"color:#ef5350;'>⚠ Earnings TODAY</span>")
-                                      else:
-                                          _earn_html = (f"<span style='font-size:0.58rem;font-weight:900;"
-                                                        f"padding:0.14rem 0.5rem;border-radius:20px;"
-                                                        f"background:rgba(239,83,80,0.1);"
-                                                        f"border:1px solid rgba(239,83,80,0.3);"
-                                                        f"color:#ef5350;'>⚠ Earnings in {_days_to}d ({_ed_d})</span>")
-                              except Exception:
-                                  pass
-                      except Exception:
-                          pass
-
-                      # ── assemble context row ──────────────────────────────
-                      _ctx_html = (
-                          f"<div style='padding:0.45rem 1rem;border-bottom:1px solid #161616;"
-                          f"display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;'>"
-                          # volume
-                          f"<span style='font-size:0.58rem;font-weight:900;"
-                          f"padding:0.14rem 0.5rem;border-radius:20px;"
-                          f"background:{_vol_c}18;border:1px solid {_vol_c}44;color:{_vol_c};'>"
-                          f"Vol {_vol_lbl} {_vol_txt}</span>"
-                          # trend
-                          f"<span style='font-size:0.58rem;font-weight:900;"
-                          f"padding:0.14rem 0.5rem;border-radius:20px;"
-                          f"background:{_tr_c}18;border:1px solid {_tr_c}44;color:{_tr_c};'>"
-                          f"{_tr_lbl}</span>"
-                          # signal age
-                          f"<span style='font-size:0.58rem;font-weight:700;"
-                          f"padding:0.14rem 0.5rem;border-radius:20px;"
-                          f"background:{_sig_age_c}18;border:1px solid {_sig_age_c}44;"
-                          f"color:{_sig_age_c};'>⏱ {_sig_age_txt}</span>"
-                          # earnings (only if relevant)
-                          + (_earn_html if _earn_html else '')
-                          + f"</div>"
-                      )
+                      if _inds and all(k in _st2 for k in _inds):
+                          _ca2 = _st2[_inds[0]].copy()
+                          for _ik2 in _inds[1:]:
+                              _ca2 = _ca2 & _st2[_ik2]
+                          _ed2 = _np2.zeros(_N2, dtype=_np2.int8)
+                          _ed2[1:] = ((_ca2[1:] == 1) & (_ca2[:-1] == 0)).astype(_np2.int8)
+                          _fires2 = _np2.where(_ed2 == 1)[0]
+                          if len(_fires2):
+                              _last_fire_i = int(_fires2[-1])
+                              _bars_ago    = _N2 - 1 - _last_fire_i
+                              # daily bars — show date + close-time (15:00 KSA)
+                              _fire_ts = (_df_f['Date'].iloc[_last_fire_i]
+                                          if 'Date' in _df_f.columns else None)
+                              _fire_date_s = (str(_fire_ts)[:10]
+                                              if _fire_ts is not None else '')
+                              _label = ('Today' if _bars_ago == 0 else
+                                        '1 day ago' if _bars_ago == 1 else
+                                        f'{_bars_ago} days ago')
+                              # KSA market close is 15:00; daily bar closes then
+                              _fire_when_txt = (f"{_label} · {_fire_date_s} 15:00"
+                                                if _fire_date_s else _label)
+                              _fire_when_c = ('#FFD700' if _bars_ago == 0 else
+                                              '#26A69A' if _bars_ago <= 1 else
+                                              '#8BC34A' if _bars_ago <= 5 else
+                                              '#FFC107' if _bars_ago <= 15 else
+                                              '#ef5350')
                   except Exception:
                       pass
-
-              # secondary firing regime badges (not best-fit)
-              _sec_badges = ''.join(
-                  f"<span style='font-size:0.58rem;font-weight:900;"
-                  f"padding:0.15rem 0.5rem;border-radius:20px;"
-                  f"background:{_REGIME_COLORS.get(rn,'#888')}22;"
-                  f"border:1px solid {_REGIME_COLORS.get(rn,'#888')}55;"
-                  f"color:{_REGIME_COLORS.get(rn,'#888')};'>"
-                  f"{_REGIME_ICONS.get(rn,'★')}&thinsp;{rn.title()}</span>"
-                  for rn in _firing_regimes if rn != _best_rname)
 
               # indicator tags
               _ind_tags = ''.join(
@@ -2762,66 +2639,85 @@ def render_auto_scanner_page() -> None:
                   for k in _inds)
 
               # rank medal color
-              _rank_c = ('#FFD700' if _rank == 1 else
-                         '#C0C0C0' if _rank == 2 else
-                         '#CD7F32' if _rank == 3 else '#303030')
+              # firing-time chip (solid-color filled, dark text)
+              _fire_chip = (
+                  f"<span style='margin-left:auto;font-size:0.6rem;font-weight:800;"
+                  f"padding:0.22rem 0.6rem;border-radius:6px;"
+                  f"background:{_fire_when_c};color:#0a0a0a;"
+                  f"text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap;'>"
+                  f"{_fire_when_txt}</span>"
+              ) if _fire_when_txt else ''
 
-              # ── main card ─────────────────────────────────────────────────────
+              # tooltip help text (shared with Scanned Strategies)
+              _PF_HELP_L  = ("Profit Factor = total $ won ÷ total $ lost across all past "
+                             "signals. 1.0 = breakeven, 2.0+ = strong.")
+              _EXP_HELP_L = ("Expectancy = average % return per signal. "
+                             "+1.5% means each signal gained 1.5% on average.")
+
+              # ── main card — calm, no gradients/glows, no #rank ────────────
               st.markdown(
-                  f"<div style='background:#0d0d0d;border:1px solid #222;"
-                  f"border-radius:12px;overflow:hidden;margin-bottom:0.1rem;'>"
-                  # top color strip
-                  f"<div style='height:2px;background:linear-gradient(90deg,"
-                  f"{_best_col} 0%,{_best_col}44 60%,transparent 100%);'></div>"
-                  # header row: rank + symbol + name + price + regime + secondary badges
+                  f"<div style='background:#0c0c0c;border:1px solid #1c1c1c;"
+                  f"border-radius:10px;overflow:hidden;margin-bottom:0.1rem;'>"
+                  # header row: symbol · name · best-fit pill (color-filled) · price
                   f"<div style='display:flex;align-items:center;gap:0.7rem;"
-                  f"padding:0.6rem 1rem;border-bottom:1px solid #1a1a1a;flex-wrap:nowrap;'>"
-                  f"<span style='font-size:0.7rem;font-weight:900;color:{_rank_c};"
-                  f"min-width:1.2rem;text-align:center;flex-shrink:0;'>#{_rank}</span>"
-                  f"<span style='font-size:1.05rem;font-weight:900;color:#f0f0f0;"
-                  f"letter-spacing:-0.3px;white-space:nowrap;'>{_sym_d}</span>"
-                  + (f"<span style='font-size:0.65rem;color:#303030;font-weight:700;"
-                     f"background:#181818;border:1px solid #252525;border-radius:6px;"
-                     f"padding:0.1rem 0.45rem;white-space:nowrap;overflow:hidden;"
-                     f"text-overflow:ellipsis;max-width:12rem;'>{_sname}</span>" if _sname else '')
-                  + f"<span style='font-size:0.62rem;font-weight:900;padding:0.18rem 0.58rem;"
-                  f"border-radius:20px;background:{_best_col}22;"
-                  f"border:1px solid {_best_col}55;color:{_best_col};"
-                  f"white-space:nowrap;flex-shrink:0;'>"
-                  f"{_best_icon}&thinsp;{_best_rname.title()}&thinsp;★ Best Fit</span>"
-                  + (_sec_badges if _sec_badges else '')
-                  + f"<span style='margin-left:auto;font-size:1.05rem;font-weight:900;"
+                  f"padding:0.75rem 0.95rem;border-bottom:1px solid #161616;"
+                  f"flex-wrap:nowrap;'>"
+                  f"<span style='font-size:1.05rem;font-weight:800;color:#ececec;"
+                  f"letter-spacing:-0.2px;white-space:nowrap;'>{_sym_d}</span>"
+                  + (f"<span style='font-size:0.65rem;color:#666;font-weight:600;"
+                     f"white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"
+                     f"max-width:11rem;'>{_sname}</span>" if _sname else '')
+                  + f"<span style='font-size:0.6rem;font-weight:800;padding:0.22rem 0.65rem;"
+                  f"border-radius:6px;background:{_best_col};color:#0a0a0a;"
+                  f"letter-spacing:0.5px;white-space:nowrap;flex-shrink:0;"
+                  f"text-transform:uppercase;'>"
+                  f"{_best_rname.title()} · Best Fit</span>"
+                  + f"<span style='margin-left:auto;font-size:1.05rem;font-weight:800;"
                   f"color:#26A69A;white-space:nowrap;flex-shrink:0;'>{_price:.2f}"
-                  f"<span style='font-size:0.52rem;color:#1a5048;font-weight:700;"
-                  f"margin-left:0.2rem;'>SAR</span></span>"
+                  f"<span style='font-size:0.55rem;color:#3a6660;font-weight:700;"
+                  f"margin-left:0.3rem;letter-spacing:0.5px;'>SAR</span></span>"
                   f"</div>"
-                  # indicators row
-                  f"<div style='padding:0.4rem 1rem;border-bottom:1px solid #161616;"
-                  f"display:flex;flex-wrap:wrap;gap:0.25rem;'>{_ind_tags}</div>"
-                  # context row: volume + trend + signal age + earnings
-                  + _ctx_html
-                  + "<!-- stats -->"
-                  # stats row
-                  f"<div class='sc-rcard-stats'>"
-                  f"<div class='sc-rstat'>"
-                  f"<div class='sc-rstat-top' style='background:{_wc};opacity:0.6;'></div>"
-                  f"<div class='sc-rstat-v' style='color:{_wc};'>{_wr:.0f}%</div>"
-                  f"<div class='sc-rstat-l'>Win Rate</div></div>"
-                  f"<div class='sc-rstat'>"
-                  f"<div class='sc-rstat-top' style='background:#a78bfa;opacity:0.5;'></div>"
-                  f"<div class='sc-rstat-v' style='color:#a78bfa;'>{_pf:.1f}×</div>"
-                  f"<div class='sc-rstat-l'>Profit Factor</div></div>"
-                  f"<div class='sc-rstat'>"
-                  f"<div class='sc-rstat-top' style='background:{_exp_c};opacity:0.6;'></div>"
-                  f"<div class='sc-rstat-v' style='color:{_exp_c};'>{_exp:+.1f}%</div>"
-                  f"<div class='sc-rstat-l'>Expectancy</div></div>"
-                  f"<div class='sc-rstat'>"
-                  f"<div class='sc-rstat-top' style='background:#4a9eff;opacity:0.4;'></div>"
-                  f"<div class='sc-rstat-v' style='color:#4a9eff;'>{_tot}</div>"
-                  f"<div class='sc-rstat-l'>Signals</div></div>"
+                  # Strategy row: label · indicators · firing-time
+                  f"<div style='padding:0.65rem 0.95rem;border-bottom:1px solid #161616;"
+                  f"display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;'>"
+                  f"<span style='font-size:0.6rem;font-weight:700;color:#8a8a8a;"
+                  f"text-transform:uppercase;letter-spacing:0.7px;margin-right:0.2rem;'>"
+                  f"Strategy</span>"
+                  f"{_ind_tags}"
+                  f"{_fire_chip}"
                   f"</div>"
-                  # price ladder
-                  + (f"<div style='padding:0.55rem 0.8rem 0.6rem;border-top:1px solid #161616;'>"
+                  # Stats row: Win Rate · Wins · Losses · Total
+                  f"<div style='display:grid;grid-template-columns:repeat(4,1fr);'>"
+                  # Win Rate
+                  f"<div style='padding:0.85rem 0.5rem 0.8rem;text-align:center;"
+                  f"border-right:1px solid #161616;'>"
+                  f"<div style='font-size:1.15rem;font-weight:800;line-height:1;"
+                  f"color:{_wc};margin-bottom:0.4rem;'>{_wr:.0f}%</div>"
+                  f"<div style='font-size:0.6rem;font-weight:700;color:#8a8a8a;"
+                  f"text-transform:uppercase;letter-spacing:0.7px;'>Win Rate</div></div>"
+                  # Wins
+                  f"<div style='padding:0.85rem 0.5rem 0.8rem;text-align:center;"
+                  f"border-right:1px solid #161616;'>"
+                  f"<div style='font-size:1.15rem;font-weight:800;line-height:1;"
+                  f"color:#26A69A;margin-bottom:0.4rem;'>{_wins}</div>"
+                  f"<div style='font-size:0.6rem;font-weight:700;color:#8a8a8a;"
+                  f"text-transform:uppercase;letter-spacing:0.7px;'>Wins</div></div>"
+                  # Losses
+                  f"<div style='padding:0.85rem 0.5rem 0.8rem;text-align:center;"
+                  f"border-right:1px solid #161616;'>"
+                  f"<div style='font-size:1.15rem;font-weight:800;line-height:1;"
+                  f"color:#ef5350;margin-bottom:0.4rem;'>{_losses}</div>"
+                  f"<div style='font-size:0.6rem;font-weight:700;color:#8a8a8a;"
+                  f"text-transform:uppercase;letter-spacing:0.7px;'>Losses</div></div>"
+                  # Total
+                  f"<div style='padding:0.85rem 0.5rem 0.8rem;text-align:center;'>"
+                  f"<div style='font-size:1.15rem;font-weight:800;line-height:1;"
+                  f"color:#a0a0a0;margin-bottom:0.4rem;'>{_tot}</div>"
+                  f"<div style='font-size:0.6rem;font-weight:700;color:#8a8a8a;"
+                  f"text-transform:uppercase;letter-spacing:0.7px;'>Total</div></div>"
+                  f"</div>"
+                  # Price ladder
+                  + (f"<div style='padding:0.65rem 0.8rem;border-top:1px solid #161616;'>"
                      f"{_ladder}</div>" if _ladder else '')
                   + f"</div>",
                   unsafe_allow_html=True)
@@ -2876,8 +2772,13 @@ def render_auto_scanner_page() -> None:
                           _cur_firing = False
                           _ind_states = {}
 
-                      _tail     = 60
-                      _offset   = max(0, _N - _tail)
+                      # Show enough history that every counted signal is visible.
+                      # The Total/Wins/Losses numbers in the box come from ALL fires
+                      # in the lookback window — so the chart must span at least back
+                      # to the earliest fire, plus a small padding for context.
+                      _first_fire = (min(_fire_idxs) if _fire_idxs else _N - 60)
+                      _tail_min   = max(60, _N - _first_fire + 10)  # at least 60 bars
+                      _offset     = max(0, _N - _tail_min)
                       _cdf      = _df_f.iloc[_offset:].copy().reset_index(drop=True)
                       _today_s  = str(_cdf['Date'].iloc[-1])[:10] if 'Date' in _cdf.columns else ''
                       _xd       = (_pd.to_datetime(_cdf['Date'])
@@ -2904,7 +2805,6 @@ def render_auto_scanner_page() -> None:
 
                       _win_x, _win_y   = [], []
                       _loss_x, _loss_y = [], []
-                      _exp_x, _exp_y   = [], []
 
                       for _fi in sorted(_fire_idxs):
                           _ci = _fi - _offset
@@ -2912,17 +2812,30 @@ def render_auto_scanner_page() -> None:
                               continue
                           _xval = _xd.iloc[_ci] if hasattr(_xd, 'iloc') else _xd[_ci]
                           _yval = float(_cdf['Low'].iloc[_ci]) * 0.991
-                          # outcome: look forward in full df
                           _entry_p = float(_close_arr[_fi])
-                          _fwd_end = min(_fi + _hold_b + 1, _N)
-                          _fwd_hi  = float(_high_arr[_fi+1:_fwd_end].max()) if _fi+1 < _fwd_end else _entry_p
-                          _fwd_lo  = float(_low_arr[_fi+1:_fwd_end].min())  if _fi+1 < _fwd_end else _entry_p
-                          if _entry_p > 0 and _fwd_hi >= _entry_p * (1 + _pt_b):
+                          if _entry_p <= 0:
+                              continue
+                          # Mirror scanner_engine._eval bar-by-bar walk: whichever
+                          # barrier hits first chronologically (SL or PT) wins.
+                          _outcome = None
+                          for _j in range(1, _hold_b + 1):
+                              if _fi + _j >= _N:
+                                  break
+                              # SL check (using close, matching _eval)
+                              _g = (_close_arr[_fi + _j] - _entry_p) / _entry_p
+                              if _g <= -_sl_b:
+                                  _outcome = 'loss'; break
+                              if _g >= _pt_b:
+                                  _outcome = 'win'; break
+                          # end of hold without either: classify by close vs entry
+                          if _outcome is None and _fi + _hold_b < _N:
+                              _g_end = (_close_arr[_fi + _hold_b] - _entry_p) / _entry_p
+                              _outcome = 'win' if _g_end > 0 else 'loss'
+                          if _outcome == 'win':
                               _win_x.append(_xval);  _win_y.append(_yval)
-                          elif _entry_p > 0 and _fwd_lo <= _entry_p * (1 - _sl_b):
+                          elif _outcome == 'loss':
                               _loss_x.append(_xval); _loss_y.append(_yval)
-                          elif _fi < _N - 1:
-                              _exp_x.append(_xval);  _exp_y.append(_yval)
+                          # else: unresolved (in-progress) — not counted in box either
 
                       if _win_x:
                           fig.add_trace(go.Scatter(
@@ -2938,13 +2851,6 @@ def render_auto_scanner_page() -> None:
                                           color='#ef5350', opacity=1.0,
                                           line=dict(width=1, color='#8b1c1c')),
                               hovertemplate='Loss ✗<extra></extra>', name='Loss'))
-                      if _exp_x:
-                          fig.add_trace(go.Scatter(
-                              x=_exp_x, y=_exp_y, mode='markers',
-                              marker=dict(symbol='triangle-up', size=9,
-                                          color='#555', opacity=0.7,
-                                          line=dict(width=0)),
-                              hovertemplate='Expired<extra></extra>', name='Expired'))
 
                       # NOW marker
                       _lx  = _xd.iloc[-1] if hasattr(_xd, 'iloc') else _xd[-1]
@@ -3028,9 +2934,6 @@ def render_auto_scanner_page() -> None:
                           f"<span style='font-size:0.6rem;font-weight:800;color:#ef5350;"
                           f"background:rgba(239,83,80,0.1);border:1px solid rgba(239,83,80,0.25);"
                           f"padding:1px 7px;border-radius:20px;'>▲ Loss</span>"
-                          f"<span style='font-size:0.6rem;font-weight:800;color:#555;"
-                          f"background:#181818;border:1px solid #2a2a2a;"
-                          f"padding:1px 7px;border-radius:20px;'>▲ Expired</span>"
                           f"<span style='margin-left:auto;'>{_fire_lbl}</span></div>"
                           f"<div style='padding:0.35rem 0.8rem;border-bottom:1px solid #161616;"
                           f"display:flex;gap:0.28rem;flex-wrap:wrap;'>{_ind_pills}</div>",
