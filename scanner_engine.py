@@ -375,17 +375,82 @@ def _build_states(df: pd.DataFrame) -> dict[str, np.ndarray]:
 # ── regime per bar ────────────────────────────────────────────────────────────
 
 def _regime_arr(df: pd.DataFrame) -> np.ndarray:
+    """
+    Per-bar regime classifier with FORCED-BALANCED per-stock assignment.
+
+    The naive "ADX > threshold → TREND, ATR > threshold → VOLATILE" approach
+    leaves many stocks with one regime massively dominant (e.g. 95% RANGE,
+    5% VOLATILE). That makes per-regime strategy stats statistically empty.
+
+    Instead, we score every bar twice — by trend strength (ADX) and by
+    volatility (ATR/close) — and FORCE-ASSIGN bars to roughly 30% TREND, 30%
+    VOLATILE, 40% RANGE per stock. Every stock gets a meaningful population
+    of all three regimes, so combo search has something to work with.
+
+    A small ABSOLUTE-floor guards against calling near-zero ADX bars "TREND";
+    those get downgraded to RANGE even if they're in the top quantile.
+    """
+    n = len(df)
+    if n < 30:
+        return np.array(['RANGE'] * n, dtype=object)
     try:
         import pandas_ta as ta
         adx = ta.adx(df['High'], df['Low'], df['Close'])
         atr = ta.atr(df['High'], df['Low'], df['Close'], 14)
-        if adx is not None and atr is not None:
-            av   = adx.iloc[:, 0].fillna(0).values
-            atrp = (atr / df['Close']).fillna(0).values
-            return np.where(av > 25, 'TREND', np.where(atrp > 0.025, 'VOLATILE', 'RANGE'))
+        if adx is None or atr is None:
+            return np.array(['RANGE'] * n, dtype=object)
+        av   = adx.iloc[:, 0].fillna(0).values.astype(float)
+        atrp = (atr / df['Close']).fillna(0).values.astype(float)
+
+        # Skip warm-up bars when computing per-stock cutoffs
+        warm  = max(20, n // 5)
+        adx_w = av[warm:]
+        atr_w = atrp[warm:]
+
+        # 70th percentile of ADX → TREND cutoff (top 30% of bars are TREND)
+        # 65th percentile of ATR/close → VOLATILE cutoff
+        adx_cut = float(np.quantile(adx_w[adx_w > 0], 0.70)) if (adx_w > 0).any() else 25.0
+        atr_cut = float(np.quantile(atr_w[atr_w > 0], 0.65)) if (atr_w > 0).any() else 0.022
+
+        # Light absolute clamps: never call total noise "TREND", never call
+        # a calm stock "VOLATILE" just because its top-decile ATR is tiny.
+        adx_cut = max(15.0, min(adx_cut, 35.0))
+        atr_cut = max(0.008, min(atr_cut, 0.05))
+
+        out = np.full(n, 'RANGE', dtype=object)
+        is_trend = av > adx_cut
+        is_vol   = (atrp > atr_cut) & (~is_trend)
+        out[is_trend] = 'TREND'
+        out[is_vol]   = 'VOLATILE'
+
+        # If any regime is still starved (<15 bars), force-rebalance:
+        # promote the closest borderline bars from the dominant regime.
+        from collections import Counter as _Counter
+        cts = _Counter(out.tolist())
+        for target, score in (('TREND', av), ('VOLATILE', atrp)):
+            if cts.get(target, 0) >= 15:
+                continue
+            # bars currently in the most-populated regime, ranked by `score`
+            dom = max(cts, key=cts.get)
+            if dom == target:
+                continue
+            candidates = np.where(np.array([o == dom for o in out]))[0]
+            if len(candidates) == 0:
+                continue
+            # take the top (15 - current) bars from `dom` by target's score
+            need = 15 - cts.get(target, 0)
+            order = sorted(candidates.tolist(), key=lambda i: -float(score[i]))
+            promote = order[:need]
+            for i in promote:
+                # Don't steal from the OTHER non-RANGE regime; only steal
+                # from the dominant one (RANGE in most stocks).
+                out[i] = target
+            cts = _Counter(out.tolist())
+
+        return out
     except Exception:
         pass
-    return np.array(['RANGE'] * len(df), dtype=object)
+    return np.array(['RANGE'] * n, dtype=object)
 
 
 # ── evaluate an N-indicator combo ─────────────────────────────────────────────
@@ -393,12 +458,14 @@ def _regime_arr(df: pd.DataFrame) -> np.ndarray:
 def _eval(states_list: list[np.ndarray], close: np.ndarray,
           hold: int, pt: float, sl: float,
           regime_arr: np.ndarray | None = None,
-          target_regime: str | None = None) -> dict | None:
+          target_regime: str | None = None,
+          min_signals: int = 5) -> dict | None:
     """
     Evaluate when ALL indicators in states_list are simultaneously bullish.
     If regime_arr + target_regime given, only score signals in that regime.
-    Minimum 5 signals required. Win rate capped at 85% for realism.
-    Score = win_rate * sqrt(total).
+    Minimum `min_signals` resolved signals required (default 5). Sparse regimes
+    can call with min_signals=3 so we still return a real best-fit combo.
+    Win rate capped at 85% for realism. Score = win_rate * sqrt(total).
     """
     combo = states_list[0].copy()
     for arr in states_list[1:]:
@@ -416,7 +483,7 @@ def _eval(states_list: list[np.ndarray], close: np.ndarray,
         idxs = np.array([i for i in idxs
                          if i < len(regime_arr) and regime_arr[i] == target_regime])
 
-    if len(idxs) < 5:
+    if len(idxs) < min_signals:
         return None
 
     wins = 0; losses = 0
@@ -447,7 +514,7 @@ def _eval(states_list: list[np.ndarray], close: np.ndarray,
             losses += 1; loss_vals.append(abs(outcome[1]))
 
     total = wins + losses
-    if total < 5:
+    if total < min_signals:
         return None
 
     raw_wr = wins / total * 100
@@ -485,7 +552,7 @@ def _grow_combo(seed_keys: list[str], all_states: dict[str, np.ndarray],
                 close: np.ndarray, regime_arr: np.ndarray,
                 hold: int, pt: float, sl: float,
                 target_regime: str, max_size: int = 5,
-                min_size: int = 3) -> dict | None:
+                min_size: int = 3, min_signals: int = 5) -> dict | None:
     """
     Start from seed_keys, greedily add indicators within target_regime.
     Below min_size: pick best-WR addition (even if score drops from lower total)
@@ -495,7 +562,8 @@ def _grow_combo(seed_keys: list[str], all_states: dict[str, np.ndarray],
     remaining = [k for k in all_states if k not in seed_keys]
     current_keys = list(seed_keys)
     current_res  = _eval([all_states[k] for k in current_keys],
-                          close, hold, pt, sl, regime_arr, target_regime)
+                          close, hold, pt, sl, regime_arr, target_regime,
+                          min_signals=min_signals)
     if current_res is None:
         return None
 
@@ -507,7 +575,8 @@ def _grow_combo(seed_keys: list[str], all_states: dict[str, np.ndarray],
         for k in remaining:
             candidate_keys = current_keys + [k]
             res = _eval([all_states[k2] for k2 in candidate_keys],
-                         close, hold, pt, sl, regime_arr, target_regime)
+                         close, hold, pt, sl, regime_arr, target_regime,
+                         min_signals=min_signals)
             if res is None:
                 continue
             metric = res['win_rate'] if below_min else res['score']
@@ -557,7 +626,7 @@ def scan_stock(symbol: str, period_key: str, _v: int = 8) -> dict | None:
 
 
 @st.cache_data(ttl=1200, show_spinner=False)
-def scan_all_stocks(symbols: tuple, period_key: str, _v: int = 8) -> dict:
+def scan_all_stocks(symbols: tuple, period_key: str, _v: int = 18) -> dict:
     """
     Batch-download all symbols in one yfinance call, then process each.
     Returns {symbol: result_dict_or_None}.  Cached 20 min.
@@ -646,38 +715,102 @@ def get_stock_df(symbol: str, period_key: str, _v: int = 8) -> 'pd.DataFrame | N
 def _best_combo_for_regime(states: dict, close: np.ndarray,
                             reg_arr: np.ndarray | None,
                             hold: int, pt: float, sl: float,
-                            target_regime: str | None) -> dict | None:
-    """Find the best 3..5 indicator combo for a target regime (or overall if None)."""
+                            target_regime: str | None,
+                            min_signals: int = 5,
+                            min_size: int = 3) -> dict | None:
+    """Find the best 2..5 indicator combo for a target regime (or overall if None).
+
+    `min_signals` controls the statistical-significance floor. Sparse regimes
+    can call with min_signals=3 so we still surface a real best-fit combo.
+    `min_size` is the minimum number of indicators in the combo (default 3,
+    can be lowered to 2 for sparse regimes where 3-indicator AND-overlaps are
+    too rare).
+    """
     keys = list(states.keys())
     if len(keys) < 2:
         return None
     ind_scores: list[tuple[float, str]] = []
+    ind_results: dict[str, dict] = {}
     for k in keys:
-        r = _eval([states[k]], close, hold, pt, sl, reg_arr, target_regime)
+        r = _eval([states[k]], close, hold, pt, sl, reg_arr, target_regime,
+                  min_signals=min_signals)
         if r:
             ind_scores.append((r['score'], k))
-    if len(ind_scores) < 2:
+            ind_results[k] = r
+    if not ind_scores:
         return None
     ind_scores.sort(reverse=True)
-    seed = [ind_scores[0][1], ind_scores[1][1]]
-    # _grow_combo requires non-None regime args; for unrestricted search pass
-    # a dummy regime that won't filter anything.
-    if reg_arr is None or target_regime is None:
-        dummy_arr = np.array(['ALL'] * len(close), dtype=object)
-        return _grow_combo(seed, states, close, dummy_arr,
-                            hold, pt, sl, 'ALL',
-                            max_size=5, min_size=3)
-    return _grow_combo(seed, states, close, reg_arr,
-                        hold, pt, sl, target_regime,
-                        max_size=5, min_size=3)
+
+    # Try greedy expansion from the top-2 seeds when we have enough candidates.
+    grown = None
+    if len(ind_scores) >= 2:
+        seed = [ind_scores[0][1], ind_scores[1][1]]
+        if reg_arr is None or target_regime is None:
+            dummy_arr = np.array(['ALL'] * len(close), dtype=object)
+            grown = _grow_combo(seed, states, close, dummy_arr,
+                                hold, pt, sl, 'ALL',
+                                max_size=5, min_size=min_size,
+                                min_signals=min_signals)
+        else:
+            grown = _grow_combo(seed, states, close, reg_arr,
+                                hold, pt, sl, target_regime,
+                                max_size=5, min_size=min_size,
+                                min_signals=min_signals)
+        if grown is not None:
+            return grown
+
+    # Fallback (only reached when min_size <= 2): the top-2 seeds didn't
+    # have enough AND-overlap. Brute-force scan all pairs of the top
+    # candidates and return the best 2-indicator combo. This is the
+    # honest sparse-regime answer — a real 2-indicator strategy, not a
+    # 1-indicator "combo" (which isn't a combo at all).
+    if min_size <= 2:
+        # Brute-force pair search for sparse regimes. We can't rely on the
+        # per-indicator score list here — an indicator with 1 in-regime fire
+        # got filtered out, but its AND with another indicator might still
+        # produce 2+ overlapping fires inside the regime.
+        # So we search ALL indicator pairs. _eval is microseconds; for ~45
+        # indicators that's ~990 pairs — still trivial.
+        all_keys = list(states.keys())
+        best_res = None
+        best_score = -1.0
+        for i in range(len(all_keys)):
+            for j in range(i + 1, len(all_keys)):
+                ka, kb = all_keys[i], all_keys[j]
+                r = _eval([states[ka], states[kb]], close, hold, pt, sl,
+                           reg_arr, target_regime, min_signals=min_signals)
+                if r is None:
+                    continue
+                if r['score'] > best_score:
+                    best_score = r['score']
+                    best_res = (r, [ka, kb])
+        if best_res is not None:
+            res, keys2 = best_res
+            res = dict(res)
+            res['indicators'] = keys2
+            res['label']      = _ind_labels(keys2)
+            # dominant regime among signal bars
+            combo_arr = states[keys2[0]] & states[keys2[1]]
+            edge = np.zeros(len(combo_arr), dtype=np.int8)
+            edge[1:] = ((combo_arr[1:] == 1) & (combo_arr[:-1] == 0)).astype(np.int8)
+            idxs = np.where(edge == 1)[0]
+            rc = {'TREND': 0, 'RANGE': 0, 'VOLATILE': 0}
+            for ix in idxs:
+                r2 = str(reg_arr[ix]) if (reg_arr is not None and ix < len(reg_arr)) else 'RANGE'
+                if r2 in rc:
+                    rc[r2] += 1
+            res['best_regime'] = max(rc, key=rc.get)
+            res['firing']      = bool(int(combo_arr[-1]) == 1)
+            return res
+    return None
 
 
 def _analyse_df(df: pd.DataFrame, hold: int, pt: float, sl: float) -> dict | None:
     """
     Per-regime analysis: for EACH regime (TREND / RANGE / VOLATILE) independently
-    search for the best 3..5 indicator combo. If the regime-filtered search
-    finds nothing usable for a regime, fall back to the regime-agnostic best
-    OR the most-populated sibling regime — so no slot is ever left empty.
+    search for the best 3..5 indicator combo using ONLY signals that fired while
+    the market was in that regime. If a regime has no qualifying combo, that
+    slot stays empty — never reuse another regime's combo, that's a lie.
     """
     try:
         price   = float(df['Close'].iloc[-1])
@@ -689,27 +822,33 @@ def _analyse_df(df: pd.DataFrame, hold: int, pt: float, sl: float) -> dict | Non
         if len(keys) < 2:
             return None
 
-        # Pass 1: try to find a combo specific to each regime
-        per_regime_raw: dict[str, dict | None] = {}
-        for target_regime in ('TREND', 'RANGE', 'VOLATILE'):
-            per_regime_raw[target_regime] = _best_combo_for_regime(
-                states, close, reg_arr, hold, pt, sl, target_regime)
-
-        # Pass 2: pick a universal fallback. Prefer a true unrestricted search;
-        # if that also fails, fall back to the sibling regime with the most
-        # historical signals (so empty slots can still display something real).
-        fallback = _best_combo_for_regime(states, close, None, hold, pt, sl, None)
-        if fallback is None:
-            _candidates = [c for c in per_regime_raw.values() if c is not None]
-            if _candidates:
-                fallback = max(_candidates, key=lambda c: int(c.get('total', 0) or 0))
-
         best_per_regime: dict[str, dict | None] = {}
         for target_regime in ('TREND', 'RANGE', 'VOLATILE'):
-            grown = per_regime_raw.get(target_regime)
-            if grown is None and fallback is not None:
-                grown = dict(fallback)
+            # Cascade across (min_signals, min_combo_size). Try strict 5-fire
+            # 3-indicator combos first (best evidence), then progressively
+            # relax to 3-fire 2-indicator combos. Each combo returned is
+            # still real — same indicators, same regime filter, same outcome
+            # walk; we're only lowering the *minimum sample size* needed to
+            # report it. This avoids the alternative of either copying
+            # another regime's combo (a lie) or showing empty boxes
+            # everywhere (useless).
+            grown = None
+            cascade = [
+                (5, 3), (4, 3), (3, 3),   # ideal: 3+ indicator combos, 5+ signals
+                (5, 2), (4, 2), (3, 2),   # 2-indicator combos, 5/4/3 signals
+                (2, 2),                   # sparse-regime last resort: 2-ind, 2-signal
+            ]
+            for _ms, _msz in cascade:
+                grown = _best_combo_for_regime(
+                    states, close, reg_arr, hold, pt, sl, target_regime,
+                    min_signals=_ms, min_size=_msz)
+                if grown is not None:
+                    grown['min_signals_used'] = _ms
+                    grown['min_size_used']    = _msz
+                    break
             if grown is None:
+                # Regime is genuinely too sparse to find anything real
+                # (e.g. 0 bars assigned to it). Stay empty rather than lie.
                 best_per_regime[target_regime] = None
                 continue
             best_keys = grown['indicators']
